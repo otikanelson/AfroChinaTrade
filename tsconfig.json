@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "composite": true,
+    "types": []
+  },
+  "files": [],
+  "include": [],
+  "exclude": ["**/node_modules", "**/dist", "**/build", "mobile/**", "admin/**", "shared/**", "backend/**", ".expo/**", "assets/**"],
+  "references": [
+    { "path": "./shared" },
+    { "path": "./admin" }
+  ]
+}

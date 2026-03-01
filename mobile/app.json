@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "AfroChinaTrade",
+    "slug": "afrochinatrade",
+    "scheme": "afrochinatrade",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/Logo_bg.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/Logo_bg.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#C41E3A"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.afrochinatrade.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/Logo_bg.png",
+        "backgroundColor": "#C41E3A"
+      },
+      "package": "com.afrochinatrade.app"
+    },
+    "web": {
+      "favicon": "./assets/Logo_bg.png",
+      "bundler": "metro"
+    },
+    "extra": {
+      "apiUrl": "http://localhost:3000/api"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
