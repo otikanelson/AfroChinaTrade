@@ -34,20 +34,15 @@ Customer-facing mobile application built with React Native and Expo.
 - Wishlist/favorites
 - User authentication
 - Order placement and tracking
+- Admin dashboard for sellers (protected routes)
+  - Product management (CRUD)
+  - Order management and fulfillment
+  - Customer communication
+  - Financial operations and refunds
+  - Content moderation
+  - User management
 
-### 3. `admin/` - React Admin Dashboard
-Web-based administrative interface for platform management.
-
-**Tech Stack:**
-- React 18
-- Vite (build tool)
-- React Router
-- Styled Components
-- LocalStorage for persistence
-
-**Features:**
-- Product management (CRUD)
-- Category management
+### 3. `backend/` - Node.js Backend API
 - Order management
 - User management
 - Supplier management

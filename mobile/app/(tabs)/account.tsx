@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { theme } from '../../theme';
 
 export default function AccountTab() {
+  const router = useRouter();
   const menuItems = [
     { icon: 'person-outline', title: 'Profile', subtitle: 'Edit your information' },
     { icon: 'receipt-outline', title: 'Orders', subtitle: 'View order history' },
@@ -57,6 +59,15 @@ export default function AccountTab() {
         <TouchableOpacity style={styles.logoutButton}>
           <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
           <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+
+        {/* Admin Dashboard shortcut (dev/seller access) */}
+        <TouchableOpacity
+          style={styles.adminButton}
+          onPress={() => router.push('/(admin)/(tabs)/products')}
+        >
+          <Ionicons name="settings-outline" size={20} color={theme.colors.background} />
+          <Text style={styles.adminButtonText}>Admin Dashboard</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -186,5 +197,22 @@ const styles = StyleSheet.create({
     fontWeight: theme.fontWeights.semibold,
     color: theme.colors.error,
     marginLeft: theme.spacing.sm,
+  },
+  adminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary,
+    marginHorizontal: theme.spacing.base,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xl,
+    padding: theme.spacing.base,
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.sm,
+  },
+  adminButtonText: {
+    fontSize: theme.fontSizes.base,
+    fontWeight: theme.fontWeights.semibold,
+    color: theme.colors.background,
   },
 });

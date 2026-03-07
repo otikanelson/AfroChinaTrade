@@ -30,10 +30,10 @@ export const letterSpacing = {
 } as const;
 
 export const lineHeights = {
-  tight: 1.2,
-  normal: 1.5,
-  relaxed: 1.75,
-  loose: 2,
+  tight: 18,
+  normal: 22,
+  relaxed: 26,
+  loose: 32,
 } as const;
 
 export const typography = {

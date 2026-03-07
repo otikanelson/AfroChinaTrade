@@ -10,15 +10,12 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badge }) => {
-  const formatPrice = (price: number) => {
-    return `${product.currency} ${price.toLocaleString()}`;
-  };
-
-  const imageHeight = product.imageHeight || 160;
+  const formatPrice = (price: number) => `${product.currency} ${price.toLocaleString()}`;
 
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress}>
-      <View style={[styles.imageContainer, { height: imageHeight }]}>
+    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.85}>
+      {/* Image */}
+      <View style={styles.imageContainer}>
         <Image
           source={{ uri: product.images[0] }}
           style={styles.image}
@@ -30,14 +27,32 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badg
           </View>
         )}
       </View>
+
+      {/* Content */}
       <View style={styles.content}>
-        <Text style={styles.price}>{formatPrice(product.price)}</Text>
+        {/* Name — fixed 2-line height so price always aligns */}
         <Text style={styles.name} numberOfLines={2}>
           {product.name}
         </Text>
-        <Text style={styles.stats}>
-          {product.reviewCount}+ {product.reviewCount > 1000 ? 'Heats' : 'Views'}
+
+        {/* Price */}
+        <Text style={styles.price} numberOfLines={1}>
+          {formatPrice(product.price)}
         </Text>
+
+        {/* Supplier / stats row */}
+        <View style={styles.footer}>
+          <Text style={styles.supplier} numberOfLines={1}>
+            {product.supplier.verified ? '✔ ' : ''}{product.supplier.name}
+          </Text>
+          {product.reviewCount > 0 && (
+            <Text style={styles.stats}>
+              🔥 {product.reviewCount > 999
+                ? `${(product.reviewCount / 1000).toFixed(1)}k`
+                : product.reviewCount}+
+            </Text>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -45,7 +60,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badg
 
 const styles = StyleSheet.create({
   container: {
-    width: 160,
+    width: '100%',
     backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
@@ -53,6 +68,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: '100%',
+    aspectRatio: 1,
     position: 'relative',
   },
   image: {
@@ -65,7 +81,7 @@ const styles = StyleSheet.create({
     left: 0,
     backgroundColor: theme.colors.primary,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: 3,
     borderTopRightRadius: theme.borderRadius.base,
     borderBottomRightRadius: theme.borderRadius.base,
   },
@@ -75,22 +91,33 @@ const styles = StyleSheet.create({
     fontWeight: theme.fontWeights.semibold,
   },
   content: {
-    padding: theme.spacing.md,
-  },
-  price: {
-    fontSize: theme.fontSizes.md,
-    fontWeight: theme.fontWeights.bold,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
+    padding: theme.spacing.sm,
+    gap: 4,
   },
   name: {
     fontSize: theme.fontSizes.sm,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.xs,
-    lineHeight: theme.lineHeights.normal * theme.fontSizes.sm,
+    color: theme.colors.text,
+    lineHeight: theme.lineHeights.normal,
+  },
+  price: {
+    fontSize: theme.fontSizes.base,
+    fontWeight: theme.fontWeights.bold,
+    color: theme.colors.text,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  supplier: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.primary,
+    flex: 1,
   },
   stats: {
     fontSize: theme.fontSizes.xs,
-    color: theme.colors.textLight,
+    color: theme.colors.textSecondary,
+    marginLeft: 4,
   },
 });

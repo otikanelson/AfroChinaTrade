@@ -97,19 +97,14 @@ afrochinatrade/
 │   ├── tsconfig.json
 │   └── jest.config.js
 │
-├── mobile/             # React Native mobile app
-│   ├── src/
-│   ├── App.tsx
+├── mobile/             # React Native mobile app (Expo)
+│   ├── app/            # Expo Router screens
+│   │   ├── (tabs)/     # Customer-facing tabs
+│   │   └── (admin)/    # Admin dashboard (protected)
+│   ├── components/
+│   ├── services/
 │   ├── package.json
 │   ├── tsconfig.json
-│   └── jest.config.js
-│
-├── admin/              # React admin dashboard
-│   ├── src/
-│   ├── index.html
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── vite.config.ts
 │   └── jest.config.js
 │
 ├── package.json        # Root package.json (workspace config)

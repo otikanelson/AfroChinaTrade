@@ -41,4 +41,14 @@ export class ProductService {
     const allProducts = await this.getAllProducts();
     return allProducts.slice(0, 10);
   }
+
+  /**
+   * Save (create) a new product to storage
+   * @param product - The product to save
+   */
+  async saveProduct(product: Product): Promise<void> {
+    await this.initializeMockData();
+    const existing = await this.getAllProducts();
+    await this.storage.set(STORAGE_KEYS.PRODUCTS, [product, ...existing]);
+  }
 }

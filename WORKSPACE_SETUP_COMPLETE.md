@@ -6,15 +6,15 @@
 - **Root workspace** with npm workspaces configuration
 - **Three sub-workspaces:**
   - `shared/` - Shared TypeScript library
-  - `mobile/` - React Native mobile app (existing, updated)
-  - `admin/` - React admin dashboard (new)
+  - `mobile/` - React Native mobile app with Expo (includes admin dashboard)
+  - `backend/` - Node.js backend API
 
 ### 2. TypeScript Configuration
 - Root `tsconfig.json` for workspace-level settings
 - Individual `tsconfig.json` for each workspace:
   - `shared/tsconfig.json` - CommonJS module system
-  - `mobile/tsconfig.json` - React Native with Expo
-  - `admin/tsconfig.json` - React with Vite
+  - `mobile/tsconfig.json` - React Native with Expo (includes admin dashboard)
+  - `backend/tsconfig.json` - Node.js backend
 
 ### 3. Testing Frameworks
 All workspaces configured with:
@@ -165,12 +165,8 @@ Changes to the shared library are immediately available to both apps during deve
 - ✓ `shared/package.json` - Shared library config
 - ✓ `shared/tsconfig.json` - Shared TypeScript config
 - ✓ `shared/jest.config.js` - Shared Jest config
-- ✓ `admin/package.json` - Admin dashboard config
-- ✓ `admin/tsconfig.json` - Admin TypeScript config
-- ✓ `admin/vite.config.ts` - Vite configuration
-- ✓ `admin/jest.config.js` - Admin Jest config
-- ✓ `mobile/jest.config.js` - Mobile Jest config
-- ✓ `mobile/package.json` (updated) - Mobile config with new deps
+- ✓ `mobile/jest.config.js` - Mobile Jest config (includes admin dashboard tests)
+- ✓ `mobile/package.json` - Mobile config with Expo and admin dependencies
 
 ## Task 1 Status: COMPLETE ✓
 

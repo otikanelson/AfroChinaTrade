@@ -15,7 +15,7 @@
   },
   "files": [],
   "include": [],
-  "exclude": ["**/node_modules", "**/dist", "**/build", "mobile/**", "admin/**", "shared/**", "backend/**", ".expo/**", "assets/**"],
+  "exclude": ["**/node_modules", "**/dist", "**/build", "mobile/**", "shared/**", "backend/**", ".expo/**", "assets/**"],
   "references": [
     { "path": "./shared" },
     { "path": "./admin" }

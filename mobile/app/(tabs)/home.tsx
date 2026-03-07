@@ -46,15 +46,10 @@ export default function HomeTab() {
   const getMasonryColumns = (products: Product[]) => {
     const leftColumn: Product[] = [];
     const rightColumn: Product[] = [];
-    
     products.forEach((product, index) => {
-      if (index % 2 === 0) {
-        leftColumn.push(product);
-      } else {
-        rightColumn.push(product);
-      }
+      if (index % 2 === 0) leftColumn.push(product);
+      else rightColumn.push(product);
     });
-    
     return { leftColumn, rightColumn };
   };
 
@@ -136,27 +131,30 @@ export default function HomeTab() {
         </View>
 
         {/* Featured Products */}
-        <View style={styles.section}>
-          <SectionHeader 
-            title="Featured Products" 
-            subtitle="Handpicked deals for you"
-            actionText="See All"
-            onActionPress={() => console.log('See all featured')} 
-          />
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          >
-            {filteredFeaturedProducts.map(product => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                badge={product.discount ? 'Hot Deal' : product.isNew ? 'New' : undefined}
-              />
-            ))}
-          </ScrollView>
-        </View>
+        {filteredFeaturedProducts.length > 0 && (
+          <View style={styles.section}>
+            <SectionHeader 
+              title="Featured Products" 
+              subtitle="Handpicked deals for you"
+              actionText="See All"
+              onActionPress={() => console.log('See all featured')} 
+            />
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalList}
+            >
+              {filteredFeaturedProducts.map(product => (
+                <View key={product.id} style={styles.featuredCardWrapper}>
+                  <ProductCard
+                    product={product}
+                    badge={product.discount ? 'Hot Deal' : product.isNew ? 'New' : undefined}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Masonry Product Grid */}
         <View style={styles.section}>
@@ -258,6 +256,9 @@ const styles = StyleSheet.create({
   horizontalList: {
     paddingHorizontal: theme.spacing.base,
     gap: theme.spacing.md,
+  },
+  featuredCardWrapper: {
+    width: 160,
   },
   masonryContainer: {
     flexDirection: 'row',
