@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AsyncStorageAdapter } from '../../../../shared/src/services/storage/AsyncStorageAdapter';
+import { ticketService, Ticket, TicketPriority, TicketStatus } from '../../../services/TicketService';
 import { Card } from '../../../components/admin/Card';
 import { DataList } from '../../../components/admin/DataList';
 import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
@@ -14,33 +14,7 @@ import { Button } from '../../../components/admin/Button';
 import { mobileToastManager } from '../../../utils/toast';
 import { theme } from '../../../theme';
 
-const storage = new AsyncStorageAdapter();
-export const TICKETS_KEY = 'admin_tickets';
 
-export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
-export type TicketStatus = 'open' | 'in_progress' | 'resolved';
-
-export interface Ticket {
-  id: string;
-  subject: string;
-  description: string;
-  userName: string;
-  userEmail: string;
-  priority: TicketPriority;
-  status: TicketStatus;
-  createdAt: string;
-}
-
-function createMockTickets(): Ticket[] {
-  const d = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
-  return [
-    { id: 't1', subject: 'Order not delivered', description: 'My order #ORD-001 was marked delivered but I never received it.', userName: 'Alice Johnson', userEmail: 'alice@example.com', priority: 'urgent', status: 'open', createdAt: d(0) },
-    { id: 't2', subject: 'Wrong item received', description: 'I ordered a blue shirt but received a red one.', userName: 'Bob Smith', userEmail: 'bob@example.com', priority: 'high', status: 'in_progress', createdAt: d(1) },
-    { id: 't3', subject: 'Refund not processed', description: 'It has been 10 days since my return was approved but no refund yet.', userName: 'Carol White', userEmail: 'carol@example.com', priority: 'high', status: 'open', createdAt: d(2) },
-    { id: 't4', subject: 'App crashes on checkout', description: 'Every time I try to complete payment the app crashes.', userName: 'David Kim', userEmail: 'david@example.com', priority: 'medium', status: 'open', createdAt: d(3) },
-    { id: 't5', subject: 'Cannot update address', description: 'The save button on the address form does nothing.', userName: 'Emma Davis', userEmail: 'emma@example.com', priority: 'low', status: 'resolved', createdAt: d(7) },
-  ];
-}
 
 const PRIORITY_COLORS: Record<TicketPriority, { bg: string; text: string }> = {
   low:    { bg: '#E2E3E5', text: '#383D41' },
@@ -59,9 +33,11 @@ function PriorityBadge({ priority }: { priority: TicketPriority }) {
 }
 
 function ticketStatusToBadge(status: TicketStatus): StatusType {
-  if (status === 'resolved') return 'resolved';
-  if (status === 'in_progress') return 'in_fulfillment';
-  return 'pending';
+  switch (status) {
+    case 'resolved': return 'resolved';
+    case 'in_progress': return 'in_fulfillment';
+    default: return 'pending';
+  }
 }
 
 interface TicketDetailModalProps {
@@ -134,27 +110,42 @@ export default function TicketsScreen({ embedded }: Props) {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      let data = await storage.get<Ticket[]>(TICKETS_KEY);
-      if (!data || data.length === 0) {
-        data = createMockTickets();
-        await storage.set(TICKETS_KEY, data);
+      const response = await ticketService.getTickets({
+        page: 1,
+        limit: 100, // Get all tickets for now
+      });
+      
+      if (response.success && response.data) {
+        setTickets(response.data);
+      } else {
+        setTickets([]);
       }
-      data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setTickets(data);
-    } finally { setLoading(false); setRefreshing(false); }
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+      setTickets([]);
+    } finally { 
+      setLoading(false); 
+      setRefreshing(false); 
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const handleAction = useCallback(async (id: string, status: TicketStatus) => {
     try {
-      const all = (await storage.get<Ticket[]>(TICKETS_KEY)) ?? [];
-      const updated = all.map((t) => t.id === id ? { ...t, status } : t);
-      await storage.set(TICKETS_KEY, updated);
-      setTickets(updated);
-      setSelected(null);
-      mobileToastManager.success(`Ticket ${status === 'resolved' ? 'resolved' : 'updated'}`, 'Updated');
-    } catch { Alert.alert('Error', 'Failed to update ticket.'); }
+      const response = await ticketService.updateTicketStatus(id, status);
+      
+      if (response.success && response.data) {
+        setTickets(prev => prev.map(t => t.id === id ? response.data! : t));
+        setSelected(null);
+        mobileToastManager.success(`Ticket ${status === 'resolved' ? 'resolved' : 'updated'}`, 'Updated');
+      } else {
+        throw new Error(response.error?.message || 'Failed to update ticket');
+      }
+    } catch (error) {
+      console.error('Error updating ticket:', error);
+      Alert.alert('Error', 'Failed to update ticket.');
+    }
   }, []);
 
   const Wrapper = embedded ? View : SafeAreaView;

@@ -11,18 +11,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Order } from '../../../../shared/src/types/entities';
-import { AsyncStorageAdapter } from '../../../../shared/src/services/storage/AsyncStorageAdapter';
-import { STORAGE_KEYS } from '../../../../shared/src/services/storage';
+import { Order } from '../../../types/product';
+import { orderService } from '../../../services/OrderService';
 import { Card } from '../../../components/admin/Card';
 import { DataList } from '../../../components/admin/DataList';
 import { SearchBar } from '../../../components/admin/SearchBar';
 import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
-import { theme } from '../../../theme';
-
-// ─── Storage ──────────────────────────────────────────────────────────────────
-
-const storage = new AsyncStorageAdapter();
+import { useTheme } from '../../../contexts/ThemeContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -79,16 +74,42 @@ interface ChipProps {
   onPress: () => void;
 }
 
-const FilterChip: React.FC<ChipProps> = ({ label, active, onPress }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    style={[styles.chip, active && styles.chipActive]}
-    accessibilityRole="button"
-    accessibilityState={{ selected: active }}
-  >
-    <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-  </TouchableOpacity>
-);
+const FilterChip: React.FC<ChipProps> = ({ label, active, onPress }) => {
+  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
+  
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        {
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.sm,
+          borderRadius: borderRadius.full,
+          borderWidth: 1.5,
+          borderColor: colors.border,
+          backgroundColor: colors.background,
+          ...shadows.sm,
+        },
+        active && {
+          borderColor: colors.primary,
+          backgroundColor: colors.primary,
+          ...shadows.md,
+        }
+      ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={[
+        {
+          fontSize: fontSizes.sm,
+          fontWeight: fontWeights.semibold as any,
+          color: colors.textSecondary,
+        },
+        active && { color: colors.background }
+      ]}>{label}</Text>
+    </TouchableOpacity>
+  );
+};
 
 // ─── Stats card ───────────────────────────────────────────────────────────────
 
@@ -99,13 +120,35 @@ interface StatsCardProps {
   color: string;
 }
 
-const StatsCard: React.FC<StatsCardProps> = ({ label, value, icon, color }) => (
-  <View style={[styles.statsCard, { borderLeftColor: color }]}>
-    <Ionicons name={icon} size={22} color={color} style={styles.statsIcon} />
-    <Text style={styles.statsValue}>{value}</Text>
-    <Text style={styles.statsLabel}>{label}</Text>
-  </View>
-);
+const StatsCard: React.FC<StatsCardProps> = ({ label, value, icon, color }) => {
+  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
+  
+  return (
+    <View style={[
+      {
+        flex: 1,
+        backgroundColor: colors.background,
+        borderRadius: borderRadius.md,
+        borderLeftWidth: 4,
+        padding: spacing.md,
+        gap: 4,
+        ...shadows.base,
+      },
+      { borderLeftColor: color }
+    ]}>
+      <Ionicons name={icon} size={22} color={color} />
+      <Text style={{
+        fontSize: fontSizes.xl,
+        fontWeight: fontWeights.bold as any,
+        color: colors.text,
+      }}>{value}</Text>
+      <Text style={{
+        fontSize: fontSizes.xs,
+        color: colors.textSecondary,
+      }}>{label}</Text>
+    </View>
+  );
+};
 
 // ─── Order card ───────────────────────────────────────────────────────────────
 
@@ -114,37 +157,41 @@ interface OrderCardProps {
   onPress: () => void;
 }
 
-const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => (
-  <Card onPress={onPress} style={styles.card}>
-    <View style={styles.cardRow}>
-      <View style={styles.cardInfo}>
-        <View style={styles.cardTopRow}>
-          <Text style={styles.orderId} numberOfLines={1}>
-            #{order.id.slice(-8).toUpperCase()}
+const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
+  const { colors, spacing, fontSizes, fontWeights } = useTheme();
+  
+  return (
+    <Card onPress={onPress} style={{ marginHorizontal: spacing.base, marginVertical: spacing.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ flex: 1, gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+            <Text style={{ fontSize: fontSizes.lg, fontWeight: fontWeights.bold as any, color: colors.text }} numberOfLines={1}>
+              #{order.id.slice(-8).toUpperCase()}
+            </Text>
+            <StatusBadge
+              status={orderStatusToBadge(order.status)}
+              label={statusLabel(order.status)}
+              size="sm"
+            />
+          </View>
+          <Text style={{ fontSize: fontSizes.base, color: colors.textSecondary, fontWeight: fontWeights.medium as any }} numberOfLines={1}>
+            {order.shippingAddress.street}
           </Text>
-          <StatusBadge
-            status={orderStatusToBadge(order.status)}
-            label={statusLabel(order.status)}
-            size="sm"
-          />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs }}>
+            <Text style={{ fontSize: fontSizes.sm, color: colors.textLight }}>{formatDate(order.createdAt)}</Text>
+            <Text style={{ fontSize: fontSizes.lg, fontWeight: fontWeights.bold as any, color: colors.primary }}>₦{order.total.toFixed(2)}</Text>
+          </View>
         </View>
-        <Text style={styles.customerName} numberOfLines={1}>
-          {order.deliveryAddress.fullName}
-        </Text>
-        <View style={styles.cardBottomRow}>
-          <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
-          <Text style={styles.orderTotal}>${order.totalAmount.toFixed(2)}</Text>
-        </View>
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={colors.textLight}
+          style={{ marginLeft: spacing.md, flexShrink: 0, opacity: 0.6 }}
+        />
       </View>
-      <Ionicons
-        name="chevron-forward"
-        size={18}
-        color={theme.colors.textLight}
-        style={styles.chevron}
-      />
-    </View>
-  </Card>
-);
+    </Card>
+  );
+};
 
 // ─── Period selector modal ────────────────────────────────────────────────────
 
@@ -162,33 +209,44 @@ const PERIODS: { value: TimePeriod; label: string }[] = [
   { value: 'all',   label: 'All Time' },
 ];
 
-const PeriodSelector: React.FC<PeriodSelectorProps> = ({ visible, selected, onSelect, onClose }) => (
-  <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-    <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-      <View style={styles.periodMenu}>
-        {PERIODS.map((p) => (
-          <TouchableOpacity
-            key={p.value}
-            style={[styles.periodItem, selected === p.value && styles.periodItemActive]}
-            onPress={() => { onSelect(p.value); onClose(); }}
-          >
-            <Text style={[styles.periodItemText, selected === p.value && styles.periodItemTextActive]}>
-              {p.label}
-            </Text>
-            {selected === p.value && (
-              <Ionicons name="checkmark" size={16} color={theme.colors.primary} />
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
-    </TouchableOpacity>
-  </Modal>
-);
+const PeriodSelector: React.FC<PeriodSelectorProps> = ({ visible, selected, onSelect, onClose }) => {
+  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
+  
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 120, paddingRight: spacing.base }} activeOpacity={1} onPress={onClose}>
+        <View style={{ backgroundColor: colors.background, borderRadius: borderRadius.lg, ...shadows.lg, minWidth: 180, overflow: 'hidden', elevation: 8 }}>
+          {PERIODS.map((p) => (
+            <TouchableOpacity
+              key={p.value}
+              style={[
+                { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+                selected === p.value && { backgroundColor: colors.primary + '10' }
+              ]}
+              onPress={() => { onSelect(p.value); onClose(); }}
+            >
+              <Text style={[
+                { fontSize: fontSizes.base, color: colors.text, fontWeight: fontWeights.medium as any },
+                selected === p.value && { color: colors.primary, fontWeight: fontWeights.bold as any }
+              ]}>
+                {p.label}
+              </Text>
+              {selected === p.value && (
+                <Ionicons name="checkmark" size={16} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function OrdersScreen() {
   const router = useRouter();
+  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,6 +258,248 @@ export default function OrdersScreen() {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('all');
   const [periodModalVisible, setPeriodModalVisible] = useState(false);
 
+  const styles = StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.surface,
+    },
+
+    // Header
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.lg,
+      backgroundColor: colors.background,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+      ...shadows.sm,
+    },
+    headerTitle: {
+      fontSize: fontSizes['3xl'],
+      fontWeight: fontWeights.bold as any,
+      color: colors.text,
+    },
+
+    // List
+    listContent: {
+      paddingBottom: spacing['2xl'],
+    },
+    listHeader: {
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      gap: spacing.md,
+      backgroundColor: colors.surface,
+    },
+
+    // Stats
+    statsTitle: {
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.bold as any,
+      color: colors.text,
+      paddingHorizontal: spacing.base,
+      marginBottom: spacing.sm,
+    },
+    periodButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.full,
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      backgroundColor: colors.background,
+      ...shadows.sm,
+    },
+    periodButtonText: {
+      fontSize: fontSizes.sm,
+      color: colors.primary,
+      fontWeight: fontWeights.semibold as any,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.base,
+      gap: spacing.sm,
+    },
+    statsCard: {
+      flex: 1,
+      backgroundColor: colors.background,
+      borderRadius: borderRadius.md,
+      borderLeftWidth: 4,
+      padding: spacing.md,
+      gap: 4,
+      ...shadows.base,
+    },
+    statsValue: {
+      fontSize: fontSizes.xl,
+      fontWeight: fontWeights.bold as any,
+      color: colors.text,
+    },
+    statsLabel: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+    },
+
+    // Search & filters
+    searchBar: {
+      marginHorizontal: spacing.base,
+      marginBottom: spacing.xs,
+    },
+    filterRow: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.base,
+      gap: spacing.sm,
+      flexWrap: 'wrap',
+    },
+
+    // Filter chips
+    chip: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.full,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      ...shadows.sm,
+    },
+    chipActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
+      ...shadows.md,
+    },
+    chipText: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.semibold as any,
+      color: colors.textSecondary,
+    },
+    chipTextActive: {
+      color: colors.background,
+    },
+
+    // Order card
+    card: {
+      marginHorizontal: spacing.base,
+      marginVertical: spacing.sm,
+      backgroundColor: colors.background,
+      borderRadius: borderRadius.lg,
+      padding: spacing.lg,
+      ...shadows.md,
+      elevation: 2,
+    },
+    cardRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    cardInfo: {
+      flex: 1,
+      gap: spacing.sm,
+    },
+    cardTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: spacing.xs,
+    },
+    orderId: {
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.bold as any,
+      color: colors.text,
+    },
+    customerName: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+      fontWeight: fontWeights.medium as any,
+    },
+    cardBottomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: spacing.xs,
+    },
+    orderDate: {
+      fontSize: fontSizes.sm,
+      color: colors.textLight,
+    },
+    orderTotal: {
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.bold as any,
+      color: colors.primary,
+    },
+    chevron: {
+      marginLeft: spacing.md,
+      flexShrink: 0,
+      opacity: 0.6,
+    },
+
+    // Error state
+    errorContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing['2xl'],
+      gap: spacing.lg,
+    },
+    errorText: {
+      fontSize: fontSizes.lg,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+    retryButton: {
+      paddingHorizontal: spacing['2xl'],
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.lg,
+      backgroundColor: colors.primary,
+      ...shadows.md,
+    },
+    retryText: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.bold as any,
+      color: colors.background,
+    },
+
+    // Period modal
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      justifyContent: 'flex-start',
+      alignItems: 'flex-end',
+      paddingTop: 120,
+      paddingRight: spacing.base,
+    },
+    periodMenu: {
+      backgroundColor: colors.background,
+      borderRadius: borderRadius.lg,
+      ...shadows.lg,
+      minWidth: 180,
+      overflow: 'hidden',
+      elevation: 8,
+    },
+    periodItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    periodItemActive: {
+      backgroundColor: colors.primary + '10',
+    },
+    periodItemText: {
+      fontSize: fontSizes.base,
+      color: colors.text,
+      fontWeight: fontWeights.medium as any,
+    },
+    periodItemTextActive: {
+      color: colors.primary,
+      fontWeight: fontWeights.bold as any,
+    },
+  });
+
   // ── Data fetching ──────────────────────────────────────────────────────────
 
   const fetchOrders = useCallback(async (isRefresh = false) => {
@@ -207,11 +507,21 @@ export default function OrdersScreen() {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
       setError(null);
-      const data = (await storage.get<Order[]>(STORAGE_KEYS.ORDERS)) ?? [];
-      // Sort newest first
-      data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setOrders(data);
-    } catch {
+      
+      const response = await orderService.getOrders({
+        page: 1,
+        limit: 100, // Get all orders for now
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      });
+      
+      if (response.success && response.data) {
+        setOrders(response.data);
+      } else {
+        throw new Error(response.error?.message || 'Failed to load orders');
+      }
+    } catch (err) {
+      console.error('Error fetching orders:', err);
       setError('Failed to load orders. Pull down to retry.');
     } finally {
       setLoading(false);
@@ -226,15 +536,16 @@ export default function OrdersScreen() {
   // ── Filtering ──────────────────────────────────────────────────────────────
 
   const filteredOrders = useMemo(() => {
-    let result = orders;
+    const ordersArray = Array.isArray(orders) ? orders : [];
+    let result = ordersArray;
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (o) =>
           o.id.toLowerCase().includes(q) ||
-          o.deliveryAddress.fullName.toLowerCase().includes(q) ||
-          o.userId.toLowerCase().includes(q),
+          o.shippingAddress.street.toLowerCase().includes(q) ||
+          o.id.toLowerCase().includes(q),
       );
     }
 
@@ -248,12 +559,13 @@ export default function OrdersScreen() {
   // ── Stats (scoped to time period) ─────────────────────────────────────────
 
   const stats = useMemo(() => {
-    const periodOrders = orders.filter((o) => isWithinPeriod(o.createdAt, timePeriod));
+    const ordersArray = Array.isArray(orders) ? orders : [];
+    const periodOrders = ordersArray.filter((o) => isWithinPeriod(o.createdAt, timePeriod));
     const total = periodOrders.length;
     const pending = periodOrders.filter((o) => o.status === 'pending').length;
     const revenue = periodOrders
       .filter((o) => o.status !== 'cancelled')
-      .reduce((sum, o) => sum + o.totalAmount, 0);
+      .reduce((sum, o) => sum + o.total, 0);
     return { total, pending, revenue };
   }, [orders, timePeriod]);
 
@@ -282,29 +594,14 @@ export default function OrdersScreen() {
   const ListHeader = (
     <View style={styles.listHeader}>
       {/* Stats section */}
-      <View style={styles.statsHeader}>
-        <Text style={styles.statsTitle}>Overview</Text>
-        <TouchableOpacity
-          style={styles.periodButton}
-          onPress={() => setPeriodModalVisible(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Select time period"
-        >
-          <Text style={styles.periodButtonText}>{periodLabel}</Text>
-          <Ionicons name="chevron-down" size={14} color={theme.colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.statsRow}
+      <View
+        style={styles.statsRow}
       >
         <StatsCard
           label="Total Orders"
           value={String(stats.total)}
           icon="receipt-outline"
-          color={theme.colors.primary}
+          color={colors.primary}
         />
         <StatsCard
           label="Pending"
@@ -314,11 +611,11 @@ export default function OrdersScreen() {
         />
         <StatsCard
           label="Revenue"
-          value={`$${stats.revenue.toFixed(2)}`}
+          value={`₦${stats.revenue.toFixed(2)}`}
           icon="cash-outline"
           color="#10b981"
         />
-      </ScrollView>
+      </View>
 
       {/* Search */}
       <SearchBar
@@ -330,10 +627,8 @@ export default function OrdersScreen() {
       />
 
       {/* Status filter chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterRow}
+      <View
+        style={styles.filterRow}
       >
         {(
           [
@@ -352,7 +647,7 @@ export default function OrdersScreen() {
             onPress={() => setStatusFilter(f.value)}
           />
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 
@@ -365,7 +660,7 @@ export default function OrdersScreen() {
           <Text style={styles.headerTitle}>Orders</Text>
         </View>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={theme.colors.error} />
+          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity onPress={() => fetchOrders()} style={styles.retryButton}>
             <Text style={styles.retryText}>Retry</Text>
@@ -381,6 +676,15 @@ export default function OrdersScreen() {
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Orders</Text>
+        <TouchableOpacity
+          style={styles.periodButton}
+          onPress={() => setPeriodModalVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Select time period"
+        >
+          <Text style={styles.periodButtonText}>{periodLabel}</Text>
+          <Ionicons name="chevron-down" size={14} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <DataList<Order>
@@ -409,232 +713,3 @@ export default function OrdersScreen() {
     </SafeAreaView>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.base,
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.borderLight,
-    backgroundColor: theme.colors.background,
-  },
-  headerTitle: {
-    fontSize: theme.fontSizes['2xl'],
-    fontWeight: theme.fontWeights.bold as any,
-    color: theme.colors.text,
-  },
-
-  // List
-  listContent: {
-    paddingBottom: theme.spacing.xl,
-  },
-  listHeader: {
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
-    gap: theme.spacing.sm,
-  },
-
-  // Stats
-  statsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.base,
-    marginBottom: theme.spacing.xs,
-  },
-  statsTitle: {
-    fontSize: theme.fontSizes.base,
-    fontWeight: theme.fontWeights.semibold as any,
-    color: theme.colors.text,
-  },
-  periodButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
-    borderRadius: theme.borderRadius.base,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-  },
-  periodButtonText: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.primary,
-    fontWeight: theme.fontWeights.medium as any,
-  },
-  statsRow: {
-    paddingHorizontal: theme.spacing.base,
-    gap: theme.spacing.sm,
-  },
-  statsCard: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.md,
-    borderLeftWidth: 4,
-    padding: theme.spacing.md,
-    minWidth: 110,
-    ...theme.shadows.base,
-  },
-  statsIcon: {
-    marginBottom: theme.spacing.xs,
-  },
-  statsValue: {
-    fontSize: theme.fontSizes.xl,
-    fontWeight: theme.fontWeights.bold as any,
-    color: theme.colors.text,
-  },
-  statsLabel: {
-    fontSize: theme.fontSizes.xs,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
-  },
-
-  // Search & filters
-  searchBar: {
-    marginHorizontal: theme.spacing.base,
-  },
-  filterRow: {
-    paddingHorizontal: theme.spacing.base,
-    gap: theme.spacing.sm,
-  },
-
-  // Filter chips
-  chip: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.full,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-  },
-  chipActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primary,
-  },
-  chipText: {
-    fontSize: theme.fontSizes.sm,
-    fontWeight: theme.fontWeights.medium as any,
-    color: theme.colors.textSecondary,
-  },
-  chipTextActive: {
-    color: theme.colors.background,
-  },
-
-  // Order card
-  card: {
-    marginHorizontal: theme.spacing.base,
-    marginVertical: theme.spacing.xs,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardInfo: {
-    flex: 1,
-    gap: theme.spacing.xs,
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  orderId: {
-    fontSize: theme.fontSizes.base,
-    fontWeight: theme.fontWeights.bold as any,
-    color: theme.colors.text,
-  },
-  customerName: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.textSecondary,
-  },
-  cardBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  orderDate: {
-    fontSize: theme.fontSizes.xs,
-    color: theme.colors.textLight,
-  },
-  orderTotal: {
-    fontSize: theme.fontSizes.base,
-    fontWeight: theme.fontWeights.semibold as any,
-    color: theme.colors.primary,
-  },
-  chevron: {
-    marginLeft: theme.spacing.sm,
-    flexShrink: 0,
-  },
-
-  // Error state
-  errorContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.xl,
-    gap: theme.spacing.md,
-  },
-  errorText: {
-    fontSize: theme.fontSizes.base,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-  },
-  retryButton: {
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.primary,
-  },
-  retryText: {
-    fontSize: theme.fontSizes.base,
-    fontWeight: theme.fontWeights.semibold as any,
-    color: theme.colors.background,
-  },
-
-  // Period modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingTop: 120,
-    paddingRight: theme.spacing.base,
-  },
-  periodMenu: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.md,
-    ...theme.shadows.md,
-    minWidth: 160,
-    overflow: 'hidden',
-  },
-  periodItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.base,
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.borderLight,
-  },
-  periodItemActive: {
-    backgroundColor: theme.colors.surface,
-  },
-  periodItemText: {
-    fontSize: theme.fontSizes.base,
-    color: theme.colors.text,
-  },
-  periodItemTextActive: {
-    color: theme.colors.primary,
-    fontWeight: theme.fontWeights.semibold as any,
-  },
-});

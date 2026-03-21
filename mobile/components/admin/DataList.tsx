@@ -9,53 +9,16 @@ import {
   StyleSheet,
   ViewStyle,
 } from 'react-native';
-import { theme } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
-// ─── Skeleton ────────────────────────────────────────────────────────────────
 
-interface SkeletonItemProps {
-  height?: number;
-}
-
-const SkeletonItem: React.FC<SkeletonItemProps> = ({ height = 72 }) => (
-  <View style={[styles.skeletonItem, { height }]} />
-);
-
-const SkeletonList: React.FC<{ count?: number; itemHeight?: number }> = ({
-  count = 6,
-  itemHeight,
-}) => (
-  <View style={styles.skeletonContainer}>
-    {Array.from({ length: count }).map((_, i) => (
-      <SkeletonItem key={i} height={itemHeight} />
-    ))}
-  </View>
-);
-
-// ─── Empty State ──────────────────────────────────────────────────────────────
-
-interface EmptyStateProps {
-  message?: string;
-  icon?: React.ReactNode;
-}
-
-const EmptyState: React.FC<EmptyStateProps> = ({
-  message = 'No items found',
-  icon,
-}) => (
-  <View style={styles.emptyContainer}>
-    {icon}
-    <Text style={styles.emptyText}>{message}</Text>
-  </View>
-);
-
-// ─── Footer (infinite scroll indicator) ──────────────────────────────────────
 
 const ListFooter: React.FC<{ loadingMore: boolean }> = ({ loadingMore }) => {
+  const { colors } = useTheme();
   if (!loadingMore) return null;
   return (
-    <View style={styles.footerLoader}>
-      <ActivityIndicator size="small" color={theme.colors.primary} />
+    <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+      <ActivityIndicator size="small" color={colors.primary} />
     </View>
   );
 };
@@ -131,6 +94,8 @@ export function DataList<T>({
   ListHeaderComponent,
   ItemSeparatorComponent,
 }: DataListProps<T>) {
+  const { colors, spacing, borderRadius, fontSizes, fontWeights } = useTheme();
+  
   // Prevent duplicate end-reached calls while already loading more
   const endReachedLock = useRef(false);
 
@@ -156,14 +121,58 @@ export function DataList<T>({
     [itemHeight],
   );
 
+  const styles = StyleSheet.create({
+    list: {
+      flex: 1,
+    },
+    emptyContentContainer: {
+      flexGrow: 1,
+      justifyContent: 'center',
+    },
+    // Skeleton
+    skeletonContainer: {
+      flex: 1,
+      padding: spacing.base,
+      gap: spacing.md,
+    },
+    skeletonItem: {
+      borderRadius: borderRadius.lg,
+      backgroundColor: colors.borderLight,
+      opacity: 0.6,
+    },
+    // Empty state
+    emptyContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing['3xl'],
+      paddingHorizontal: spacing.xl,
+      gap: spacing.lg,
+    },
+    emptyText: {
+      fontSize: fontSizes.lg,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      fontWeight: fontWeights.medium,
+    },
+  });
+
   if (loading) {
-    return <SkeletonList count={skeletonCount} itemHeight={itemHeight} />;
+    return (
+      <View style={styles.skeletonContainer}>
+        {Array.from({ length: skeletonCount }).map((_, i) => (
+          <View key={i} style={[styles.skeletonItem, { height: itemHeight || 72 }]} />
+        ))}
+      </View>
+    );
   }
 
   const emptyComponent =
     EmptyComponent ??
     (data.length === 0 ? (
-      <EmptyState message={emptyMessage} icon={emptyIcon} />
+      <View style={styles.emptyContainer}>
+        {emptyIcon}
+        <Text style={styles.emptyText}>{emptyMessage || 'No items found'}</Text>
+      </View>
     ) : null);
 
   const hasHeader = !!ListHeaderComponent;
@@ -184,8 +193,8 @@ export function DataList<T>({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
-            colors={[theme.colors.primary]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         ) : undefined
       }
@@ -210,43 +219,4 @@ export function DataList<T>({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  list: {
-    flex: 1,
-  },
-  emptyContentContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  // Skeleton
-  skeletonContainer: {
-    flex: 1,
-    padding: theme.spacing.base,
-    gap: theme.spacing.sm,
-  },
-  skeletonItem: {
-    borderRadius: theme.borderRadius.base,
-    backgroundColor: theme.colors.borderLight,
-    opacity: 0.7,
-  },
-  // Empty state
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing['2xl'],
-    paddingHorizontal: theme.spacing.xl,
-    gap: theme.spacing.md,
-  },
-  emptyText: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-  },
-  // Footer loader
-  footerLoader: {
-    paddingVertical: theme.spacing.lg,
-    alignItems: 'center',
-  },
-});

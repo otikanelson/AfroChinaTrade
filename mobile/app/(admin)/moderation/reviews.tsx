@@ -6,18 +6,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Review } from '../../../../shared/src/types/entities';
-import { AsyncStorageAdapter } from '../../../../shared/src/services/storage/AsyncStorageAdapter';
-import { STORAGE_KEYS } from '../../../../shared/src/services/storage';
+import { Review, reviewService } from '../../../services/ReviewService';
 import { Card } from '../../../components/admin/Card';
 import { DataList } from '../../../components/admin/DataList';
 import { Button } from '../../../components/admin/Button';
 import { mobileToastManager } from '../../../utils/toast';
 import { theme } from '../../../theme';
 
-const storage = new AsyncStorageAdapter();
-export const REVIEW_RESPONSES_KEY = 'admin_review_responses';
-export const FLAGGED_REVIEWS_KEY = 'admin_flagged_reviews';
+
 
 interface ReviewResponse { reviewId: string; response: string; createdAt: string }
 
@@ -87,40 +83,66 @@ export default function ReviewsScreen({ embedded }: Props) {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const [r, resp, fl] = await Promise.all([
-        storage.get<Review[]>(STORAGE_KEYS.REVIEWS),
-        storage.get<ReviewResponse[]>(REVIEW_RESPONSES_KEY),
-        storage.get<string[]>(FLAGGED_REVIEWS_KEY),
-      ]);
-      setReviews(r ?? []);
-      setResponses(resp ?? []);
-      setFlagged(new Set(fl ?? []));
-    } finally { setLoading(false); setRefreshing(false); }
+      const response = await reviewService.getReviews({
+        page: 1,
+        limit: 100, // Get all reviews for now
+      });
+      
+      if (response.success && response.data) {
+        setReviews(response.data);
+      } else {
+        setReviews([]);
+      }
+      
+      // For now, we'll skip responses and flagged reviews since they're not implemented in the backend
+      setResponses([]);
+      setFlagged(new Set());
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+      setReviews([]);
+      setResponses([]);
+      setFlagged(new Set());
+    } finally { 
+      setLoading(false); 
+      setRefreshing(false); 
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
-    if (ratingFilter === 'all') return reviews;
-    return reviews.filter((r) => r.rating === parseInt(ratingFilter));
+    const reviewsArray = Array.isArray(reviews) ? reviews : [];
+    if (ratingFilter === 'all') return reviewsArray;
+    return reviewsArray.filter((r) => r.rating === parseInt(ratingFilter));
   }, [reviews, ratingFilter]);
 
   const handleRespond = useCallback(async (reviewId: string, response: string) => {
-    const newResp: ReviewResponse = { reviewId, response, createdAt: new Date().toISOString() };
     try {
-      const existing = (await storage.get<ReviewResponse[]>(REVIEW_RESPONSES_KEY)) ?? [];
-      await storage.set(REVIEW_RESPONSES_KEY, [newResp, ...existing.filter((r) => r.reviewId !== reviewId)]);
-      setResponses((prev) => [newResp, ...prev.filter((r) => r.reviewId !== reviewId)]);
-      setRespondTo(null);
-      mobileToastManager.success('Response posted', 'Done');
-    } catch { Alert.alert('Error', 'Failed to post response.'); }
+      const apiResponse = await reviewService.addAdminResponse(reviewId, response);
+      
+      if (apiResponse.success) {
+        const newResp: ReviewResponse = { reviewId, response, createdAt: new Date().toISOString() };
+        setResponses((prev) => [newResp, ...prev.filter((r) => r.reviewId !== reviewId)]);
+        setRespondTo(null);
+        mobileToastManager.success('Response posted', 'Done');
+      } else {
+        throw new Error(apiResponse.error?.message || 'Failed to post response');
+      }
+    } catch (error) {
+      console.error('Error posting review response:', error);
+      Alert.alert('Error', 'Failed to post response.');
+    }
   }, []);
 
   const handleFlag = useCallback(async (reviewId: string) => {
+    // For now, just handle flagging locally since it's not implemented in the backend
     const newFlagged = new Set(flagged);
-    if (newFlagged.has(reviewId)) { newFlagged.delete(reviewId); } else { newFlagged.add(reviewId); }
+    if (newFlagged.has(reviewId)) { 
+      newFlagged.delete(reviewId); 
+    } else { 
+      newFlagged.add(reviewId); 
+    }
     setFlagged(newFlagged);
-    await storage.set(FLAGGED_REVIEWS_KEY, Array.from(newFlagged));
     mobileToastManager.info(newFlagged.has(reviewId) ? 'Review flagged' : 'Flag removed', 'Moderation');
   }, [flagged]);
 
@@ -129,7 +151,7 @@ export default function ReviewsScreen({ embedded }: Props) {
   return (
     <Wrapper style={styles.screen}>
       {/* Rating filter */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+      <View style={styles.filterRow}>
         {(['all', '5', '4', '3', '2', '1'] as RatingFilter[]).map((r) => (
           <TouchableOpacity
             key={r}
@@ -143,7 +165,7 @@ export default function ReviewsScreen({ embedded }: Props) {
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
       <DataList<Review>
         data={filtered}
@@ -195,7 +217,7 @@ export default function ReviewsScreen({ embedded }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.surface },
-  filterRow: { paddingHorizontal: theme.spacing.base, paddingVertical: theme.spacing.sm, gap: theme.spacing.sm },
+  filterRow: { flexDirection: 'row', paddingHorizontal: theme.spacing.base, paddingVertical: theme.spacing.sm, gap: theme.spacing.sm },
   chip: {
     paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.xs,
     borderRadius: theme.borderRadius.full, borderWidth: 1.5, borderColor: theme.colors.border,

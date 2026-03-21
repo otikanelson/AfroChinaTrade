@@ -3,19 +3,20 @@ export interface Product {
   name: string;
   description: string;
   price: number;
-  currency: string;
+  currency?: string;
   images: string[];
   category: string;
   subcategory?: string;
   rating: number;
   reviewCount: number;
   stock: number;
-  supplier: Supplier;
-  tags: string[];
+  supplier?: Supplier;
+  tags?: string[];
   specifications?: Record<string, string>;
   discount?: number;
   isNew?: boolean;
   isFeatured?: boolean;
+  isActive?: boolean;
   imageHeight?: number;
 }
 
@@ -37,16 +38,31 @@ export interface Category {
 
 export interface CartItem {
   product: Product;
+  productId: string;
+  productName: string;
   quantity: number;
+  price: number;
+}
+
+export interface OrderItem {
+  productId: string;
+  productName: string;
+  productImage: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
 }
 
 export interface Order {
   id: string;
-  items: CartItem[];
+  items: OrderItem[];
   total: number;
+  totalAmount: number;
   status: OrderStatus;
   createdAt: string;
   shippingAddress: Address;
+  deliveryAddress: DeliveryAddress;
+  trackingNumber?: string;
 }
 
 export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
@@ -59,6 +75,17 @@ export interface Address {
   postalCode: string;
 }
 
+export interface DeliveryAddress {
+  fullName: string;
+  phone: string;
+  address: string;
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  postalCode: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -66,4 +93,67 @@ export interface User {
   phone?: string;
   avatar?: string;
   addresses: Address[];
+  status: 'active' | 'suspended' | 'blocked';
+  createdAt: string;
 }
+
+export interface Refund {
+  id: string;
+  orderId: string;
+  type: 'full' | 'partial';
+  amount: number;
+  reason: string;
+  status: 'pending' | 'processing' | 'completed' | 'rejected';
+  processedBy?: string;
+  processedAt?: string;
+  createdAt: string;
+}
+
+export interface Report {
+  id: string;
+  type: 'product' | 'user' | 'review' | 'other';
+  reportedEntityId: string;
+  reportedContent: string;
+  reporterId: string;
+  reporterName: string;
+  reason: string;
+  description?: string;
+  status: 'pending' | 'investigating' | 'resolved' | 'dismissed';
+  createdAt: string;
+}
+
+export interface Ticket {
+  id: string;
+  subject: string;
+  description: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  userId: string;
+  userName: string;
+  userEmail: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Message {
+  id: string;
+  threadId: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
+export interface MessageThread {
+  id: string;
+  customerId: string;
+  customerName: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  messages: Message[];
+}
+
+export type TicketPriority = Ticket['priority'];
+export type TicketStatus = Ticket['status'];

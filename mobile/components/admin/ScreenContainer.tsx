@@ -7,7 +7,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { theme } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface ScreenContainerProps {
   children: ReactNode;
@@ -34,17 +34,31 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   contentStyle,
   backgroundColor,
 }) => {
-  const bgColor = backgroundColor ?? theme.colors.surface;
+  const { colors, spacing } = useTheme();
+  const bgColor = backgroundColor ?? colors.surface;
 
   const refreshControl =
     onRefresh ? (
       <RefreshControl
         refreshing={refreshing}
         onRefresh={onRefresh}
-        tintColor={theme.colors.primary}
-        colors={[theme.colors.primary]}
+        tintColor={colors.primary}
+        colors={[colors.primary]}
       />
     ) : undefined;
+
+  const styles = StyleSheet.create({
+    safeArea: {
+      flex: 1,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    content: {
+      flex: 1,
+      padding: spacing.base,
+    },
+  });
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: bgColor }, style]}>
@@ -65,15 +79,4 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: theme.spacing.base,
-  },
-});
+

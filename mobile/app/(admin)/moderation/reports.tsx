@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AsyncStorageAdapter } from '../../../../shared/src/services/storage/AsyncStorageAdapter';
+import { reportService, Report } from '../../../services/ReportService';
 import { Card } from '../../../components/admin/Card';
 import { DataList } from '../../../components/admin/DataList';
 import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
@@ -14,33 +14,15 @@ import { Button } from '../../../components/admin/Button';
 import { mobileToastManager } from '../../../utils/toast';
 import { theme } from '../../../theme';
 
-const storage = new AsyncStorageAdapter();
-export const REPORTS_KEY = 'admin_reports';
 
-export interface Report {
-  id: string;
-  type: 'spam' | 'abuse' | 'fraud' | 'other';
-  reportedContent: string;
-  reporterName: string;
-  description: string;
-  status: 'pending' | 'resolved' | 'dismissed';
-  createdAt: string;
-}
-
-function createMockReports(): Report[] {
-  const d = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
-  return [
-    { id: 'r1', type: 'spam', reportedContent: 'Product: Fake iPhone 15', reporterName: 'Alice Johnson', description: 'This product listing appears to be counterfeit.', status: 'pending', createdAt: d(1) },
-    { id: 'r2', type: 'abuse', reportedContent: 'Review by user Bob', reporterName: 'Carol White', description: 'This review contains offensive language.', status: 'pending', createdAt: d(2) },
-    { id: 'r3', type: 'fraud', reportedContent: 'Seller: QuickShop', reporterName: 'David Kim', description: 'Seller never shipped my order and is not responding.', status: 'resolved', createdAt: d(5) },
-    { id: 'r4', type: 'other', reportedContent: 'Product: Broken Charger', reporterName: 'Emma Davis', description: 'Product description is misleading.', status: 'dismissed', createdAt: d(7) },
-  ];
-}
 
 function reportStatusToBadge(status: Report['status']): StatusType {
-  if (status === 'resolved') return 'resolved';
-  if (status === 'dismissed') return 'dismissed';
-  return 'pending';
+  switch (status) {
+    case 'resolved': return 'resolved';
+    case 'dismissed': return 'dismissed';
+    case 'investigating': return 'pending';
+    default: return 'pending';
+  }
 }
 
 interface ReportDetailModalProps {
@@ -107,27 +89,42 @@ export default function ReportsScreen({ embedded }: Props) {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      let data = await storage.get<Report[]>(REPORTS_KEY);
-      if (!data || data.length === 0) {
-        data = createMockReports();
-        await storage.set(REPORTS_KEY, data);
+      const response = await reportService.getReports({
+        page: 1,
+        limit: 100, // Get all reports for now
+      });
+      
+      if (response.success && response.data) {
+        setReports(response.data);
+      } else {
+        setReports([]);
       }
-      data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setReports(data);
-    } finally { setLoading(false); setRefreshing(false); }
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+      setReports([]);
+    } finally { 
+      setLoading(false); 
+      setRefreshing(false); 
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const handleAction = useCallback(async (id: string, action: 'resolved' | 'dismissed') => {
     try {
-      const all = (await storage.get<Report[]>(REPORTS_KEY)) ?? [];
-      const updated = all.map((r) => r.id === id ? { ...r, status: action } : r);
-      await storage.set(REPORTS_KEY, updated);
-      setReports(updated);
-      setSelected(null);
-      mobileToastManager.success(`Report ${action}`, 'Updated');
-    } catch { Alert.alert('Error', 'Failed to update report.'); }
+      const response = await reportService.updateReportStatus(id, action);
+      
+      if (response.success && response.data) {
+        setReports(prev => prev.map(r => r.id === id ? response.data! : r));
+        setSelected(null);
+        mobileToastManager.success(`Report ${action}`, 'Updated');
+      } else {
+        throw new Error(response.error?.message || 'Failed to update report');
+      }
+    } catch (error) {
+      console.error('Error updating report:', error);
+      Alert.alert('Error', 'Failed to update report.');
+    }
   }, []);
 
   const Wrapper = embedded ? View : SafeAreaView;

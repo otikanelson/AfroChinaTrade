@@ -1,0 +1,153 @@
+import { Request, Response } from 'express';
+import Category from '../models/Category';
+import Product from '../models/Product';
+
+export const getCategories = async (req: Request, res: Response) => {
+  try {
+    const categories = await Category.find({ isActive: true }).sort({ name: 1 });
+
+    const categoriesWithCount = await Promise.all(
+      categories.map(async (cat) => {
+        const productCount = await Product.countDocuments({ category: cat.name });
+        return {
+          ...cat.toObject(),
+          productCount,
+        };
+      })
+    );
+
+    res.json(categoriesWithCount);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getCategoryById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const category = await Category.findById(id);
+
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    const productCount = await Product.countDocuments({ category: category.name });
+
+    res.json({
+      ...category.toObject(),
+      productCount,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const createCategory = async (req: Request, res: Response) => {
+  try {
+    const { name, description, icon, imageUrl, subcategories } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: 'Category name is required' });
+    }
+
+    const existingCategory = await Category.findOne({ name });
+    if (existingCategory) {
+      return res.status(409).json({ message: 'Category already exists' });
+    }
+
+    const category = await Category.create({
+      name,
+      description,
+      icon,
+      imageUrl,
+      subcategories: subcategories || [],
+    });
+
+    res.status(201).json({
+      message: 'Category created successfully',
+      category,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateCategory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { name, description, icon, imageUrl, subcategories, isActive } = req.body;
+
+    const category = await Category.findByIdAndUpdate(
+      id,
+      { name, description, icon, imageUrl, subcategories, isActive },
+      { new: true, runValidators: true }
+    );
+
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    res.json({
+      message: 'Category updated successfully',
+      category,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteCategory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const category = await Category.findById(id);
+
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    const productCount = await Product.countDocuments({ category: category.name });
+    if (productCount > 0) {
+      return res.status(409).json({ message: 'Cannot delete category with assigned products' });
+    }
+
+    await Category.findByIdAndDelete(id);
+
+    res.json({ message: 'Category deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getCategoryProducts = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    const products = await Product.find({ category: category.name, isActive: true })
+      .skip(skip)
+      .limit(limitNum);
+
+    const total = await Product.countDocuments({ category: category.name, isActive: true });
+
+    res.json({
+      products,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};

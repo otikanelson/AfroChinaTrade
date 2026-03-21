@@ -1,27 +1,37 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../../theme';
 import { Platform } from 'react-native';
+import { useMessages } from '../../contexts/MessagesContext';
+import { useTheme } from '../../contexts/ThemeContext';
+
+function MessagesTabIcon({ color, focused }: { color: string; focused: boolean }) {
+  return (
+    <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={22} color={color} />
+  );
+}
 
 export default function TabLayout() {
+  const { unreadCount } = useMessages();
+  const { colors, fontSizes, fontWeights } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSecondary,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: theme.colors.background,
+          backgroundColor: colors.background,
           borderTopWidth: 1,
           paddingBottom: Platform.OS === 'ios' ? 0 : 5,
-          borderTopColor: theme.colors.border,
+          borderTopColor: colors.border,
           marginBottom: Platform.OS === 'ios' ? 10 : 0,
           paddingTop: 3,
           height: 70,
         },
         tabBarLabelStyle: {
-          fontSize: theme.fontSizes.xs,
-          fontWeight: theme.fontWeights.medium,
+          fontSize: fontSizes.xs,
+          fontWeight: fontWeights.medium,
         },
       }}
     >
@@ -47,16 +57,14 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: 'Messages',
-          tabBarBadge: 15,
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: theme.colors.badge,
-            color: theme.colors.badgeText,
+            backgroundColor: colors.error, // Using error color for badge
+            color: colors.textInverse,
             fontSize: 10,
-            fontWeight: theme.fontWeights.bold,
+            fontWeight: fontWeights.bold,
           },
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={22} color={color} />
-          ),
+          tabBarIcon: MessagesTabIcon,
         }}
       />
       <Tabs.Screen

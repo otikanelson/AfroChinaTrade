@@ -7,17 +7,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Order, User } from '../../../../shared/src/types/entities';
-import { AsyncStorageAdapter } from '../../../../shared/src/services/storage/AsyncStorageAdapter';
-import { STORAGE_KEYS } from '../../../../shared/src/services/storage';
+import { Order } from '../../../types/product';
+import { userService, UserProfile } from '../../../services/UserService';
+import { orderService } from '../../../services/OrderService';
 import { Card } from '../../../components/admin/Card';
 import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
 import { Button } from '../../../components/admin/Button';
 import { mobileToastManager } from '../../../utils/toast';
 import { theme } from '../../../theme';
 
-const storage = new AsyncStorageAdapter();
-const AUDIT_LOG_KEY = 'admin_audit_log';
+
 
 interface AuditEntry {
   id: string;
@@ -87,14 +86,19 @@ const SuspendModal: React.FC<SuspendModalProps> = ({ visible, onClose, onConfirm
   );
 };
 
-function userStatusToBadge(status: User['status']): StatusType {
-  return status === 'blocked' ? 'blocked' : 'active';
+function userStatusToBadge(status: UserProfile['status']): StatusType {
+  switch (status) {
+    case 'active': return 'active';
+    case 'suspended': return 'pending';
+    case 'blocked': return 'blocked';
+    default: return 'active';
+  }
 }
 
 export default function UserDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,41 +107,63 @@ export default function UserDetailScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [users, allOrders, log] = await Promise.all([
-        storage.get<User[]>(STORAGE_KEYS.USERS),
-        storage.get<Order[]>(STORAGE_KEYS.ORDERS),
-        storage.get<AuditEntry[]>(AUDIT_LOG_KEY),
+      const [userResponse, ordersResponse] = await Promise.all([
+        userService.getUserById(id),
+        orderService.getOrders({ customerId: id }),
       ]);
-      const found = (users ?? []).find((u) => u.id === id) ?? null;
-      setUser(found);
-      setOrders((allOrders ?? []).filter((o) => o.userId === id));
-      setAuditLog((log ?? []).filter((e) => e.userId === id));
-    } finally { setLoading(false); }
+      
+      if (userResponse.success && userResponse.data) {
+        setUser(userResponse.data);
+      } else {
+        setUser(null);
+      }
+      
+      if (ordersResponse.success && ordersResponse.data) {
+        setOrders(ordersResponse.data);
+      } else {
+        setOrders([]);
+      }
+      
+      // For now, we'll skip audit log since it's not implemented in the backend
+      setAuditLog([]);
+    } catch (error) {
+      console.error('Error loading user details:', error);
+      setUser(null);
+      setOrders([]);
+      setAuditLog([]);
+    } finally { 
+      setLoading(false); 
+    }
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
 
-  const updateUserStatus = useCallback(async (newStatus: User['status'], auditAction: string, reason?: string) => {
+  const updateUserStatus = useCallback(async (newStatus: UserProfile['status'], auditAction: string, reason?: string) => {
     if (!user) return;
     try {
-      const users = (await storage.get<User[]>(STORAGE_KEYS.USERS)) ?? [];
-      const updated = users.map((u) => u.id === id ? { ...u, status: newStatus, updatedAt: new Date().toISOString() } : u);
-      await storage.set(STORAGE_KEYS.USERS, updated);
-
-      const entry: AuditEntry = {
-        id: `audit-${Date.now()}`,
-        userId: id,
-        action: auditAction,
-        reason,
-        createdAt: new Date().toISOString(),
-      };
-      const log = (await storage.get<AuditEntry[]>(AUDIT_LOG_KEY)) ?? [];
-      await storage.set(AUDIT_LOG_KEY, [entry, ...log]);
-
-      setUser((prev) => prev ? { ...prev, status: newStatus } : prev);
-      setAuditLog((prev) => [entry, ...prev]);
-      mobileToastManager.success(`Account ${auditAction.toLowerCase()}`, 'Done');
-    } catch { Alert.alert('Error', 'Failed to update account.'); }
+      const response = await userService.updateUserStatus(id, { status: newStatus });
+      
+      if (response.success && response.data) {
+        setUser(response.data);
+        
+        // Create audit entry locally for now
+        const entry: AuditEntry = {
+          id: `audit-${Date.now()}`,
+          userId: id,
+          action: auditAction,
+          reason,
+          createdAt: new Date().toISOString(),
+        };
+        setAuditLog((prev) => [entry, ...prev]);
+        
+        mobileToastManager.success(`Account ${auditAction.toLowerCase()}`, 'Done');
+      } else {
+        throw new Error(response.error?.message || 'Failed to update user status');
+      }
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      Alert.alert('Error', 'Failed to update account.');
+    }
   }, [user, id]);
 
   const handleSuspend = useCallback(async (reason: string, duration: string) => {
@@ -215,7 +241,7 @@ export default function UserDetailScreen() {
             </View>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>Total Spent</Text>
-              <Text style={styles.metaValue}>${orders.reduce((s, o) => s + o.totalAmount, 0).toFixed(2)}</Text>
+              <Text style={styles.metaValue}>₦{orders.reduce((s, o) => s + (o.totalAmount || o.total), 0).toFixed(2)}</Text>
             </View>
           </View>
         </Card>
@@ -240,25 +266,27 @@ export default function UserDetailScreen() {
             <Text style={styles.emptyText}>No orders yet.</Text>
           </Card>
         ) : (
-          orders.slice(0, 10).map((order) => (
-            <Card key={order.id} style={styles.orderCard}>
-              <View style={styles.orderRow}>
-                <View>
-                  <Text style={styles.orderId}>#{order.id.slice(-6).toUpperCase()}</Text>
-                  <Text style={styles.orderMeta}>{new Date(order.createdAt).toLocaleDateString()} · {order.items.length} item{order.items.length !== 1 ? 's' : ''}</Text>
+          <View>
+            {orders.slice(0, 10).map((order) => (
+              <Card key={order.id} style={styles.orderCard}>
+                <View style={styles.orderRow}>
+                  <View>
+                    <Text style={styles.orderId}>#{order.id.slice(-6).toUpperCase()}</Text>
+                    <Text style={styles.orderMeta}>{new Date(order.createdAt).toLocaleDateString()} · {order.items.length} item{order.items.length !== 1 ? 's' : ''}</Text>
+                  </View>
+                  <View style={styles.orderRight}>
+                    <Text style={styles.orderAmount}>₦{(order.totalAmount || order.total).toFixed(2)}</Text>
+                    <StatusBadge status={order.status as StatusType} size="sm" />
+                  </View>
                 </View>
-                <View style={styles.orderRight}>
-                  <Text style={styles.orderAmount}>${order.totalAmount.toFixed(2)}</Text>
-                  <StatusBadge status={order.status as StatusType} size="sm" />
-                </View>
-              </View>
-            </Card>
-          ))
+              </Card>
+            ))}
+          </View>
         )}
 
         {/* Audit log */}
         {auditLog.length > 0 && (
-          <>
+          <View>
             <Text style={styles.sectionTitle}>Audit Log</Text>
             {auditLog.map((entry) => (
               <Card key={entry.id} style={styles.auditCard}>
@@ -267,7 +295,7 @@ export default function UserDetailScreen() {
                 <Text style={styles.auditDate}>{new Date(entry.createdAt).toLocaleString()}</Text>
               </Card>
             ))}
-          </>
+          </View>
         )}
       </ScrollView>
 

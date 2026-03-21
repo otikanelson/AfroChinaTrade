@@ -5,10 +5,28 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
-import { ToastManager, ToastOptions } from '../../../shared/src/utils/toast';
+
+export interface ToastOptions {
+  title?: string;
+  message: string;
+  type?: 'success' | 'error' | 'warning' | 'info';
+  duration?: number;
+}
+
+export interface ToastManager {
+  success: (message: string, title?: string) => void;
+  error: (message: string, title?: string) => void;
+  warning: (message: string, title?: string) => void;
+  info: (message: string, title?: string) => void;
+  show: (options: ToastOptions) => void;
+}
 
 interface ToastItem extends ToastOptions {
   id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  duration: number;
+  title?: string;
+  message: string;
 }
 
 // Toast queue and event emitter
@@ -35,7 +53,13 @@ const toastEmitter = new ToastEventEmitter();
 class MobileToastManager implements ToastManager {
   show(options: ToastOptions): void {
     const id = `toast-${Date.now()}-${Math.random()}`;
-    toastEmitter.emit({ ...options, id });
+    const toastItem: ToastItem = {
+      ...options,
+      id,
+      type: options.type || 'info',
+      duration: options.duration || 4000,
+    };
+    toastEmitter.emit(toastItem);
   }
 
   success(message: string, title?: string): void {

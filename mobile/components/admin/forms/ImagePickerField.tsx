@@ -13,6 +13,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../theme';
+import { apiClient } from '../../../services/api/apiClient';
 
 export interface PickedImage {
   uri: string;
@@ -20,6 +21,8 @@ export interface PickedImage {
   height: number;
   mimeType?: string;
   fileName?: string;
+  uploaded?: boolean;
+  uploadedUrl?: string;
 }
 
 export interface ImagePickerFieldProps {
@@ -41,6 +44,8 @@ export interface ImagePickerFieldProps {
   disabled?: boolean;
   /** Container style override */
   style?: ViewStyle;
+  /** Whether to automatically upload images to server */
+  autoUpload?: boolean;
   testID?: string;
 }
 
@@ -56,10 +61,12 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
   helperText,
   required = false,
   disabled = false,
+  autoUpload = true,
   style,
   testID,
 }) => {
   const [loading, setLoading] = React.useState(false);
+  const [uploadingImages, setUploadingImages] = React.useState<Set<string>>(new Set());
   const hasError = Boolean(error);
   const canAddMore = images.length < maxImages;
 
@@ -96,7 +103,43 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
       height: asset.height,
       mimeType: asset.mimeType ?? undefined,
       fileName: asset.fileName ?? undefined,
+      uploaded: false,
     }));
+
+  const uploadImage = async (image: PickedImage): Promise<PickedImage> => {
+    if (!autoUpload || image.uploaded) return image;
+
+    const imageId = image.uri;
+    setUploadingImages(prev => new Set(prev).add(imageId));
+
+    try {
+      const response = await apiClient.uploadFile('/upload/image', {
+        uri: image.uri,
+        type: image.mimeType || 'image/jpeg',
+        name: image.fileName || 'image.jpg',
+      });
+
+      if (response.success && response.data?.url) {
+        return {
+          ...image,
+          uploaded: true,
+          uploadedUrl: response.data.url, // Backend returns 'url' not 'imageUrl'
+        };
+      } else {
+        throw new Error(response.error?.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      Alert.alert('Upload Failed', 'Failed to upload image. Please try again.');
+      return image;
+    } finally {
+      setUploadingImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(imageId);
+        return newSet;
+      });
+    }
+  };
 
   const launchCamera = async () => {
     const granted = await requestCameraPermission();
@@ -105,7 +148,7 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
     setLoading(true);
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         quality: COMPRESSION_QUALITY,
       });
@@ -114,6 +157,20 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
         const newImages = mapAssets(result.assets);
         const combined = [...images, ...newImages].slice(0, maxImages);
         onImagesChange(combined);
+
+        // Upload images if auto-upload is enabled
+        if (autoUpload) {
+          for (const image of newImages) {
+            const uploadedImage = await uploadImage(image);
+            if (uploadedImage.uploaded) {
+              const currentImages = [...images, ...newImages].slice(0, maxImages);
+              const updatedImages = currentImages.map((img: PickedImage) => 
+                img.uri === image.uri ? uploadedImage : img
+              );
+              onImagesChange(updatedImages);
+            }
+          }
+        }
       }
     } finally {
       setLoading(false);
@@ -129,7 +186,7 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
     setLoading(true);
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         selectionLimit: remaining,
         quality: COMPRESSION_QUALITY,
@@ -139,6 +196,20 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
         const newImages = mapAssets(result.assets);
         const combined = [...images, ...newImages].slice(0, maxImages);
         onImagesChange(combined);
+
+        // Upload images if auto-upload is enabled
+        if (autoUpload) {
+          for (const image of newImages) {
+            const uploadedImage = await uploadImage(image);
+            if (uploadedImage.uploaded) {
+              const currentImages = [...images, ...newImages].slice(0, maxImages);
+              const updatedImages = currentImages.map((img: PickedImage) => 
+                img.uri === image.uri ? uploadedImage : img
+              );
+              onImagesChange(updatedImages);
+            }
+          }
+        }
       }
     } finally {
       setLoading(false);
@@ -173,27 +244,40 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.grid}
       >
-        {images.map((img, index) => (
-          <View key={`${img.uri}-${index}`} style={styles.imageWrapper}>
-            <Image
-              source={{ uri: img.uri }}
-              style={styles.image}
-              accessibilityLabel={`Selected image ${index + 1}`}
-              testID={testID ? `${testID}-image-${index}` : undefined}
-            />
-            {!disabled && (
-              <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => removeImage(index)}
-                accessibilityRole="button"
-                accessibilityLabel={`Remove image ${index + 1}`}
-                testID={testID ? `${testID}-remove-${index}` : undefined}
-              >
-                <Ionicons name="close-circle" size={20} color={theme.colors.error} />
-              </TouchableOpacity>
-            )}
-          </View>
-        ))}
+        {images.map((img, index) => {
+          const isUploading = uploadingImages.has(img.uri);
+          return (
+            <View key={`${img.uri}-${index}`} style={styles.imageWrapper}>
+              <Image
+                source={{ uri: img.uri }}
+                style={styles.image}
+                accessibilityLabel={`Selected image ${index + 1}`}
+                testID={testID ? `${testID}-image-${index}` : undefined}
+              />
+              {isUploading && (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator size="small" color={theme.colors.background} />
+                </View>
+              )}
+              {img.uploaded && (
+                <View style={styles.uploadedBadge}>
+                  <Ionicons name="checkmark-circle" size={16} color={theme.colors.success} />
+                </View>
+              )}
+              {!disabled && (
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removeImage(index)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove image ${index + 1}`}
+                  testID={testID ? `${testID}-remove-${index}` : undefined}
+                >
+                  <Ionicons name="close-circle" size={20} color={theme.colors.error} />
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })}
 
         {/* Add button */}
         {canAddMore && !disabled && (
@@ -349,5 +433,24 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.xs,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: theme.borderRadius.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadedBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.full,
+    padding: 2,
   },
 });

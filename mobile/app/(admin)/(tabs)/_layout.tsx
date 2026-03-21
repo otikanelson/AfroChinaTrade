@@ -1,27 +1,29 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../../../theme';
 import { Platform } from 'react-native';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 export default function AdminTabLayout() {
+  const { colors, fontSizes, fontWeights } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSecondary,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: theme.colors.background,
+          backgroundColor: colors.background,
           borderTopWidth: 1,
           paddingBottom: Platform.OS === 'ios' ? 0 : 5,
-          borderTopColor: theme.colors.border,
+          borderTopColor: colors.border,
           marginBottom: Platform.OS === 'ios' ? 10 : 0,
           paddingTop: 3,
           height: 70,
         },
         tabBarLabelStyle: {
-          fontSize: theme.fontSizes.xs,
-          fontWeight: theme.fontWeights.medium,
+          fontSize: fontSizes.xs,
+          fontWeight: fontWeights.medium,
         },
       }}
     >
@@ -40,10 +42,10 @@ export default function AdminTabLayout() {
           title: 'Orders',
           tabBarBadge: undefined, // Will be set dynamically for pending orders
           tabBarBadgeStyle: {
-            backgroundColor: theme.colors.badge,
-            color: theme.colors.badgeText,
+            backgroundColor: colors.primary,
+            color: colors.background,
             fontSize: 10,
-            fontWeight: theme.fontWeights.bold,
+            fontWeight: fontWeights.bold,
           },
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={22} color={color} />
@@ -56,10 +58,10 @@ export default function AdminTabLayout() {
           title: 'Messages',
           tabBarBadge: undefined, // Will be set dynamically for unread messages
           tabBarBadgeStyle: {
-            backgroundColor: theme.colors.badge,
-            color: theme.colors.badgeText,
+            backgroundColor: colors.primary,
+            color: colors.background,
             fontSize: 10,
-            fontWeight: theme.fontWeights.bold,
+            fontWeight: fontWeights.bold,
           },
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={22} color={color} />
@@ -72,6 +74,15 @@ export default function AdminTabLayout() {
           title: 'Finance',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'cash' : 'cash-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="account"
+        options={{
+          title: 'Account',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
           ),
         }}
       />

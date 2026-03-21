@@ -1,68 +1,231 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AuthUser, AuthContextType } from '../types/auth';
+import { AuthUser, AuthContextType, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
+import { authService } from '../services/AuthService';
+import { tokenManager } from '../services/api/tokenManager';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_STORAGE_KEY = '@afrochinatrade:auth_user';
+const AUTH_USER_KEY = '@afrochinatrade:auth_user';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Load user from storage on mount
   useEffect(() => {
-    loadUser();
+    initializeAuth();
   }, []);
 
-  const loadUser = async () => {
+  const initializeAuth = async () => {
     try {
-      const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+      setIsLoading(true);
+      setAuthError(null);
+
+      // Test connection first
+      console.log('🔍 Testing backend connection...');
+      const connectionTest = await authService.testConnection();
+      if (!connectionTest.success) {
+        console.error('❌ Backend connection failed:', connectionTest.error);
+        setAuthError(`Cannot connect to server: ${connectionTest.error?.message}`);
+        setIsLoading(false);
+        return;
       }
+      console.log('✅ Backend connection successful');
+
+      // Initialize token manager
+      await tokenManager.initialize();
+
+      // Check if we have tokens
+      if (!tokenManager.isAuthenticated()) {
+        console.log('🔐 No tokens found, user needs to login');
+        setIsLoading(false);
+        return;
+      }
+
+      // Try to load user from storage first (for faster startup)
+      const storedUser = await AsyncStorage.getItem(AUTH_USER_KEY);
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        console.log('👤 Loaded user from storage:', userData.name);
+      }
+
+      // Then refresh user data from server
+      await loadCurrentUser();
     } catch (error) {
-      console.error('Failed to load user:', error);
+      console.error('Auth initialization failed:', error);
+      await handleAuthError();
     } finally {
       setIsLoading(false);
     }
   };
 
-  const login = async (authUser: AuthUser) => {
+  const loadCurrentUser = async () => {
     try {
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authUser));
+      const userProfile = await authService.getCurrentUser();
+      const authUser: AuthUser = {
+        id: userProfile._id,
+        name: userProfile.name,
+        email: userProfile.email,
+        phone: userProfile.phone,
+        avatar: userProfile.avatar,
+        role: userProfile.role,
+        status: userProfile.status,
+        addresses: userProfile.addresses,
+        createdAt: userProfile.createdAt,
+        updatedAt: userProfile.updatedAt,
+      };
+
       setUser(authUser);
-    } catch (error) {
-      console.error('Failed to save user:', error);
+      await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+      console.log('✅ User profile loaded:', authUser.name);
+    } catch (error: any) {
+      console.error('Failed to load user profile:', error);
+      
+      // If it's an auth error, clear everything
+      if (error.code === 'NO_TOKEN' || error.status === 401) {
+        await handleAuthError();
+      }
     }
   };
 
-  const logout = async () => {
+  const handleAuthError = async () => {
+    console.log('🚨 Handling auth error - clearing user data');
+    setUser(null);
+    await tokenManager.clearTokens();
+    await AsyncStorage.removeItem(AUTH_USER_KEY);
+  };
+
+  const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
     try {
-      await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
-      setUser(null);
-    } catch (error) {
-      console.error('Failed to remove user:', error);
+      setAuthError(null);
+      const authResponse = await authService.login(credentials);
+      
+      const authUser: AuthUser = {
+        id: authResponse.userId,
+        name: authResponse.name,
+        email: authResponse.email,
+        role: authResponse.role,
+      };
+
+      setUser(authUser);
+      await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+      
+      // Load full profile in background
+      setTimeout(() => loadCurrentUser(), 100);
+      
+      return authResponse;
+    } catch (error: any) {
+      const errorMessage = error.message || 'Login failed';
+      setAuthError(errorMessage);
+      throw error;
     }
   };
 
-  const value: AuthContextType = {
-    user,
-    isAuthenticated: !!user,
-    isSeller: user?.accountType === 'seller',
-    login,
-    logout,
+  const register = async (data: RegisterData): Promise<AuthResponse> => {
+    try {
+      setAuthError(null);
+      const authResponse = await authService.register(data);
+      
+      const authUser: AuthUser = {
+        id: authResponse.userId,
+        name: authResponse.name,
+        email: authResponse.email,
+        role: authResponse.role,
+      };
+
+      setUser(authUser);
+      await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+      
+      // Load full profile in background
+      setTimeout(() => loadCurrentUser(), 100);
+      
+      return authResponse;
+    } catch (error: any) {
+      const errorMessage = error.message || 'Registration failed';
+      setAuthError(errorMessage);
+      throw error;
+    }
   };
 
-  // Don't render children until we've loaded the user
-  if (isLoading) {
-    return null;
-  }
+  const logout = async (): Promise<void> => {
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.warn('Logout service failed, but continuing with local logout');
+    } finally {
+      setUser(null);
+      await AsyncStorage.removeItem(AUTH_USER_KEY);
+    }
+  };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const forceLogout = async (): Promise<void> => {
+    console.log('🔒 Force logout triggered');
+    await logout();
+  };
+
+  const getCurrentUser = async (): Promise<void> => {
+    await loadCurrentUser();
+  };
+
+  const updateProfile = async (data: Partial<AuthUser>): Promise<void> => {
+    try {
+      const updateData = {
+        name: data.name,
+        phone: data.phone,
+        avatar: data.avatar,
+      };
+      
+      const updatedProfile = await authService.updateProfile(updateData);
+      
+      const authUser: AuthUser = {
+        id: updatedProfile._id,
+        name: updatedProfile.name,
+        email: updatedProfile.email,
+        phone: updatedProfile.phone,
+        avatar: updatedProfile.avatar,
+        role: updatedProfile.role,
+        status: updatedProfile.status,
+        addresses: updatedProfile.addresses,
+        createdAt: updatedProfile.createdAt,
+        updatedAt: updatedProfile.updatedAt,
+      };
+
+      setUser(authUser);
+      await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to update profile');
+    }
+  };
+
+  const clearError = () => {
+    setAuthError(null);
+  };
+
+  const contextValue: AuthContextType = {
+    user,
+    isAuthenticated: !!user && tokenManager.isAuthenticated(),
+    isAdmin: user?.role === 'admin' || user?.role === 'super_admin',
+    isLoading,
+    authError,
+    login,
+    register,
+    logout,
+    forceLogout,
+    getCurrentUser,
+    updateProfile,
+    clearError,
+  };
+
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { theme } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface NavItem {
   id: string;
@@ -18,8 +18,17 @@ interface BottomNavProps {
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({ items, activeId, onItemPress }) => {
+  const { colors, spacing, borderRadius, fontSizes, fontWeights, shadows } = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { 
+      backgroundColor: colors.background, 
+      borderTopWidth: 1, 
+      borderTopColor: colors.border, 
+      paddingVertical: spacing.sm, 
+      paddingHorizontal: spacing.base,
+      ...shadows.md 
+    }]}>
       {items.map((item) => {
         const isActive = item.id === activeId;
         const IconComponent = item.iconType === 'material' ? MaterialCommunityIcons : Ionicons;
@@ -30,21 +39,34 @@ export const BottomNav: React.FC<BottomNavProps> = ({ items, activeId, onItemPre
             style={styles.item}
             onPress={() => onItemPress(item.id)}
           >
-            <View style={styles.iconContainer}>
+            <View style={[styles.iconContainer, { marginBottom: spacing.xs }]}>
               <IconComponent
                 name={item.iconName as any}
                 size={24}
-                color={isActive ? theme.colors.primary : theme.colors.textSecondary}
+                color={isActive ? colors.primary : colors.textSecondary}
               />
               {item.badge && item.badge > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
+                <View style={[styles.badge, { 
+                  backgroundColor: colors.error, 
+                  borderRadius: borderRadius.full 
+                }]}>
+                  <Text style={[styles.badgeText, { 
+                    color: 'white', 
+                    fontWeight: fontWeights.bold 
+                  }]}>
                     {item.badge > 99 ? '99+' : item.badge}
                   </Text>
                 </View>
               )}
             </View>
-            <Text style={[styles.label, isActive && styles.activeLabel]}>
+            <Text style={[
+              styles.label, 
+              { 
+                fontSize: fontSizes.xs, 
+                color: isActive ? colors.primary : colors.textSecondary, 
+                fontWeight: fontWeights.medium 
+              }
+            ]}>
               {item.label}
             </Text>
           </TouchableOpacity>
@@ -57,12 +79,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ items, activeId, onItemPre
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.background,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.base,
-    ...theme.shadows.md,
   },
   item: {
     flex: 1,
@@ -71,22 +87,14 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     position: 'relative',
-    marginBottom: theme.spacing.xs,
   },
   label: {
-    fontSize: theme.fontSizes.xs,
-    color: theme.colors.textSecondary,
-    fontWeight: theme.fontWeights.medium,
-  },
-  activeLabel: {
-    color: theme.colors.primary,
+    // Styles applied inline
   },
   badge: {
     position: 'absolute',
     top: -4,
     right: -8,
-    backgroundColor: theme.colors.badge,
-    borderRadius: theme.borderRadius.full,
     minWidth: 18,
     height: 18,
     justifyContent: 'center',
@@ -94,8 +102,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   badgeText: {
-    color: theme.colors.badgeText,
     fontSize: 10,
-    fontWeight: theme.fontWeights.bold,
   },
 });

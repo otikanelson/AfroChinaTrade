@@ -1,14 +1,14 @@
 export const fontSizes = {
-  xs: 10,
-  sm: 12,
-  base: 14,
-  md: 16,
+  xs: 12,
+  sm: 14,
+  base: 16,
+  md: 16, // Alias for base
   lg: 18,
   xl: 20,
   '2xl': 24,
-  '3xl': 28,
-  '4xl': 32,
-  '5xl': 40,
+  '3xl': 30,
+  '4xl': 36,
+  '5xl': 40, // Keep for compatibility
 } as const;
 
 export const fontWeights = {
@@ -17,7 +17,7 @@ export const fontWeights = {
   medium: '500',
   semibold: '600',
   bold: '700',
-  extrabold: '800',
+  extrabold: '800', // Keep for compatibility
 } as const;
 
 export const letterSpacing = {

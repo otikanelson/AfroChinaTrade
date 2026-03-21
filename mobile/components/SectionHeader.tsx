@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { theme } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface SectionHeaderProps {
   title: string;
@@ -16,16 +16,43 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   actionText,
   onActionPress,
 }) => {
+  const { colors, spacing, borderRadius, fontSizes, fontWeights, shadows } = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { 
+      paddingHorizontal: spacing.base, 
+      marginBottom: spacing.lg, 
+      marginTop: spacing.xl 
+    }]}>
       <View style={styles.textContainer}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+        <Text style={[styles.title, { 
+          fontSize: fontSizes.xl, 
+          fontWeight: fontWeights.bold, 
+          color: colors.text 
+        }]}>{title}</Text>
+        {subtitle && <Text style={[styles.subtitle, { 
+          fontSize: fontSizes.sm, 
+          color: colors.textSecondary, 
+          fontWeight: fontWeights.medium 
+        }]}>{subtitle}</Text>}
       </View>
       {actionText && onActionPress && (
-        <TouchableOpacity onPress={onActionPress} style={styles.actionButton}>
-          <Text style={styles.actionText}>{actionText}</Text>
-          <MaterialIcons name="chevron-right" size={20} color={theme.colors.primary} />
+        <TouchableOpacity onPress={onActionPress} style={[styles.actionButton, { 
+          paddingHorizontal: spacing.md, 
+          paddingVertical: spacing.sm, 
+          borderRadius: borderRadius.lg, 
+          backgroundColor: colors.surface, 
+          borderWidth: 1, 
+          borderColor: colors.border,
+          ...shadows.sm 
+        }]}>
+          <Text style={[styles.actionText, { 
+            fontSize: fontSizes.sm, 
+            color: colors.primary, 
+            fontWeight: fontWeights.semibold, 
+            marginRight: spacing.xs 
+          }]}>{actionText}</Text>
+          <MaterialIcons name="chevron-right" size={20} color={colors.primary} />
         </TouchableOpacity>
       )}
     </View>
@@ -37,29 +64,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.base,
-    marginBottom: theme.spacing.md,
   },
   textContainer: {
     flex: 1,
   },
   title: {
-    fontSize: theme.fontSizes.lg,
-    fontWeight: theme.fontWeights.bold,
-    color: theme.colors.text,
+    marginBottom: 2,
   },
   subtitle: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
+    // Styles applied inline
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   actionText: {
-    fontSize: theme.fontSizes.base,
-    color: theme.colors.primary,
-    fontWeight: theme.fontWeights.medium,
+    // Styles applied inline
   },
 });

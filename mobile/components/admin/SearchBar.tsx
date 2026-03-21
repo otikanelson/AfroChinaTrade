@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
 import { theme } from '../../theme';
 
 export interface SearchBarProps {
@@ -35,6 +36,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   style,
   testID,
 }) => {
+  const { colors } = useTheme();
   // Internal (immediate) value drives the TextInput so it feels responsive.
   const [inputValue, setInputValue] = useState(value);
   const [focused, setFocused] = useState(false);
@@ -91,7 +93,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       <Ionicons
         name="search-outline"
         size={18}
-        color={focused ? theme.colors.primary : theme.colors.textSecondary}
+        color={focused ? colors.primary : colors.textSecondary}
         style={styles.searchIcon}
         testID={testID ? `${testID}-icon` : undefined}
       />
@@ -102,7 +104,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         value={inputValue}
         onChangeText={handleChange}
         placeholder={placeholder}
-        placeholderTextColor={theme.colors.textLight}
+        placeholderTextColor={colors.textLight}
         returnKeyType="search"
         onSubmitEditing={Keyboard.dismiss}
         onFocus={() => setFocused(true)}
@@ -129,7 +131,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           <Ionicons
             name="close-circle"
             size={18}
-            color={theme.colors.textSecondary}
+            color={colors.textSecondary}
           />
         </TouchableOpacity>
       )}
@@ -141,24 +143,27 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.background,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: theme.spacing.md,
-    minHeight: 44,
+    borderRadius: theme.borderRadius.lg,
+    paddingHorizontal: theme.spacing.lg,
+    minHeight: 48,
+    ...theme.shadows.sm,
   },
   containerFocused: {
     borderColor: theme.colors.primary,
     backgroundColor: theme.colors.background,
+    ...theme.shadows.md,
   },
   searchIcon: {
-    marginRight: theme.spacing.sm,
+    marginRight: theme.spacing.md,
   },
   input: {
     flex: 1,
     ...theme.typography.body,
     color: theme.colors.text,
+    fontSize: theme.fontSizes.base,
     paddingVertical: Platform.OS === 'ios' ? theme.spacing.sm : 0,
   },
   clearButton: {

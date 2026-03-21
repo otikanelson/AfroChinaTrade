@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Pressable,
   PressableProps,
@@ -36,6 +36,13 @@ export const AccessibleTouchable: React.FC<AccessibleTouchableProps> = ({
   ...rest
 }) => {
   const sizeRef = useRef<{ width: number; height: number } | null>(null);
+  const [hitSlopValue, setHitSlopValue] = React.useState({ top: 8, bottom: 8, left: 8, right: 8 });
+
+  const updateHitSlop = (size: { width: number; height: number }) => {
+    const dw = Math.max(0, MIN_TOUCH - size.width) / 2;
+    const dh = Math.max(0, MIN_TOUCH - size.height) / 2;
+    setHitSlopValue({ top: dh, bottom: dh, left: dw, right: dw });
+  };
 
   return (
     <Pressable
@@ -48,23 +55,13 @@ export const AccessibleTouchable: React.FC<AccessibleTouchableProps> = ({
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         sizeRef.current = { width, height };
+        updateHitSlop({ width, height });
         // Forward original onLayout if provided
         if (typeof rest.onLayout === 'function') {
           rest.onLayout(e);
         }
       }}
-      hitSlop={(state) => {
-        // state is unused here; we rely on the measured size stored in the ref
-        void state;
-        const size = sizeRef.current;
-        if (!size) {
-          // Before first layout, apply a conservative hitSlop
-          return { top: 8, bottom: 8, left: 8, right: 8 };
-        }
-        const dw = Math.max(0, MIN_TOUCH - size.width) / 2;
-        const dh = Math.max(0, MIN_TOUCH - size.height) / 2;
-        return { top: dh, bottom: dh, left: dw, right: dw };
-      }}
+      hitSlop={hitSlopValue}
     >
       {children}
     </Pressable>

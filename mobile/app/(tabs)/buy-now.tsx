@@ -1,150 +1,306 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Text } from 'react-native';
-import { SearchBar } from '../../components/SearchBar';
-import { CategoryTabs } from '../../components/CategoryTabs';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { ProductCard } from '../../components/ProductCard';
-import { SectionHeader } from '../../components/SectionHeader';
-import { mockProducts, mockCategories } from '../../data/mockData';
-import { theme } from '../../theme';
+import { productService } from '../../services/ProductService';
 import { Product } from '../../types/product';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function BuyNowTab() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('All');
+  const router = useRouter();
+  const { colors, spacing, fontSizes, borderRadius, fontWeights } = useTheme();
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const categories = ['All', ...mockCategories.map(c => c.name)];
+  useEffect(() => {
+    loadFeaturedProducts();
+  }, []);
 
-  // Filter products by category and search query
-  const filteredProducts = mockProducts.filter(product => {
-    // Filter by category
-    const matchesCategory = activeCategory === 'All' || product.category === activeCategory;
-    
-    // Filter by search query (case-insensitive)
-    const matchesSearch = searchQuery === '' || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesCategory && matchesSearch;
-  });
-
-  // Split products into two columns for masonry layout
-  const getMasonryColumns = (products: Product[]) => {
-    const leftColumn: Product[] = [];
-    const rightColumn: Product[] = [];
-    
-    products.forEach((product, index) => {
-      if (index % 2 === 0) {
-        leftColumn.push(product);
-      } else {
-        rightColumn.push(product);
+  const loadFeaturedProducts = async () => {
+    try {
+      setLoading(true);
+      const response = await productService.getFeaturedProducts(20);
+      
+      if (response.success && response.data) {
+        setFeaturedProducts(response.data);
       }
-    });
-    
-    return { leftColumn, rightColumn };
+    } catch (error) {
+      console.error('Error loading featured products:', error);
+      Alert.alert('Error', 'Failed to load products');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const { leftColumn, rightColumn } = getMasonryColumns(filteredProducts);
+  const handleProductPress = (product: Product) => {
+    router.push({
+      pathname: '/product-detail/[id]',
+      params: { id: product.id }
+    });
+  };
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Buy Now</Text>
-        <Text style={styles.headerSubtitle}>Browse all products</Text>
-      </View>
+  const handleRefresh = () => {
+    loadFeaturedProducts();
+  };
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search products..."
-            onSearchPress={() => console.log('Search')}
-          />
-        </View>
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+      backgroundColor: colors.surface,
+    },
+    headerContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    headerTitleContainer: {
+      flex: 1,
+    },
+    headerTitle: {
+      fontSize: fontSizes['2xl'],
+      fontWeight: fontWeights.bold,
+      color: colors.text,
+      marginBottom: 2,
+    },
+    headerSubtitle: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+    },
+    refreshButton: {
+      padding: spacing.sm,
+      borderRadius: borderRadius.base,
+      backgroundColor: colors.primary,
+      marginLeft: spacing.md,
+    },
+    content: {
+      flex: 1,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.base,
+    },
+    loadingText: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    quickActions: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.lg,
+      gap: spacing.sm,
+      backgroundColor: colors.background,
+    },
+    quickActionCard: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.md,
+      padding: spacing.md,
+      alignItems: 'center',
+      gap: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minHeight: 80,
+      justifyContent: 'center',
+    },
+    quickActionIcon: {
+      marginBottom: spacing.xs,
+    },
+    quickActionText: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium,
+      color: colors.text,
+      textAlign: 'center',
+    },
+    section: {
+      paddingHorizontal: spacing.base,
+      paddingBottom: spacing.lg,
+      backgroundColor: colors.background,
+    },
+    sectionHeader: {
+      marginBottom: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    sectionTitle: {
+      fontSize: fontSizes.xl,
+      fontWeight: fontWeights.bold,
+      color: colors.text,
+      marginBottom: spacing.xs,
+    },
+    sectionSubtitle: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      paddingVertical: spacing['2xl'],
+      gap: spacing.lg,
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.md,
+      marginTop: spacing.md,
+    },
+    emptyIcon: {
+      marginBottom: spacing.sm,
+    },
+    emptyText: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      paddingHorizontal: spacing.lg,
+    },
+    browseButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.md,
+      marginTop: spacing.sm,
+    },
+    browseButtonText: {
+      color: colors.textInverse,
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold,
+    },
+    productsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      justifyContent: 'space-between',
+      marginTop: spacing.md,
+    },
+    productCardContainer: {
+      width: '48%',
+    },
+    bottomSpacing: {
+      height: spacing.xl,
+    },
+  });
 
-        {/* Category Tabs */}
-        <CategoryTabs
-          categories={categories}
-          activeCategory={activeCategory}
-          onCategoryPress={setActiveCategory}
-        />
-
-        {/* Products Grid */}
-        <View style={styles.section}>
-          <SectionHeader 
-            title={activeCategory === 'All' ? 'All Products' : activeCategory}
-            subtitle={`${filteredProducts.length} products`}
-          />
-          <View style={styles.masonryContainer}>
-            <View style={styles.masonryColumn}>
-              {leftColumn.map(product => (
-                <View key={product.id} style={styles.masonryItem}>
-                  <ProductCard
-                    product={product}
-                    badge={product.discount ? `${product.discount}% OFF` : product.isNew ? 'New' : undefined}
-                  />
-                </View>
-              ))}
-            </View>
-            <View style={styles.masonryColumn}>
-              {rightColumn.map(product => (
-                <View key={product.id} style={styles.masonryItem}>
-                  <ProductCard
-                    product={product}
-                    badge={product.discount ? `${product.discount}% OFF` : product.isNew ? 'New' : undefined}
-                  />
-                </View>
-              ))}
-            </View>
+  if (loading && featuredProducts.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>Buy Now</Text>
+            <Text style={styles.headerSubtitle}>Quick purchase deals</Text>
           </View>
         </View>
+        <View style={styles.loadingContainer}>
+          <Ionicons name="storefront-outline" size={48} color={colors.textSecondary} />
+          <Text style={styles.loadingText}>Loading featured deals...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>Buy Now</Text>
+            <Text style={styles.headerSubtitle}>Featured deals & quick purchases</Text>
+          </View>
+          <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
+            <Ionicons name="refresh" size={20} color={colors.textInverse} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Content */}
+      <ScrollView 
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity 
+            style={styles.quickActionCard}
+            onPress={() => router.push('/(tabs)/home')}
+          >
+            <View style={styles.quickActionIcon}>
+              <Ionicons name="search" size={24} color={colors.primary} />
+            </View>
+            <Text style={styles.quickActionText}>Browse All</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.quickActionCard}
+            onPress={() => router.push('/wishlist')}
+          >
+            <View style={styles.quickActionIcon}>
+              <Ionicons name="heart" size={24} color={colors.primary} />
+            </View>
+            <Text style={styles.quickActionText}>Wishlist</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.quickActionCard}
+            onPress={() => router.push('/orders')}
+          >
+            <View style={styles.quickActionIcon}>
+              <Ionicons name="receipt" size={24} color={colors.primary}/>
+            </View>
+            <Text style={styles.quickActionText}>Orders</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Featured Products */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Featured Deals</Text>
+            <Text style={styles.sectionSubtitle}>
+              {featuredProducts.length} products available for quick purchase
+            </Text>
+          </View>
+
+          {featuredProducts.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="storefront-outline" size={48} color={colors.textSecondary} />
+              </View>
+              <Text style={styles.emptyText}>
+                No featured products available at the moment. Check back later for exciting deals!
+              </Text>
+              <TouchableOpacity 
+                style={styles.browseButton}
+                onPress={() => router.push('/(tabs)/home')}
+              >
+                <Text style={styles.browseButtonText}>Browse All Products</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.productsGrid}>
+              {featuredProducts.map((product) => (
+                <View key={product.id} style={styles.productCardContainer}>
+                  <ProductCard
+                    product={product}
+                    onPress={() => handleProductPress(product)}
+                    badge={product.discount && product.discount > 0 ? `${product.discount}% OFF` : undefined}
+                  />
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.surface,
-  },
-  header: {
-    backgroundColor: theme.colors.background,
-    paddingTop: 40,
-    paddingBottom: theme.spacing.base,
-    paddingHorizontal: theme.spacing.base,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.borderLight,
-    ...theme.shadows.sm,
-  },
-  headerTitle: {
-    fontSize: theme.fontSizes['2xl'],
-    fontWeight: theme.fontWeights.bold,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.textSecondary,
-  },
-  searchContainer: {
-    paddingHorizontal: theme.spacing.base,
-    paddingVertical: theme.spacing.base,
-  },
-  section: {
-    marginBottom: theme.spacing.lg,
-  },
-  masonryContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: theme.spacing.base,
-    gap: theme.spacing.md,
-  },
-  masonryColumn: {
-    flex: 1,
-  },
-  masonryItem: {
-    marginBottom: theme.spacing.md,
-  },
-});

@@ -3,46 +3,45 @@ import { useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { theme } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function AdminLayout() {
-  const { isAuthenticated, isSeller, user } = useAuth();
+  const { isAuthenticated, isAdmin, user } = useAuth();
+  const { colors, spacing, fontSizes, fontWeights } = useTheme();
   const router = useRouter();
   const segments = useSegments();
 
   useEffect(() => {
-    // In development, allow access without seller account for testing
-    // Remove this bypass in production
-    if (__DEV__) return;
-    if (!isAuthenticated || !isSeller) {
+    // Redirect non-admin users to login or home
+    if (!isAuthenticated) {
+      console.log('🔐 Admin access denied: Not authenticated, redirecting to login');
+      router.replace('/auth/login');
+    } else if (!isAdmin) {
+      console.log('🔐 Admin access denied: Not admin user, redirecting to home');
       router.replace('/(tabs)/home');
     }
-  }, [isAuthenticated, isSeller]);
+  }, [isAuthenticated, isAdmin, router]);
 
-  // In dev mode, skip the auth check entirely
-  if (__DEV__) {
-    return (
-      <NotificationProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="index" options={{ title: 'Admin Dashboard', headerShown: true, headerStyle: { backgroundColor: theme.colors.primary }, headerTintColor: theme.colors.background, headerTitleStyle: { fontWeight: theme.fontWeights.semibold } }} />
-          <Stack.Screen name="product" options={{ headerShown: false }} />
-          <Stack.Screen name="order" options={{ headerShown: false }} />
-          <Stack.Screen name="message" options={{ headerShown: false }} />
-          <Stack.Screen name="moderation" options={{ headerShown: false }} />
-          <Stack.Screen name="users" options={{ headerShown: false }} />
-          <Stack.Screen name="finance" options={{ headerShown: false }} />
-        </Stack>
-      </NotificationProvider>
-    );
-  }
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+    },
+    text: {
+      marginTop: spacing.md,
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+  });
 
-  // Show loading state while checking authentication
-  if (!isAuthenticated || !isSeller) {
+  // Show loading while checking authentication
+  if (!isAuthenticated || !isAdmin) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.text}>Checking access...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.text}>Checking admin access...</Text>
       </View>
     );
   }
@@ -66,11 +65,11 @@ export default function AdminLayout() {
             title: 'Admin Dashboard',
             headerShown: true,
             headerStyle: {
-              backgroundColor: theme.colors.primary,
+              backgroundColor: colors.primary,
             },
-            headerTintColor: theme.colors.background,
+            headerTintColor: colors.background,
             headerTitleStyle: {
-              fontWeight: theme.fontWeights.semibold,
+              fontWeight: fontWeights.semibold,
             },
           }}
         />
@@ -115,16 +114,4 @@ export default function AdminLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-  },
-  text: {
-    marginTop: theme.spacing.md,
-    fontSize: theme.fontSizes.base,
-    color: theme.colors.textSecondary,
-  },
-});
+

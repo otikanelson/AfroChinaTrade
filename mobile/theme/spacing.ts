@@ -6,9 +6,9 @@ export const spacing = {
   lg: 20,
   xl: 24,
   '2xl': 32,
-  '3xl': 40,
-  '4xl': 48,
-  '5xl': 64,
+  '3xl': 48,
+  '4xl': 64,
+  '5xl': 64, // Alias for compatibility
 } as const;
 
 export const borderRadius = {

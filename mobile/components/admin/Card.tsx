@@ -6,7 +6,7 @@ import {
   ViewStyle,
   Platform,
 } from 'react-native';
-import { theme } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface CardProps {
   children: ReactNode;
@@ -33,7 +33,28 @@ export const Card: React.FC<CardProps> = ({
   disabled = false,
   testID,
 }) => {
-  const shadowStyle = theme.shadows[elevation];
+  const { colors, borderRadius, spacing, shadows } = useTheme();
+  const shadowStyle = shadows[elevation];
+
+  const styles = StyleSheet.create({
+    card: {
+      backgroundColor: colors.background,
+      borderRadius: borderRadius.lg,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+    },
+    content: {
+      padding: spacing.lg,
+    },
+    pressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.98 }],
+    },
+    disabled: {
+      opacity: 0.5,
+    },
+  });
 
   if (onPress) {
     return (
@@ -64,19 +85,4 @@ export const Card: React.FC<CardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-  },
-  content: {
-    padding: theme.spacing.base,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-});
+

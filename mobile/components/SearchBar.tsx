@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface SearchBarProps {
   value: string;
@@ -18,23 +18,34 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onCameraPress,
   onSearchPress,
 }) => {
+  const { colors, spacing, borderRadius, fontSizes, shadows } = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { 
+      backgroundColor: colors.background, 
+      borderRadius: borderRadius.lg, 
+      paddingHorizontal: spacing.base,
+      ...shadows.sm 
+    }]}>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { fontSize: fontSizes.base, color: colors.text }]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={theme.colors.textLight}
+        placeholderTextColor={colors.textLight}
       />
       {onCameraPress && (
-        <TouchableOpacity style={styles.iconButton} onPress={onCameraPress}>
-          <Ionicons name="camera-outline" size={24} color={theme.colors.textSecondary} />
+        <TouchableOpacity style={[styles.iconButton, { padding: spacing.sm, marginLeft: spacing.sm }]} onPress={onCameraPress}>
+          <Ionicons name="camera-outline" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
       )}
       {onSearchPress && (
-        <TouchableOpacity style={styles.searchButton} onPress={onSearchPress}>
-          <Ionicons name="search" size={20} color={theme.colors.background} />
+        <TouchableOpacity style={[styles.searchButton, { 
+          backgroundColor: colors.text, 
+          borderRadius: borderRadius.full,
+          marginLeft: spacing.sm 
+        }]} onPress={onSearchPress}>
+          <Ionicons name="search" size={20} color={colors.background} />
         </TouchableOpacity>
       )}
     </View>
@@ -45,28 +56,18 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.lg,
-    paddingHorizontal: theme.spacing.base,
     height: 48,
-    ...theme.shadows.sm,
   },
   input: {
     flex: 1,
-    fontSize: theme.fontSizes.base,
-    color: theme.colors.text,
   },
   iconButton: {
-    padding: theme.spacing.sm,
-    marginLeft: theme.spacing.sm,
+    // Styles applied inline
   },
   searchButton: {
-    backgroundColor: theme.colors.text,
-    borderRadius: theme.borderRadius.full,
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: theme.spacing.sm,
   },
 });

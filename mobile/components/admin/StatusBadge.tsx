@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { theme } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // Core status types from requirements
 export type StatusType =
@@ -32,68 +32,68 @@ interface StatusConfig {
 const STATUS_CONFIG: Record<StatusType, StatusConfig> = {
   pending: {
     label: 'Pending',
-    backgroundColor: '#FFF3CD',
-    textColor: '#856404',
+    backgroundColor: '#FEF3C7',
+    textColor: '#92400E',
   },
   active: {
     label: 'Active',
-    backgroundColor: '#D4EDDA',
-    textColor: '#155724',
+    backgroundColor: '#D1FAE5',
+    textColor: '#065F46',
   },
   completed: {
     label: 'Completed',
-    backgroundColor: '#D4EDDA',
-    textColor: '#155724',
+    backgroundColor: '#D1FAE5',
+    textColor: '#065F46',
   },
   failed: {
     label: 'Failed',
-    backgroundColor: '#F8D7DA',
-    textColor: '#721C24',
+    backgroundColor: '#FEE2E2',
+    textColor: '#991B1B',
   },
   blocked: {
     label: 'Blocked',
-    backgroundColor: '#F8D7DA',
-    textColor: '#721C24',
+    backgroundColor: '#FEE2E2',
+    textColor: '#991B1B',
   },
   accepted: {
     label: 'Accepted',
-    backgroundColor: '#CCE5FF',
-    textColor: '#004085',
+    backgroundColor: '#DBEAFE',
+    textColor: '#1E40AF',
   },
   in_fulfillment: {
     label: 'In Fulfillment',
-    backgroundColor: '#E2D9F3',
-    textColor: '#4A235A',
+    backgroundColor: '#E0E7FF',
+    textColor: '#3730A3',
   },
   shipped: {
     label: 'Shipped',
-    backgroundColor: '#CCE5FF',
-    textColor: '#004085',
+    backgroundColor: '#DBEAFE',
+    textColor: '#1E40AF',
   },
   delivered: {
     label: 'Delivered',
-    backgroundColor: '#D4EDDA',
-    textColor: '#155724',
+    backgroundColor: '#D1FAE5',
+    textColor: '#065F46',
   },
   refunded: {
     label: 'Refunded',
-    backgroundColor: '#FFF3CD',
-    textColor: '#856404',
+    backgroundColor: '#FEF3C7',
+    textColor: '#92400E',
   },
   suspended: {
     label: 'Suspended',
-    backgroundColor: '#FFE5B4',
-    textColor: '#7D4E00',
+    backgroundColor: '#FED7AA',
+    textColor: '#9A3412',
   },
   resolved: {
     label: 'Resolved',
-    backgroundColor: '#D4EDDA',
-    textColor: '#155724',
+    backgroundColor: '#D1FAE5',
+    textColor: '#065F46',
   },
   dismissed: {
     label: 'Dismissed',
-    backgroundColor: '#E2E3E5',
-    textColor: '#383D41',
+    backgroundColor: '#F3F4F6',
+    textColor: '#374151',
   },
 };
 
@@ -117,8 +117,43 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   textStyle,
   testID,
 }) => {
+  const { borderRadius, spacing, fontSizes, fontWeights } = useTheme();
+  
   const config = STATUS_CONFIG[status];
   const displayLabel = label ?? config.label;
+
+  const styles = StyleSheet.create({
+    badge: {
+      alignSelf: 'flex-start',
+      borderRadius: borderRadius.full,
+      overflow: 'hidden',
+    },
+    text: {
+      fontWeight: fontWeights.semibold as TextStyle['fontWeight'],
+    },
+    // Size variants
+    sm: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+    },
+    smText: {
+      fontSize: fontSizes.xs,
+    },
+    md: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+    },
+    mdText: {
+      fontSize: fontSizes.sm,
+    },
+    lg: {
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.sm,
+    },
+    lgText: {
+      fontSize: fontSizes.base,
+    },
+  });
 
   return (
     <View
@@ -148,36 +183,4 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  badge: {
-    alignSelf: 'flex-start',
-    borderRadius: theme.borderRadius.full,
-    overflow: 'hidden',
-  },
-  text: {
-    fontWeight: theme.fontWeights.semibold as TextStyle['fontWeight'],
-    letterSpacing: theme.letterSpacing.wide,
-  },
-  // Size variants
-  sm: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 2,
-  },
-  smText: {
-    fontSize: theme.fontSizes.xs,
-  },
-  md: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-  },
-  mdText: {
-    fontSize: theme.fontSizes.sm,
-  },
-  lg: {
-    paddingHorizontal: theme.spacing.base,
-    paddingVertical: theme.spacing.sm,
-  },
-  lgText: {
-    fontSize: theme.fontSizes.base,
-  },
-});
+

@@ -1,0 +1,355 @@
+import { Request, Response } from 'express';
+import Message from '../models/Message';
+import MessageThread from '../models/MessageThread';
+import User from '../models/User';
+
+export const createMessage = async (req: Request, res: Response) => {
+  try {
+    const { threadId, text, recipientId } = req.body;
+
+    if (!threadId || !text) {
+      return res.status(400).json({ 
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Thread ID and message text are required'
+        }
+      });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found'
+        }
+      });
+    }
+
+    // Check if thread exists, if not create it
+    let thread = await MessageThread.findOne({ threadId });
+    if (!thread && recipientId) {
+      const recipient = await User.findById(recipientId);
+      if (!recipient) {
+        return res.status(404).json({ 
+          success: false,
+          error: {
+            code: 'RECIPIENT_NOT_FOUND',
+            message: 'Recipient not found'
+          }
+        });
+      }
+
+      thread = await MessageThread.create({
+        threadId,
+        customerId: user.role === 'customer' ? req.userId : recipientId,
+        customerName: user.role === 'customer' ? user.name : recipient.name,
+        lastMessage: text,
+        lastMessageAt: new Date(),
+        unreadCount: user.role === 'customer' ? 0 : 1
+      });
+    }
+
+    if (!thread) {
+      return res.status(404).json({ 
+        success: false,
+        error: {
+          code: 'THREAD_NOT_FOUND',
+          message: 'Thread not found'
+        }
+      });
+    }
+
+    // Verify user can access this thread
+    if (thread.customerId.toString() !== req.userId && req.userRole !== 'admin') {
+      return res.status(403).json({ 
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'You are not authorized to send messages in this thread'
+        }
+      });
+    }
+
+    const message = await Message.create({
+      threadId,
+      senderId: req.userId,
+      senderName: user.name,
+      senderRole: user.role,
+      text,
+    });
+
+    // Update thread with last message info and increment unread count if sender is not the customer
+    const updateData: any = {
+      lastMessage: text,
+      lastMessageAt: new Date(),
+    };
+
+    if (user.role === 'admin' && thread.customerId.toString() !== req.userId) {
+      updateData.$inc = { unreadCount: 1 };
+    }
+
+    await MessageThread.findOneAndUpdate(
+      { threadId },
+      updateData
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Message sent successfully',
+      data: message,
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }
+    });
+  }
+};
+
+export const getThreads = async (req: Request, res: Response) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = Math.min(parseInt(limit as string) || 10, 100); // Max 100 per page
+    const skip = (pageNum - 1) * limitNum;
+
+    // For customers, show their own threads. For admins, show all threads
+    const filter = req.userRole === 'admin' ? {} : { customerId: req.userId };
+
+    const threads = await MessageThread.find(filter)
+      .skip(skip)
+      .limit(limitNum)
+      .sort({ lastMessageAt: -1 });
+
+    // Calculate unread count for each thread
+    const threadsWithUnreadCount = await Promise.all(
+      threads.map(async (thread) => {
+        let unreadCount = 0;
+        
+        if (req.userRole === 'admin') {
+          // For admin, count unread messages from customers
+          unreadCount = await Message.countDocuments({
+            threadId: thread.threadId,
+            senderRole: 'customer',
+            isRead: false
+          });
+        } else {
+          // For customers, count unread messages from admins
+          unreadCount = await Message.countDocuments({
+            threadId: thread.threadId,
+            senderRole: 'admin',
+            isRead: false
+          });
+        }
+
+        return {
+          ...thread.toObject(),
+          unreadCount
+        };
+      })
+    );
+
+    const total = await MessageThread.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: threadsWithUnreadCount,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }
+    });
+  }
+};
+
+export const getThreadMessages = async (req: Request, res: Response) => {
+  try {
+    const { threadId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = Math.min(parseInt(limit as string) || 20, 100); // Max 100 per page
+    const skip = (pageNum - 1) * limitNum;
+
+    const thread = await MessageThread.findOne({ threadId });
+    if (!thread) {
+      return res.status(404).json({ 
+        success: false,
+        error: {
+          code: 'THREAD_NOT_FOUND',
+          message: 'Thread not found'
+        }
+      });
+    }
+
+    // Verify user can access this thread
+    if (thread.customerId.toString() !== req.userId && req.userRole !== 'admin') {
+      return res.status(403).json({ 
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'You are not authorized to access this thread'
+        }
+      });
+    }
+
+    const messages = await Message.find({ threadId })
+      .skip(skip)
+      .limit(limitNum)
+      .sort({ createdAt: 1 }); // Oldest first for chat display
+
+    const total = await Message.countDocuments({ threadId });
+
+    res.json({
+      success: true,
+      data: {
+        thread: {
+          threadId: thread.threadId,
+          customerId: thread.customerId,
+          customerName: thread.customerName,
+          status: thread.status
+        },
+        messages
+      },
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }
+    });
+  }
+};
+
+export const markAsRead = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const message = await Message.findById(id);
+    if (!message) {
+      return res.status(404).json({ 
+        success: false,
+        error: {
+          code: 'MESSAGE_NOT_FOUND',
+          message: 'Message not found'
+        }
+      });
+    }
+
+    // Verify user can mark this message as read
+    // Users can only mark messages they received as read
+    if (message.senderId.toString() === req.userId) {
+      return res.status(400).json({ 
+        success: false,
+        error: {
+          code: 'INVALID_OPERATION',
+          message: 'Cannot mark your own message as read'
+        }
+      });
+    }
+
+    // Check if user has access to this thread
+    const thread = await MessageThread.findOne({ threadId: message.threadId });
+    if (!thread) {
+      return res.status(404).json({ 
+        success: false,
+        error: {
+          code: 'THREAD_NOT_FOUND',
+          message: 'Thread not found'
+        }
+      });
+    }
+
+    if (thread.customerId.toString() !== req.userId && req.userRole !== 'admin') {
+      return res.status(403).json({ 
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'You are not authorized to mark this message as read'
+        }
+      });
+    }
+
+    const updatedMessage = await Message.findByIdAndUpdate(
+      id,
+      { isRead: true },
+      { returnDocument: 'after' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Message marked as read',
+      data: updatedMessage,
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }
+    });
+  }
+};
+
+export const getUnreadCount = async (req: Request, res: Response) => {
+  try {
+    let unreadCount = 0;
+
+    if (req.userRole === 'admin') {
+      // For admin, count unread messages from customers across all threads
+      unreadCount = await Message.countDocuments({
+        senderRole: 'customer',
+        isRead: false,
+      });
+    } else {
+      // For customers, count unread messages from admins in their threads
+      const userThreads = await MessageThread.find({ customerId: req.userId });
+      const threadIds = userThreads.map(thread => thread.threadId);
+      
+      unreadCount = await Message.countDocuments({
+        threadId: { $in: threadIds },
+        senderRole: 'admin',
+        isRead: false,
+      });
+    }
+
+    res.json({ 
+      success: true,
+      data: { unreadCount }
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }
+    });
+  }
+};

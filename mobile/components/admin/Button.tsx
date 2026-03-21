@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -32,81 +32,6 @@ export interface ButtonProps {
   testID?: string;
 }
 
-const VARIANT_STYLES: Record<
-  ButtonVariant,
-  { container: ViewStyle; text: TextStyle; iconColor: string; disabledContainer: ViewStyle; disabledText: TextStyle }
-> = {
-  primary: {
-    container: { backgroundColor: theme.colors.primary },
-    text: { color: theme.colors.textInverse },
-    iconColor: theme.colors.textInverse,
-    disabledContainer: { backgroundColor: theme.colors.borderLight },
-    disabledText: { color: theme.colors.textLight },
-  },
-  secondary: {
-    container: {
-      backgroundColor: 'transparent',
-      borderWidth: 1.5,
-      borderColor: theme.colors.primary,
-    },
-    text: { color: theme.colors.primary },
-    iconColor: theme.colors.primary,
-    disabledContainer: {
-      backgroundColor: 'transparent',
-      borderWidth: 1.5,
-      borderColor: theme.colors.borderLight,
-    },
-    disabledText: { color: theme.colors.textLight },
-  },
-  destructive: {
-    container: { backgroundColor: theme.colors.error },
-    text: { color: theme.colors.textInverse },
-    iconColor: theme.colors.textInverse,
-    disabledContainer: { backgroundColor: theme.colors.borderLight },
-    disabledText: { color: theme.colors.textLight },
-  },
-};
-
-const SIZE_STYLES: Record<
-  ButtonSize,
-  { container: ViewStyle; text: TextStyle; iconSize: number }
-> = {
-  sm: {
-    container: {
-      // Minimum 44x44 touch target enforced via minHeight/minWidth
-      minHeight: 44,
-      minWidth: 44,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      borderRadius: theme.borderRadius.base,
-    },
-    text: { fontSize: theme.fontSizes.sm },
-    iconSize: 16,
-  },
-  md: {
-    container: {
-      minHeight: 44,
-      minWidth: 44,
-      paddingHorizontal: theme.spacing.base,
-      paddingVertical: theme.spacing.sm,
-      borderRadius: theme.borderRadius.base,
-    },
-    text: { fontSize: theme.fontSizes.base },
-    iconSize: 18,
-  },
-  lg: {
-    container: {
-      minHeight: 52,
-      minWidth: 44,
-      paddingHorizontal: theme.spacing.xl,
-      paddingVertical: theme.spacing.md,
-      borderRadius: theme.borderRadius.md,
-    },
-    text: { fontSize: theme.fontSizes.md },
-    iconSize: 20,
-  },
-};
-
 export const Button: React.FC<ButtonProps> = ({
   label,
   onPress,
@@ -120,26 +45,132 @@ export const Button: React.FC<ButtonProps> = ({
   textStyle,
   testID,
 }) => {
+  const { colors, spacing, borderRadius, fontSizes, fontWeights, shadows } = useTheme();
+  
+  const VARIANT_STYLES: Record<
+    ButtonVariant,
+    { container: ViewStyle; text: TextStyle; iconColor: string; disabledContainer: ViewStyle; disabledText: TextStyle }
+  > = {
+    primary: {
+      container: { 
+        backgroundColor: colors.primary,
+        ...shadows.md,
+      },
+      text: { color: colors.textInverse },
+      iconColor: colors.textInverse,
+      disabledContainer: { 
+        backgroundColor: colors.borderLight,
+        ...shadows.sm,
+      },
+      disabledText: { color: colors.textLight },
+    },
+    secondary: {
+      container: {
+        backgroundColor: colors.background,
+        borderWidth: 1.5,
+        borderColor: colors.primary,
+        ...shadows.sm,
+      },
+      text: { color: colors.primary },
+      iconColor: colors.primary,
+      disabledContainer: {
+        backgroundColor: colors.surface,
+        borderWidth: 1.5,
+        borderColor: colors.borderLight,
+      },
+      disabledText: { color: colors.textLight },
+    },
+    destructive: {
+      container: { 
+        backgroundColor: colors.error,
+        ...shadows.md,
+      },
+      text: { color: colors.textInverse },
+      iconColor: colors.textInverse,
+      disabledContainer: { 
+        backgroundColor: colors.borderLight,
+        ...shadows.sm,
+      },
+      disabledText: { color: colors.textLight },
+    },
+  };
+
+  const SIZE_STYLES: Record<
+    ButtonSize,
+    { container: ViewStyle; text: TextStyle; iconSize: number }
+  > = {
+    sm: {
+      container: {
+        // Minimum 44x44 touch target enforced via minHeight/minWidth
+        minHeight: 44,
+        minWidth: 44,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.lg,
+      },
+      text: { 
+        fontSize: fontSizes.sm,
+        fontWeight: fontWeights.semibold as any,
+      },
+      iconSize: 16,
+    },
+    md: {
+      container: {
+        minHeight: 48,
+        minWidth: 44,
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.md,
+        borderRadius: borderRadius.lg,
+      },
+      text: { 
+        fontSize: fontSizes.base,
+        fontWeight: fontWeights.semibold as any,
+      },
+      iconSize: 18,
+    },
+    lg: {
+      container: {
+        minHeight: 52,
+        minWidth: 44,
+        paddingHorizontal: spacing['2xl'],
+        paddingVertical: spacing.lg,
+        borderRadius: borderRadius.xl,
+      },
+      text: { 
+        fontSize: fontSizes.lg,
+        fontWeight: fontWeights.bold as any,
+      },
+      iconSize: 20,
+    },
+  };
+
   const isDisabled = disabled || loading;
   const variantStyle = VARIANT_STYLES[variant];
   const sizeStyle = SIZE_STYLES[size];
 
   const containerStyle: ViewStyle[] = [
-    styles.base,
+    {
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+    },
     sizeStyle.container,
     isDisabled ? variantStyle.disabledContainer : variantStyle.container,
     style ?? {},
   ];
 
   const labelStyle: TextStyle[] = [
-    styles.label,
+    {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.medium as any,
+    },
     sizeStyle.text,
     isDisabled ? variantStyle.disabledText : variantStyle.text,
     textStyle ?? {},
   ];
 
   const iconColor = isDisabled
-    ? theme.colors.textLight
+    ? colors.textLight
     : variantStyle.iconColor;
 
   const renderIcon = () =>
@@ -148,7 +179,7 @@ export const Button: React.FC<ButtonProps> = ({
         name={icon}
         size={sizeStyle.iconSize}
         color={iconColor}
-        style={iconPosition === 'left' ? styles.iconLeft : styles.iconRight}
+        style={iconPosition === 'left' ? { marginRight: spacing.xs } : { marginLeft: spacing.xs }}
       />
     ) : null;
 
@@ -166,11 +197,11 @@ export const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={isDisabled ? theme.colors.textLight : variantStyle.iconColor}
+          color={isDisabled ? colors.textLight : variantStyle.iconColor}
           testID={testID ? `${testID}-spinner` : undefined}
         />
       ) : (
-        <View style={styles.content}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
           {iconPosition === 'left' && renderIcon()}
           <Text style={labelStyle} numberOfLines={1}>
             {label}
@@ -182,24 +213,4 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  base: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: {
-    ...theme.typography.button,
-  },
-  iconLeft: {
-    marginRight: theme.spacing.xs,
-  },
-  iconRight: {
-    marginLeft: theme.spacing.xs,
-  },
-});
+

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { theme } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface CategoryTabsProps {
   categories: string[];
@@ -13,25 +13,34 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({
   activeCategory,
   onCategoryPress,
 }) => {
+  const { colors, spacing, borderRadius, fontSizes, fontWeights } = useTheme();
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingHorizontal: spacing.base, gap: spacing.sm }]}
     >
       {categories.map((category) => {
         const isActive = category === activeCategory;
         return (
           <TouchableOpacity
             key={category}
-            style={[styles.tab, isActive && styles.activeTab]}
+            style={[styles.tab, { paddingVertical: spacing.sm, paddingHorizontal: spacing.md }]}
             onPress={() => onCategoryPress(category)}
           >
-            <Text style={[styles.tabText, isActive && styles.activeTabText]}>
+            <Text style={[
+              styles.tabText, 
+              { 
+                fontSize: fontSizes.base, 
+                fontWeight: isActive ? fontWeights.semibold : fontWeights.medium,
+                color: isActive ? colors.primary : colors.textSecondary 
+              }
+            ]}>
               {category}
             </Text>
-            {isActive && <View style={styles.activeIndicator} />}
+            {isActive && <View style={[styles.activeIndicator, { backgroundColor: colors.primary, borderRadius: borderRadius.sm }]} />}
           </TouchableOpacity>
         );
       })}
@@ -44,25 +53,13 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   content: {
-    paddingHorizontal: theme.spacing.base,
-    gap: theme.spacing.sm,
+    // Styles applied inline
   },
   tab: {
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
     position: 'relative',
   },
-  activeTab: {
-    // Active state handled by indicator
-  },
   tabText: {
-    fontSize: theme.fontSizes.base,
-    fontWeight: theme.fontWeights.medium,
-    color: theme.colors.textSecondary,
-  },
-  activeTabText: {
-    color: theme.colors.primary,
-    fontWeight: theme.fontWeights.semibold,
+    // Styles applied inline
   },
   activeIndicator: {
     position: 'absolute',
@@ -70,7 +67,5 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.sm,
   },
 });

@@ -98,13 +98,13 @@ export const FormField: React.FC<FormFieldProps> = ({
     onBlur?.();
   };
 
-  const inputContainerStyle: ViewStyle[] = [
+  const inputContainerStyle = [
     styles.inputContainer,
     focused && styles.inputContainerFocused,
     hasError && styles.inputContainerError,
     disabled && styles.inputContainerDisabled,
     multiline && styles.inputContainerMultiline,
-  ];
+  ].filter(Boolean);
 
   return (
     <View style={[styles.container, style]} testID={testID}>

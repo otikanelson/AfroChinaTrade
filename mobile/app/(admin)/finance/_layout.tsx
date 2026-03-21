@@ -1,17 +1,19 @@
 import { Stack } from 'expo-router';
-import { theme } from '../../../theme';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 export default function FinanceStackLayout() {
+  const { colors, fontWeights } = useTheme();
+  
   return (
     <Stack
       screenOptions={{
         headerShown: true,
         headerStyle: {
-          backgroundColor: theme.colors.primary,
+          backgroundColor: colors.primary,
         },
-        headerTintColor: theme.colors.background,
+        headerTintColor: colors.background,
         headerTitleStyle: {
-          fontWeight: theme.fontWeights.semibold,
+          fontWeight: fontWeights.semibold,
         },
       }}
     >

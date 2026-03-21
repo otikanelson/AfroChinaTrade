@@ -6,13 +6,13 @@
  * - Listens for notification taps and navigates to the relevant screen
  * - Exposes a scheduleLocalNotification helper for other modules
  *
+ * Note: Notifications are disabled in Expo Go for compatibility
+ *
  * Requirements: 2.5, 3.6, 4.10, 5.10
  */
 
-import React, { createContext, useContext, useEffect, useRef } from 'react';
-import * as Notifications from 'expo-notifications';
+import React, { createContext, useContext } from 'react';
 import { useRouter } from 'expo-router';
-import { requestNotificationPermissions } from '../hooks/useMessagePolling';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -56,48 +56,9 @@ export function NotificationProvider({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const responseListenerRef =
-    useRef<Notifications.EventSubscription | null>(null);
-
-  // Request permissions when the admin layout mounts
-  useEffect(() => {
-    requestNotificationPermissions().catch(() => {
-      // Permission request failure is non-fatal
-    });
-  }, []);
-
-  // Listen for notification taps and navigate to the relevant screen
-  useEffect(() => {
-    responseListenerRef.current =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        const data = response.notification.request.content
-          .data as NotificationData | undefined;
-
-        if (data?.type === 'order' && data.orderId) {
-          router.push({
-            pathname: '/(admin)/order/[id]',
-            params: { id: data.orderId },
-          });
-        } else if (data?.type === 'message' && data.threadId) {
-          router.push({
-            pathname: '/(admin)/message/[threadId]',
-            params: { threadId: data.threadId },
-          });
-        } else if (data?.type === 'report') {
-          router.push('/(admin)/moderation/index' as any);
-        } else {
-          // Fallback: go to orders tab
-          router.push('/(admin)/(tabs)/orders' as any);
-        }
-      });
-
-    return () => {
-      responseListenerRef.current?.remove();
-    };
-  }, [router]);
 
   // ---------------------------------------------------------------------------
-  // Helpers
+  // Helpers (Disabled for Expo Go compatibility)
   // ---------------------------------------------------------------------------
 
   const scheduleLocalNotification = async (
@@ -105,15 +66,8 @@ export function NotificationProvider({
     body: string,
     data?: NotificationData,
   ): Promise<void> => {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        data: data ?? {},
-        sound: false,
-      },
-      trigger: null, // fire immediately
-    });
+    // Notifications are disabled in Expo Go
+    console.log('Notification (disabled in Expo Go):', { title, body, data });
   };
 
   return (

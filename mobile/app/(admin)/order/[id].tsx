@@ -13,16 +13,15 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Order } from '../../../../shared/src/types/entities';
-import { AsyncStorageAdapter } from '../../../../shared/src/services/storage/AsyncStorageAdapter';
-import { STORAGE_KEYS } from '../../../../shared/src/services/storage';
+import { Order } from '../../../types/product';
+import { orderService } from '../../../services/OrderService';
 import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
 import { Button } from '../../../components/admin/Button';
 import { Card } from '../../../components/admin/Card';
 import { mobileToastManager } from '../../../utils/toast';
 import { theme } from '../../../theme';
 
-const storage = new AsyncStorageAdapter();
+
 
 function orderStatusToBadge(status: Order['status']): StatusType {
   const map: Record<string, StatusType> = {
@@ -100,8 +99,17 @@ export default function OrderDetailScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const orders = (await storage.get<Order[]>(STORAGE_KEYS.ORDERS)) ?? [];
-        if (!cancelled) setOrder(orders.find((o) => o.id === id) ?? null);
+        const response = await orderService.getOrderById(id);
+        if (!cancelled) {
+          if (response.success && response.data) {
+            setOrder(response.data);
+          } else {
+            setOrder(null);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading order:', error);
+        if (!cancelled) setOrder(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -114,16 +122,25 @@ export default function OrderDetailScreen() {
       if (!order) return;
       setActionLoading(true);
       try {
-        const orders = (await storage.get<Order[]>(STORAGE_KEYS.ORDERS)) ?? [];
-        const updated = orders.map((o) =>
-          o.id === id
-            ? { ...o, status: newStatus, updatedAt: new Date().toISOString(), ...extra }
-            : o,
-        );
-        await storage.set(STORAGE_KEYS.ORDERS, updated);
-        setOrder((prev) => prev ? { ...prev, status: newStatus, ...extra } as Order : prev);
-        mobileToastManager.success(`Order ${statusLabel(newStatus).toLowerCase()}`, 'Updated');
-      } catch {
+        let response;
+        if (newStatus === 'shipped' && extra?.trackingNumber) {
+          response = await orderService.updateTrackingNumber(id, {
+            trackingNumber: extra.trackingNumber as string,
+          });
+        } else {
+          response = await orderService.updateOrderStatus(id, {
+            status: newStatus,
+          });
+        }
+
+        if (response.success && response.data) {
+          setOrder(response.data);
+          mobileToastManager.success(`Order ${statusLabel(newStatus).toLowerCase()}`, 'Updated');
+        } else {
+          throw new Error(response.error?.message || 'Failed to update order');
+        }
+      } catch (error) {
+        console.error('Error updating order:', error);
         Alert.alert('Error', 'Failed to update order. Please try again.');
       } finally {
         setActionLoading(false);
@@ -187,7 +204,7 @@ export default function OrderDetailScreen() {
   const isShipped    = order.status === 'shipped';
   const isDelivered  = order.status === 'delivered';
   const isCancelled  = order.status === 'cancelled';
-  const trackingNumber = (order as unknown as Record<string, unknown>).trackingNumber as string | undefined;
+  const trackingNumber = (order as any).trackingNumber;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -233,7 +250,7 @@ export default function OrderDetailScreen() {
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Total</Text>
-            <Text style={[styles.value, styles.totalValue]}>${order.totalAmount.toFixed(2)}</Text>
+            <Text style={[styles.value, styles.totalValue]}>₦{(order.totalAmount || order.total).toFixed(2)}</Text>
           </View>
           {trackingNumber ? (
             <View style={styles.row}>
@@ -248,37 +265,37 @@ export default function OrderDetailScreen() {
           <SectionTitle title="Items" />
           {order.items.map((item, i) => (
             <View
-              key={i}
+              key={item.productId || `item-${i}`}
               style={[styles.itemRow, i < order.items.length - 1 && styles.itemDivider]}
             >
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName} numberOfLines={2}>{item.productName}</Text>
                 <Text style={styles.itemMeta}>
-                  Qty: {item.quantity} × ${item.price.toFixed(2)}
+                  Qty: {item.quantity} × ₦{item.price.toFixed(2)}
                 </Text>
               </View>
               <Text style={styles.itemTotal}>
-                ${(item.quantity * item.price).toFixed(2)}
+                ₦{item.subtotal.toFixed(2)}
               </Text>
             </View>
           ))}
           <View style={[styles.row, styles.totalRow]}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>${order.totalAmount.toFixed(2)}</Text>
+            <Text style={styles.totalValue}>₦{(order.totalAmount || order.total).toFixed(2)}</Text>
           </View>
         </Card>
 
         {/* Shipping address */}
         <Card style={styles.card}>
           <SectionTitle title="Shipping Address" />
-          <Text style={styles.addressLine}>{order.deliveryAddress.fullName}</Text>
-          <Text style={styles.addressLine}>{order.deliveryAddress.address}</Text>
+          <Text style={styles.addressLine}>{(order.deliveryAddress || order.shippingAddress)?.fullName}</Text>
+          <Text style={styles.addressLine}>{(order.deliveryAddress || order.shippingAddress)?.address || (order.deliveryAddress || order.shippingAddress)?.street}</Text>
           <Text style={styles.addressLine}>
-            {order.deliveryAddress.city}, {order.deliveryAddress.state}{' '}
-            {order.deliveryAddress.zipCode}
+            {(order.deliveryAddress || order.shippingAddress)?.city}, {(order.deliveryAddress || order.shippingAddress)?.state}{' '}
+            {(order.deliveryAddress || order.shippingAddress)?.zipCode || (order.deliveryAddress || order.shippingAddress)?.postalCode}
           </Text>
-          {order.deliveryAddress.phone ? (
-            <Text style={styles.addressLine}>📞 {order.deliveryAddress.phone}</Text>
+          {(order.deliveryAddress || order.shippingAddress)?.phone ? (
+            <Text style={styles.addressLine}>📞 {(order.deliveryAddress || order.shippingAddress)?.phone}</Text>
           ) : null}
         </Card>
 

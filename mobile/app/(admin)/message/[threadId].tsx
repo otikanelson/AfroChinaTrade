@@ -12,16 +12,33 @@ import {
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import {
-  Message,
-  MessageThread,
-  MESSAGE_THREADS_KEY,
-  formatRelativeTime,
-} from '../(tabs)/messages';
-import { AsyncStorageAdapter } from '../../../../shared/src/services/storage/AsyncStorageAdapter';
+import { messageService } from '../../../services/MessageService';
+import { Message, MessageThread } from '../../../types/messages';
+import { useMessages } from '../../../contexts/MessagesContext';
 import { theme } from '../../../theme';
 
-const storage = new AsyncStorageAdapter();
+// Helper function to format relative time
+function formatRelativeTime(iso: string): string {
+  const now = Date.now();
+  const diff = now - new Date(iso).getTime();
+  
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  
+  // For older dates, show month and day
+  return new Date(iso).toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric' 
+  });
+}
+
+
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -54,21 +71,39 @@ export default function MessageThreadScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const { refreshUnreadCount } = useMessages();
   const listRef = useRef<FlatList>(null);
 
   const load = useCallback(async () => {
-    const threads = await storage.get<MessageThread[]>(MESSAGE_THREADS_KEY);
-    const found = (threads ?? []).find((t) => t.id === threadId) ?? null;
-    if (found) {
-      setThread(found);
-      setMessages(found.messages);
-      // Mark all as read
-      const updated = (threads ?? []).map((t) =>
-        t.id === threadId
-          ? { ...t, unreadCount: 0, messages: t.messages.map((m) => ({ ...m, isRead: true })) }
-          : t,
-      );
-      await storage.set(MESSAGE_THREADS_KEY, updated);
+    try {
+      const response = await messageService.getThreadMessages(threadId, {
+        page: 1,
+        limit: 100, // Get all messages for now
+      });
+      
+      if (response.success && response.data) {
+        setMessages(response.data);
+        
+        // Get thread info (we'll need to get this from the threads list or a separate endpoint)
+        const threadsResponse = await messageService.getThreads({ page: 1, limit: 100 });
+        if (threadsResponse.success && threadsResponse.data) {
+          const foundThread = threadsResponse.data.find(t => t.id === threadId);
+          if (foundThread) {
+            setThread(foundThread);
+            
+            // Mark messages as read
+            try {
+              await messageService.markAsRead(threadId);
+              // Refresh unread count after marking as read
+              refreshUnreadCount();
+            } catch (error) {
+              console.warn('Failed to mark messages as read:', error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading thread messages:', error);
     }
   }, [threadId]);
 
@@ -80,31 +115,40 @@ export default function MessageThreadScreen() {
     const text = input.trim();
     if (!text || !thread) return;
     setSending(true);
-    const newMsg: Message = {
-      id: `msg-${Date.now()}`,
-      threadId: thread.id,
-      senderId: 'admin',
-      senderName: 'Admin',
-      text,
-      createdAt: new Date().toISOString(),
-      isRead: true,
-    };
-    const updatedMessages = [...messages, newMsg];
-    setMessages(updatedMessages);
-    setInput('');
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    
     try {
-      const threads = (await storage.get<MessageThread[]>(MESSAGE_THREADS_KEY)) ?? [];
-      const updated = threads.map((t) =>
-        t.id === thread.id
-          ? { ...t, messages: updatedMessages, lastMessage: text, lastMessageAt: newMsg.createdAt }
-          : t,
-      );
-      await storage.set(MESSAGE_THREADS_KEY, updated);
+      const response = await messageService.sendMessage({
+        threadId: thread.id,
+        text,
+      });
+      
+      if (response.success && response.data) {
+        // Add the new message to the list
+        setMessages(prev => [...prev, response.data!]);
+        setInput('');
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      } else {
+        throw new Error(response.error?.message || 'Failed to send message');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // For now, just add the message locally as fallback
+      const newMsg: Message = {
+        id: `msg-${Date.now()}`,
+        threadId: thread.id,
+        senderId: 'admin',
+        senderName: 'Admin',
+        text,
+        createdAt: new Date().toISOString(),
+        isRead: true,
+      };
+      setMessages(prev => [...prev, newMsg]);
+      setInput('');
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     } finally {
       setSending(false);
     }
-  }, [input, thread, messages]);
+  }, [input, thread]);
 
   if (!thread) {
     return (

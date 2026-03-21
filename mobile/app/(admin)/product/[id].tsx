@@ -7,50 +7,71 @@ import { FormField } from '../../../components/admin/forms/FormField';
 import { ImagePickerField, PickedImage } from '../../../components/admin/forms/ImagePickerField';
 import { PickerField, PickerOption } from '../../../components/admin/forms/PickerField';
 import { SwitchField } from '../../../components/admin/forms/SwitchField';
+import { SpecificationsTable } from '../../../components/admin/forms/SpecificationsTable';
+import { PolicyFields } from '../../../components/admin/forms/PolicyFields';
 import { mobileToastManager } from '../../../utils/toast';
-import { AsyncStorageAdapter } from '../../../../shared/src/services/storage/AsyncStorageAdapter';
-import { STORAGE_KEYS } from '../../../../shared/src/services/storage';
-import { Product } from '../../../../shared/src/types/entities';
-import { theme } from '../../../theme';
+import { productService } from '../../../services/ProductService';
+import { supplierService } from '../../../services/SupplierService';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const CATEGORIES: PickerOption[] = [
-  { label: 'Electronics', value: 'electronics' },
-  { label: 'Clothing', value: 'clothing' },
-  { label: 'Food & Beverages', value: 'food-beverages' },
-  { label: 'Home & Garden', value: 'home-garden' },
-  { label: 'Sports', value: 'sports' },
-  { label: 'Beauty', value: 'beauty' },
-  { label: 'Toys', value: 'toys' },
-  { label: 'Books', value: 'books' },
+  { label: 'Electronics', value: 'Electronics' },
+  { label: 'Fashion', value: 'Fashion' },
+  { label: 'Home & Garden', value: 'Home & Garden' },
+  { label: 'Sports & Outdoors', value: 'Sports & Outdoors' },
+  { label: 'Books & Media', value: 'Books & Media' },
+  { label: 'Health & Beauty', value: 'Health & Beauty' },
+  { label: 'Automotive', value: 'Automotive' },
+  { label: 'Toys & Games', value: 'Toys & Games' },
 ];
-
-const storage = new AsyncStorageAdapter();
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+interface Specification {
+  id: string;
+  key: string;
+  value: string;
+}
+
+interface PolicyData {
+  paymentPolicy?: string;
+  shippingPolicy?: string;
+  refundPolicy?: string;
+  guidelines?: string;
+  suggestions?: string;
+}
 
 interface FormState {
   name: string;
   description: string;
   price: string;
   stock: string;
-  categoryId: string;
+  category: string;
+  supplier: string;
   images: PickedImage[];
   featured: boolean;
   favorite: boolean;
   discounted: boolean;
   discountAmount: string;
+  isActive: boolean;
+  specifications: Specification[];
+  policies: PolicyData;
 }
 
 interface FormErrors {
   name?: string;
+  description?: string;
   price?: string;
   stock?: string;
+  category?: string;
+  supplier?: string;
+  general?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,6 +89,10 @@ function validate(form: FormState): FormErrors {
     errors.name = 'Product name is required';
   }
 
+  if (!form.description.trim()) {
+    errors.description = 'Description is required';
+  }
+
   const price = parseFloat(form.price);
   if (!form.price.trim() || isNaN(price) || price <= 0) {
     errors.price = 'Price must be greater than 0';
@@ -76,6 +101,14 @@ function validate(form: FormState): FormErrors {
   const stock = parseInt(form.stock, 10);
   if (form.stock.trim() === '' || isNaN(stock) || stock < 0) {
     errors.stock = 'Stock must be 0 or more';
+  }
+
+  if (!form.category) {
+    errors.category = 'Category is required';
+  }
+
+  if (!form.supplier) {
+    errors.supplier = 'Supplier is required';
   }
 
   return errors;
@@ -88,58 +121,232 @@ function validate(form: FormState): FormErrors {
 export default function EditProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { colors, fonts, fontSizes, spacing, borderRadius, shadows } = useTheme();
+
+  const styles = StyleSheet.create({
+    scroll: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: spacing.base,
+      paddingBottom: spacing['2xl'],
+    },
+    errorContainer: {
+      backgroundColor: '#fee2e2',
+      borderColor: '#fca5a5',
+      borderWidth: 1,
+      borderRadius: borderRadius.base,
+      padding: spacing.sm,
+      marginBottom: spacing.base,
+    },
+    errorText: {
+      color: '#dc2626',
+      fontSize: fontSizes.sm,
+      fontFamily: fonts.medium,
+    },
+    centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+      backgroundColor: colors.background,
+    },
+    loadingText: {
+      marginTop: spacing.sm,
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+    errorTitle: {
+      fontSize: fontSizes.xl,
+      fontFamily: fonts.medium,
+      color: colors.text,
+      marginBottom: spacing.sm,
+      textAlign: 'center',
+    },
+    notFoundText: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: spacing.xl,
+    },
+    backButton: {
+      minWidth: 120,
+    },
+    actions: {
+      marginTop: spacing.lg,
+      gap: spacing.sm,
+    },
+    saveButton: {
+      width: '100%',
+    },
+    deleteButton: {
+      width: '100%',
+    },
+    cancelButton: {
+      width: '100%',
+    },
+    discountPreview: {
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.md,
+      padding: spacing.base,
+      marginBottom: spacing.base,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    discountPreviewLabel: {
+      fontSize: fontSizes.sm,
+      fontFamily: fonts.medium,
+      color: colors.text,
+      marginBottom: spacing.sm,
+    },
+    pricePreviewContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    originalPricePreview: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+      textDecorationLine: 'line-through',
+    },
+    discountedPricePreview: {
+      fontSize: fontSizes.lg,
+      fontFamily: fonts.bold,
+      color: '#FF3B30',
+    },
+    discountBadgePreview: {
+      backgroundColor: '#FF3B30',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.base,
+    },
+    discountBadgeTextPreview: {
+      color: 'white',
+      fontSize: fontSizes.xs,
+      fontFamily: fonts.medium,
+    },
+  });
 
   const [loading, setLoading] = useState(true);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [suppliers, setSuppliers] = useState<PickerOption[]>([]);
 
   const [form, setForm] = useState<FormState>({
     name: '',
     description: '',
     price: '',
     stock: '',
-    categoryId: '',
+    category: '',
+    supplier: '',
     images: [],
     featured: false,
     favorite: false,
     discounted: false,
     discountAmount: '',
+    isActive: true,
+    specifications: [],
+    policies: {},
   });
 
   // ---------------------------------------------------------------------------
-  // Load product
+  // Load suppliers and product
   // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    loadSuppliers();
+  }, []);
+
+  const loadSuppliers = async () => {
+    try {
+      setLoadingSuppliers(true);
+      const response = await supplierService.getSuppliers({ limit: 100 });
+      
+      if (response.success && response.data) {
+        // Handle different response formats - suppliers might be in data.suppliers
+        let suppliersArray: any[] = [];
+        
+        if (Array.isArray(response.data)) {
+          suppliersArray = response.data;
+        } else if ((response.data as any).suppliers && Array.isArray((response.data as any).suppliers)) {
+          suppliersArray = (response.data as any).suppliers;
+        }
+        
+        if (suppliersArray.length > 0) {
+          const supplierOptions = suppliersArray.map((supplier: any) => ({
+            label: supplier.name,
+            value: supplier._id
+          }));
+          setSuppliers(supplierOptions);
+        }
+      }
+    } catch (error: any) {
+      console.error('Failed to load suppliers:', error);
+      // Only show alert for non-authentication errors
+      if (error?.code !== 'NETWORK_ERROR' && error?.code !== 'NO_TOKEN') {
+        Alert.alert('Error', 'Failed to load suppliers. Please try again.');
+      }
+      // For authentication errors, set empty suppliers list
+      if (error?.code === 'NO_TOKEN') {
+        setSuppliers([]);
+      }
+    } finally {
+      setLoadingSuppliers(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadProduct() {
       try {
-        const products = (await storage.get<Product[]>(STORAGE_KEYS.PRODUCTS)) ?? [];
-        const product = products.find((p) => p.id === id);
+        const response = await productService.getProductById(id);
 
         if (cancelled) return;
 
-        if (!product) {
+        if (!response.success || !response.data) {
           setNotFound(true);
           setLoading(false);
           return;
         }
 
+        const product = response.data;
+        
+        // Convert specifications object to array format for the form
+        const specificationsArray: Specification[] = [];
+        if (product.specifications && typeof product.specifications === 'object') {
+          Object.entries(product.specifications).forEach(([key, value], index) => {
+            specificationsArray.push({
+              id: `spec-${index}`,
+              key,
+              value: String(value),
+            });
+          });
+        }
+        
         setForm({
           name: product.name,
           description: product.description ?? '',
           price: product.price.toString(),
           stock: product.stock.toString(),
-          categoryId: product.categoryId ?? '',
+          category: product.category ?? '',
+          supplier: (product as any).supplierId?.toString() || '', // Backend returns supplierId as ObjectId
           images: product.images.map(uriToPickedImage),
-          featured: false,
+          featured: product.isFeatured ?? false,
           favorite: false,
-          discounted: false,
-          discountAmount: '',
+          discounted: !!(product.discount && product.discount > 0),
+          discountAmount: product.discount ? product.discount.toString() : '',
+          isActive: product.isActive ?? true,
+          specifications: specificationsArray,
+          policies: (product as any).policies || {},
         });
-      } catch {
+      } catch (error) {
+        console.error('Error loading product:', error);
         if (!cancelled) setNotFound(true);
       } finally {
         if (!cancelled) setLoading(false);
@@ -159,10 +366,14 @@ export default function EditProductScreen() {
     if (key in errors) {
       setErrors((prev) => ({ ...prev, [key]: undefined }));
     }
+    // Clear general error when any field changes
+    if (errors.general) {
+      setErrors((prev) => ({ ...prev, general: undefined }));
+    }
   };
 
   // ---------------------------------------------------------------------------
-  // Submit (task 4.6)
+  // Submit and Delete
   // ---------------------------------------------------------------------------
 
   const handleSubmit = async () => {
@@ -174,36 +385,108 @@ export default function EditProductScreen() {
 
     setSaving(true);
     try {
-      const products = (await storage.get<Product[]>(STORAGE_KEYS.PRODUCTS)) ?? [];
-      const index = products.findIndex((p) => p.id === id);
-
-      if (index === -1) {
-        Alert.alert('Error', 'Product not found. It may have been deleted.');
-        return;
-      }
-
-      const updated: Product = {
-        ...products[index],
+      const updateData = {
         name: form.name.trim(),
         description: form.description.trim(),
         price: parseFloat(form.price),
         stock: parseInt(form.stock, 10),
-        categoryId: form.categoryId,
-        images: form.images.map((img) => img.uri),
-        updatedAt: new Date().toISOString(),
+        category: form.category, // Backend expects 'category'
+        supplierId: form.supplier, // Backend expects 'supplierId'
+        images: form.images.map((img) => img.uploadedUrl || img.uri),
+        isFeatured: form.featured,
+        isActive: form.isActive,
+        // Add discount if enabled
+        discount: form.discounted && form.discountAmount ? parseFloat(form.discountAmount) : 0,
+        // Convert specifications array to object format for backend
+        specifications: form.specifications.reduce((acc, spec) => {
+          if (spec.key.trim() && spec.value.trim()) {
+            acc[spec.key.trim()] = spec.value.trim();
+          }
+          return acc;
+        }, {} as Record<string, string>),
+        // Include policies
+        policies: form.policies,
       };
 
-      const updatedProducts = [...products];
-      updatedProducts[index] = updated;
-      await storage.set(STORAGE_KEYS.PRODUCTS, updatedProducts);
+      const response = await productService.updateProduct(id, updateData);
 
-      mobileToastManager.success('Product updated successfully', 'Success');
-      router.back();
-    } catch {
-      Alert.alert('Error', 'Failed to update product. Please try again.');
+      if (response.success) {
+        mobileToastManager.success('Product updated successfully', 'Success');
+        router.back();
+      } else {
+        throw new Error(response.error?.message || 'Failed to update product');
+      }
+    } catch (error: any) {
+      console.error('Error updating product:', error);
+      
+      // Handle validation errors from backend
+      if (error?.code === 'MISSING_FIELDS' || error?.code === 'VALIDATION_ERROR') {
+        const serverErrors: FormErrors = {};
+        
+        if (error.details) {
+          const fieldMapping: Record<string, keyof FormErrors> = {
+            'name': 'name',
+            'description': 'description',
+            'price': 'price',
+            'stock': 'stock',
+            'category': 'category',
+            'categoryId': 'category',
+            'supplier': 'supplier',
+            'supplierId': 'supplier'
+          };
+          
+          Object.entries(error.details).forEach(([field, message]) => {
+            const formField = fieldMapping[field] || field as keyof FormErrors;
+            if (formField in serverErrors || formField === 'name' || formField === 'description' || formField === 'price' || formField === 'stock' || formField === 'category' || formField === 'supplier') {
+              serverErrors[formField] = message as string;
+            }
+          });
+        }
+        
+        if (Object.keys(serverErrors).length > 0) {
+          setErrors(serverErrors);
+        } else {
+          setErrors({ general: error.message || 'Please check your input and try again.' });
+        }
+      } else {
+        const errorMessage = error?.message || 'Failed to update product. Please try again.';
+        setErrors({ general: errorMessage });
+      }
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDelete = async () => {
+    Alert.alert(
+      'Delete Product',
+      'Are you sure you want to delete this product? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              const response = await productService.deleteProduct(id);
+              
+              if (response.success) {
+                mobileToastManager.success('Product deleted successfully', 'Success');
+                router.back();
+              } else {
+                throw new Error(response.error?.message || 'Failed to delete product');
+              }
+            } catch (error: any) {
+              console.error('Error deleting product:', error);
+              Alert.alert('Error', error?.message || 'Failed to delete product. Please try again.');
+            } finally {
+              setDeleting(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   // ---------------------------------------------------------------------------
@@ -213,7 +496,7 @@ export default function EditProductScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading product...</Text>
       </View>
     );
@@ -227,7 +510,7 @@ export default function EditProductScreen() {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorTitle}>Product Not Found</Text>
-        <Text style={styles.errorText}>
+        <Text style={styles.notFoundText}>
           The product you are looking for does not exist or has been removed.
         </Text>
         <Button
@@ -252,6 +535,19 @@ export default function EditProductScreen() {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
+        {/* General Error Display */}
+        {errors.general && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{errors.general}</Text>
+          </View>
+        )}
+
+        {/* Supplier Error (if backend requires it) */}
+        {errors.supplier && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Supplier: {errors.supplier}</Text>
+          </View>
+        )}
         {/* Images */}
         <ImagePickerField
           label="Product Images"
@@ -280,8 +576,10 @@ export default function EditProductScreen() {
           value={form.description}
           onChangeText={(v) => setField('description', v)}
           placeholder="Describe your product"
+          required
           multiline
           numberOfLines={4}
+          error={errors.description}
           testID="edit-product-description"
         />
 
@@ -312,14 +610,37 @@ export default function EditProductScreen() {
         {/* Category */}
         <PickerField
           label="Category"
-          value={form.categoryId}
-          onValueChange={(v) => setField('categoryId', v)}
+          value={form.category}
+          onValueChange={(v) => setField('category', v)}
           options={CATEGORIES}
           placeholder="Select a category"
+          required
+          error={errors.category}
           testID="edit-product-category"
         />
 
+        {/* Supplier */}
+        <PickerField
+          label="Supplier"
+          value={form.supplier}
+          onValueChange={(v) => setField('supplier', v)}
+          options={suppliers}
+          placeholder={loadingSuppliers ? "Loading suppliers..." : suppliers.length === 0 ? "No suppliers available" : "Select a supplier"}
+          required
+          disabled={loadingSuppliers}
+          error={errors.supplier}
+          testID="edit-product-supplier"
+        />
+
         {/* Toggles */}
+        <SwitchField
+          label="Active"
+          value={form.isActive}
+          onValueChange={(v) => setField('isActive', v)}
+          description="Product is visible to customers when active"
+          testID="edit-product-active"
+        />
+
         <SwitchField
           label="Featured"
           value={form.featured}
@@ -345,16 +666,54 @@ export default function EditProductScreen() {
         />
 
         {form.discounted && (
-          <FormField
-            label="Discount Amount"
-            value={form.discountAmount}
-            onChangeText={(v) => setField('discountAmount', v)}
-            placeholder="Enter discount amount"
-            keyboardType="decimal-pad"
-            helperText="Enter a fixed amount or percentage"
-            testID="edit-product-discount-amount"
-          />
+          <>
+            <FormField
+              label="Discount Amount (%)"
+              value={form.discountAmount}
+              onChangeText={(v) => setField('discountAmount', v)}
+              placeholder="Enter discount percentage (e.g., 25)"
+              keyboardType="decimal-pad"
+              helperText="Enter discount percentage (0-100)"
+              testID="edit-product-discount-amount"
+            />
+            
+            {/* Discount Preview */}
+            {form.price && form.discountAmount && parseFloat(form.discountAmount) > 0 && (
+              <View style={styles.discountPreview}>
+                <Text style={styles.discountPreviewLabel}>Price Preview:</Text>
+                <View style={styles.pricePreviewContainer}>
+                  <Text style={styles.originalPricePreview}>
+                    ₦{parseFloat(form.price).toLocaleString()}
+                  </Text>
+                  <Text style={styles.discountedPricePreview}>
+                    ₦{Math.round(parseFloat(form.price) * (1 - parseFloat(form.discountAmount) / 100)).toLocaleString()}
+                  </Text>
+                  <View style={styles.discountBadgePreview}>
+                    <Text style={styles.discountBadgeTextPreview}>{form.discountAmount}% OFF</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </>
         )}
+
+        {/* Product Specifications */}
+        <SpecificationsTable
+          label="Product Specifications"
+          specifications={form.specifications}
+          onSpecificationsChange={(specs) => setField('specifications', specs)}
+          helperText="Add detailed specifications like size, color, material, etc."
+          testID="edit-product-specifications"
+        />
+
+        {/* Policies and Guidelines */}
+        <PolicyFields
+          label="Policies & Guidelines"
+          policies={form.policies}
+          onPoliciesChange={(policies) => setField('policies', policies)}
+          helperText="Optional: Add payment, shipping, and refund policies to help customers understand your terms"
+          testID="edit-product-policies"
+        />
 
         {/* Actions */}
         <View style={styles.actions}>
@@ -368,11 +727,22 @@ export default function EditProductScreen() {
             testID="edit-product-save"
           />
           <Button
+            label="Delete Product"
+            onPress={handleDelete}
+            loading={deleting}
+            variant="destructive"
+            icon="trash-outline"
+            size="lg"
+            disabled={saving}
+            style={styles.deleteButton}
+            testID="edit-product-delete"
+          />
+          <Button
             label="Cancel"
             onPress={() => router.back()}
             variant="secondary"
             size="lg"
-            disabled={saving}
+            disabled={saving || deleting}
             style={styles.cancelButton}
             testID="edit-product-cancel"
           />
@@ -380,52 +750,3 @@ export default function EditProductScreen() {
       </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  content: {
-    padding: theme.spacing.base,
-    paddingBottom: theme.spacing['2xl'],
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-    backgroundColor: theme.colors.background,
-  },
-  loadingText: {
-    marginTop: theme.spacing.sm,
-    fontSize: theme.fontSizes.base,
-    color: theme.colors.textSecondary,
-  },
-  errorTitle: {
-    fontSize: theme.fontSizes.xl,
-    fontWeight: theme.fontWeights.semibold,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.sm,
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: theme.fontSizes.base,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: theme.spacing.xl,
-  },
-  backButton: {
-    minWidth: 120,
-  },
-  actions: {
-    marginTop: theme.spacing.lg,
-    gap: theme.spacing.sm,
-  },
-  saveButton: {
-    width: '100%',
-  },
-  cancelButton: {
-    width: '100%',
-  },
-});

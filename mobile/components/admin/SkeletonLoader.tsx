@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View, ViewStyle } from 'react-native';
-import { theme } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export interface SkeletonLoaderProps {
   /** Number of skeleton rows to render */
@@ -26,10 +26,14 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
   rows = 4,
   height = 20,
   width = '100%',
-  borderRadius = theme.borderRadius.base,
-  gap = theme.spacing.sm,
+  borderRadius,
+  gap,
   style,
 }) => {
+  const { borderRadius: themeBorderRadius, spacing, colors } = useTheme();
+  const actualBorderRadius = borderRadius ?? themeBorderRadius.base;
+  const actualGap = gap ?? spacing.sm;
+  
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -56,6 +60,15 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
     outputRange: [0.4, 0.85],
   });
 
+  const styles = StyleSheet.create({
+    container: {
+      width: '100%',
+    },
+    row: {
+      backgroundColor: colors.borderLight,
+    },
+  });
+
   return (
     <View style={[styles.container, style]}>
       {Array.from({ length: rows }).map((_, i) => (
@@ -66,9 +79,9 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
             {
               height,
               width,
-              borderRadius,
+              borderRadius: actualBorderRadius,
               opacity,
-              marginBottom: i < rows - 1 ? gap : 0,
+              marginBottom: i < rows - 1 ? actualGap : 0,
             },
           ]}
         />
@@ -77,11 +90,4 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-  },
-  row: {
-    backgroundColor: theme.colors.borderLight,
-  },
-});
+
