@@ -9,18 +9,13 @@ const DEV_URLS = {
 };
 
 // Production API URL (Vercel deployment)
-// Replace with your actual Vercel deployment URL after deploying backend
-const PRODUCTION_URL = 'https://your-vercel-deployment.vercel.app/api';
+const PRODUCTION_URL = 'https://afro-china-trade.vercel.app/api';
 
 // Demo mode configuration
 export const DEMO_MODE = false; // Set to true for client demo build
 
-// Current configuration - using WiFi IP for local development
-// For Android emulator: DEV_URLS.EMULATOR
-// For physical device on WiFi: DEV_URLS.WIFI (update IP to your machine's IP)
-// For iOS simulator: DEV_URLS.IOS_SIMULATOR
-// For production: PRODUCTION_URL
-export const API_BASE_URL = DEV_URLS.WIFI;
+// Current configuration - using Vercel cloud backend for production
+export const API_BASE_URL = PRODUCTION_URL;
 
 export const APP_CONFIG = {
   name: 'AfroChinaTrade',
