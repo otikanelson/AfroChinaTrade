@@ -311,9 +311,9 @@ export const getUserRecommendationStats = async (req: Request, res: Response): P
           }))
         },
         recentActivity: recentActivity.map(activity => ({
-          productId: activity.productId._id,
-          productName: activity.productId.name,
-          category: activity.productId.category,
+          productId: (activity.productId as any)._id,
+          productName: (activity.productId as any).name,
+          category: (activity.productId as any).category,
           interactionType: activity.interactionType,
           timestamp: activity.timestamp
         }))

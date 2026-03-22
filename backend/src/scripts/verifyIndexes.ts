@@ -32,7 +32,12 @@ export const verifyIndexes = async (): Promise<void> => {
     console.log('🔍 Starting database index verification...');
 
     // Get all collections
-    const collections = await mongoose.connection.db.listCollections().toArray();
+    const db = mongoose.connection.db;
+    if (!db) {
+      throw new Error('Database connection not established');
+    }
+    
+    const collections = await db.listCollections().toArray();
     const collectionNames = collections.map(col => col.name);
 
     console.log(`📋 Found ${collectionNames.length} collections to verify:`);
@@ -48,7 +53,7 @@ export const verifyIndexes = async (): Promise<void> => {
       try {
         console.log(`🔍 Checking indexes for ${collectionName}:`);
         
-        const indexes = await mongoose.connection.db.collection(collectionName).listIndexes().toArray();
+        const indexes = await db.collection(collectionName).listIndexes().toArray();
         
         if (indexes.length === 0) {
           console.log(`   ⚠️  No indexes found`);

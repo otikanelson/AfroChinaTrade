@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +32,7 @@ export default function AddressesScreen() {
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const styles = StyleSheet.create({
     container: {
@@ -204,7 +206,13 @@ export default function AddressesScreen() {
       console.error('Error fetching addresses:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchAddresses();
   };
 
   const setDefaultAddress = async (addressIndex: number) => {
@@ -283,10 +291,6 @@ export default function AddressesScreen() {
     }
   };
 
-  const getAddressTypeLabel = (type: string) => {
-    return type.charAt(0).toUpperCase() + type.slice(1);
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -324,7 +328,17 @@ export default function AddressesScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView style={styles.addressesList} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.addressesList} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        >
           {addresses.map((address, index) => (
             <View key={index} style={styles.addressCard}>
               <View style={styles.addressHeader}>

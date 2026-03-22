@@ -98,11 +98,12 @@ const startServer = async () => {
     // Connect to database
     await connectDatabase();
     
-    // Start Express server
-    app.listen(PORT, () => {
+    // Start Express server - listen on all interfaces for development
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`✓ Server running on port ${PORT}`);
       console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`✓ API Base URL: http://localhost:${PORT}/api`);
+      console.log(`✓ Accessible from: http://0.0.0.0:${PORT}/api`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

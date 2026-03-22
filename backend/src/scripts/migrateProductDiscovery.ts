@@ -3,7 +3,7 @@ import Product from '../models/Product';
 import BrowsingHistory from '../models/BrowsingHistory';
 import ProductViewCache from '../models/ProductViewCache';
 import RecommendationCache from '../models/RecommendationCache';
-import { connectDB } from '../config/database';
+import { connectDatabase } from '../config/database';
 
 /**
  * Migration script for Enhanced Product Discovery system
@@ -15,7 +15,7 @@ async function migrateProductDiscovery() {
     console.log('🚀 Starting Enhanced Product Discovery migration...');
 
     // Connect to database
-    await connectDB();
+    await connectDatabase();
     console.log('✅ Connected to database');
 
     // Step 1: Update existing products with new discovery fields
@@ -144,13 +144,13 @@ async function migrateProductDiscovery() {
       trendingScore: { $exists: true }
     });
     
-    const sellerFavoriteCount = await Product.countDocuments({ isSellerFavorite: true });
+    const sellerFavoritesCount = await Product.countDocuments({ isSellerFavorite: true });
     const productsWithViews = await Product.countDocuments({ viewCount: { $gt: 0 } });
     
     console.log(`📊 Migration Summary:`);
     console.log(`   Total products: ${productCount}`);
     console.log(`   Products with discovery fields: ${productsWithDiscoveryFields}`);
-    console.log(`   Seller favorites: ${sellerFavoriteCount}`);
+    console.log(`   Seller favorites: ${sellerFavoritesCount}`);
     console.log(`   Products with views: ${productsWithViews}`);
     
     if (productCount === productsWithDiscoveryFields) {

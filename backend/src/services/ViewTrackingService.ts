@@ -1,5 +1,5 @@
 import { Product, BrowsingHistory, ProductViewCache } from '../models';
-import { cacheService } from './CacheService';
+import { cacheService, CacheService } from './CacheService';
 import mongoose from 'mongoose';
 
 interface ViewMetadata {
@@ -171,7 +171,7 @@ export class ViewTrackingService {
       await cacheService.deletePattern(`category:${category}`);
       
       // Invalidate product-specific cache
-      await cacheService.delete(cacheService.keys.productDetails(productId));
+      await cacheService.delete(CacheService.keys.productDetails(productId));
       
       // Invalidate collection caches that might include this product
       await cacheService.deletePattern('featured:');

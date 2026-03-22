@@ -78,7 +78,6 @@ export const createMessage = async (req: Request, res: Response) => {
         customerName: user.role === 'customer' ? user.name : recipient.name,
         productId: productId || undefined,
         productName,
-        productImage,
         threadType,
         lastMessage: text,
         lastMessageAt: new Date(),
@@ -267,7 +266,6 @@ export const getThreadMessages = async (req: Request, res: Response) => {
           customerId: thread.customerId,
           customerName: thread.customerName,
           productName: thread.productName,
-          productImage: thread.productImage,
           threadType: thread.threadType,
           status: thread.status
         },
@@ -447,7 +445,6 @@ export const createProductThread = async (req: Request, res: Response) => {
       customerName: user.name,
       productId,
       productName: product.name,
-      productImage: product.images && product.images.length > 0 ? product.images[0] : undefined,
       threadType,
       lastMessage: '',
       lastMessageAt: new Date(),

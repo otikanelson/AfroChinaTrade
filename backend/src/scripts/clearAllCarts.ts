@@ -1,11 +1,11 @@
 import mongoose from 'mongoose';
 import Cart from '../models/Cart';
-import { validateEnv } from '../config/validateEnv';
+import { validateEnvironment } from '../config/validateEnv';
 
 async function clearAllCarts() {
   try {
     // Validate environment variables
-    validateEnv();
+    validateEnvironment();
 
     // Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI!);

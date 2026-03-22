@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import {
   getAddresses,
   getAddressById,
@@ -7,29 +7,33 @@ import {
   deleteAddress,
   setDefaultAddress
 } from '../controllers/deliveryAddressController';
-import { verifyToken } from '../middleware/auth';
+import { verifyToken, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
 // All routes require authentication
 router.use(verifyToken);
 
+// Wrapper to handle AuthRequest type
+const asyncHandler = (fn: (req: AuthRequest, res: Response) => Promise<void>) => 
+  (req: Request, res: Response, next: NextFunction) => fn(req as AuthRequest, res).catch(next);
+
 // Get all addresses for user
-router.get('/', getAddresses);
+router.get('/', asyncHandler(getAddresses));
 
 // Get single address
-router.get('/:id', getAddressById);
+router.get('/:id', asyncHandler(getAddressById));
 
 // Create new address
-router.post('/', createAddress);
+router.post('/', asyncHandler(createAddress));
 
 // Update address
-router.put('/:id', updateAddress);
+router.put('/:id', asyncHandler(updateAddress));
 
 // Delete address
-router.delete('/:id', deleteAddress);
+router.delete('/:id', asyncHandler(deleteAddress));
 
 // Set as default address
-router.patch('/:id/set-default', setDefaultAddress);
+router.patch('/:id/set-default', asyncHandler(setDefaultAddress));
 
 export default router;

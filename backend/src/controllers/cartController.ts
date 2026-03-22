@@ -175,7 +175,7 @@ export const addToCart = async (req: Request, res: Response) => {
         
         // Check if item variant has only empty values
         const itemHasOnlyEmptyValues = itemKeys.every(key => {
-          const value = itemVariant[key];
+          const value = (itemVariant as Record<string, any>)[key];
           const isEmpty = value === null || value === undefined || value === '';
           console.log(`Item ${key}: "${value}" isEmpty: ${isEmpty}`);
           return isEmpty;
@@ -183,7 +183,7 @@ export const addToCart = async (req: Request, res: Response) => {
         
         // Check if target variant has only empty values  
         const targetHasOnlyEmptyValues = targetKeys.every(key => {
-          const value = targetVariant[key];
+          const value = (targetVariant as Record<string, any>)[key];
           const isEmpty = value === null || value === undefined || value === '';
           console.log(`Target ${key}: "${value}" isEmpty: ${isEmpty}`);
           return isEmpty;
@@ -200,7 +200,7 @@ export const addToCart = async (req: Request, res: Response) => {
         
         // If both have the same keys and values
         if (itemKeys.length === targetKeys.length) {
-          const allKeysMatch = itemKeys.every(key => itemVariant[key] === targetVariant[key]);
+          const allKeysMatch = itemKeys.every(key => (itemVariant as Record<string, any>)[key] === (targetVariant as Record<string, any>)[key]);
           console.log('All keys match:', allKeysMatch);
           if (allKeysMatch) {
             return productMatches;
@@ -212,7 +212,7 @@ export const addToCart = async (req: Request, res: Response) => {
       if (!targetVariant && itemVariant && typeof itemVariant === 'object') {
         const itemKeys = Object.keys(itemVariant);
         const allEmpty = itemKeys.every(key => {
-          const value = itemVariant[key];
+          const value = (itemVariant as Record<string, any>)[key];
           return value === null || value === undefined || value === '';
         });
         console.log('Target undefined, item has empty values:', allEmpty);
@@ -224,7 +224,7 @@ export const addToCart = async (req: Request, res: Response) => {
       if (!itemVariant && targetVariant && typeof targetVariant === 'object') {
         const targetKeys = Object.keys(targetVariant);
         const allEmpty = targetKeys.every(key => {
-          const value = targetVariant[key];
+          const value = (targetVariant as Record<string, any>)[key];
           return value === null || value === undefined || value === '';
         });
         console.log('Item undefined, target has empty values:', allEmpty);
