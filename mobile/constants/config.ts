@@ -15,9 +15,13 @@ const PRODUCTION_URL = 'https://afro-china-trade.vercel.app/api';
 export const DEMO_MODE = false; // Set to true for client demo build
 
 // Determine API URL based on environment
-// Local development by default, Vercel only for EAS builds
-const isEASBuild = process.env.EAS_BUILD === 'true';
-export const API_BASE_URL = isEASBuild ? PRODUCTION_URL : DEV_URLS.WIFI;
+// Use app.json extra.apiUrl if available (set by EAS), otherwise use local dev URL
+import Constants from 'expo-constants';
+
+const appExtra = Constants.expoConfig?.extra as any;
+const configApiUrl = appExtra?.apiUrl;
+
+export const API_BASE_URL = configApiUrl || DEV_URLS.WIFI;
 
 export const APP_CONFIG = {
   name: 'AfroChinaTrade',
