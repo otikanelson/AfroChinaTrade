@@ -21,6 +21,9 @@ export const connectDatabase = async (
     return;
   }
 
+  // Log the connection string (first 50 chars only for security)
+  console.log(`📝 Attempting to connect to MongoDB: ${mongoUri.substring(0, 50)}...`);
+
   let retries = 0;
 
   while (retries < maxRetries) {
