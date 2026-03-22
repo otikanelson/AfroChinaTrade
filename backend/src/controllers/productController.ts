@@ -4,7 +4,7 @@ import Product from '../models/Product';
 // Get all products with pagination, filtering, and sorting
 export const getProducts = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { page = 1, limit = 10, category, minPrice, maxPrice, minRating, inStock, sortBy } = req.query;
+    const { page = 1, limit = 10, category, minPrice, maxPrice, minRating, inStock, sortBy, supplierId, isFeatured, isSellerFavorite } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 10));
@@ -15,6 +15,10 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
 
     if (category) {
       filter.category = category;
+    }
+
+    if (supplierId) {
+      filter.supplierId = supplierId;
     }
 
     if (minPrice || maxPrice) {
@@ -29,6 +33,14 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
 
     if (inStock === 'true') {
       filter.stock = { $gt: 0 };
+    }
+
+    if (isFeatured !== undefined) {
+      filter.isFeatured = isFeatured === 'true';
+    }
+
+    if (isSellerFavorite !== undefined) {
+      filter.isSellerFavorite = isSellerFavorite === 'true';
     }
 
     // Build sort object
@@ -47,7 +59,8 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
     const products = await Product.find(filter)
       .sort(sortObj)
       .skip(skip)
-      .limit(limitNum);
+      .limit(limitNum)
+      .populate('supplierId', 'name email verified rating location responseTime');
 
     const total = await Product.countDocuments(filter);
 
@@ -83,7 +96,7 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
   try {
     const { id } = req.params;
 
-    const product = await Product.findById(id);
+    const product = await Product.findById(id).populate('supplierId', 'name email verified rating location responseTime');
     if (!product) {
       res.status(404).json({
         status: 'error',
@@ -117,7 +130,22 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
 // Create new product (admin only)
 export const createProduct = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, description, price, category, supplierId, stock, images, tags } = req.body;
+    const { 
+      name, 
+      description, 
+      price, 
+      category, 
+      supplierId, 
+      stock, 
+      images, 
+      tags, 
+      isFeatured, 
+      isActive, 
+      discount, 
+      specifications, 
+      isSellerFavorite,
+      policies 
+    } = req.body;
 
     // Validate required fields
     if (!name || !description || price === undefined || !category || !supplierId || stock === undefined) {
@@ -165,6 +193,12 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       stock,
       images: images || [],
       tags: tags || [],
+      isFeatured: isFeatured || false,
+      isActive: isActive !== undefined ? isActive : true,
+      discount: discount || 0,
+      specifications: specifications || {},
+      isSellerFavorite: isSellerFavorite || false,
+      policies: policies || {},
     });
 
     res.status(201).json({
@@ -193,7 +227,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, description, price, category, supplierId, stock, images, tags, isFeatured, isActive } = req.body;
+    const { name, description, price, category, supplierId, stock, images, tags, isFeatured, isActive, discount, specifications, isSellerFavorite } = req.body;
 
     // Validate price if provided
     if (price !== undefined && (typeof price !== 'number' || price < 0)) {
@@ -215,6 +249,16 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Validate discount if provided
+    if (discount !== undefined && (typeof discount !== 'number' || discount < 0 || discount > 100)) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Discount must be a number between 0 and 100',
+        errorCode: 'INVALID_DISCOUNT',
+      });
+      return;
+    }
+
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
@@ -226,11 +270,14 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
     if (tags !== undefined) updateData.tags = tags;
     if (isFeatured !== undefined) updateData.isFeatured = isFeatured;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (discount !== undefined) updateData.discount = discount;
+    if (specifications !== undefined) updateData.specifications = specifications;
+    if (isSellerFavorite !== undefined) updateData.isSellerFavorite = isSellerFavorite;
 
     const product = await Product.findByIdAndUpdate(
       id,
       updateData,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!product) {
@@ -308,7 +355,8 @@ export const getFeaturedProducts = async (req: Request, res: Response): Promise<
 
     const products = await Product.find({ isFeatured: true, isActive: true })
       .limit(limitNum)
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .populate('supplierId', 'name email verified rating location responseTime');
 
     res.status(200).json({
       status: 'success',
@@ -344,7 +392,8 @@ export const getProductsByCategory = async (req: Request, res: Response): Promis
     const products = await Product.find({ category: categoryId, isActive: true })
       .skip(skip)
       .limit(limitNum)
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .populate('supplierId', 'name email verified rating location responseTime');
 
     const total = await Product.countDocuments({ category: categoryId, isActive: true });
 
@@ -467,7 +516,7 @@ export const toggleProductStatus = async (req: Request, res: Response): Promise<
     const product = await Product.findByIdAndUpdate(
       id,
       { isActive },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!product) {

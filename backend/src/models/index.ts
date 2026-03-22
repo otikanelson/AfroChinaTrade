@@ -19,3 +19,8 @@ export { default as PaymentMethod, IPaymentMethod } from './PaymentMethod';
 export { default as DeliveryAddress, IDeliveryAddress } from './DeliveryAddress';
 export { default as HelpTicket, IHelpTicket } from './HelpTicket';
 export { default as AppReview, IAppReview } from './AppReview';
+
+// Enhanced Product Discovery models
+export { default as BrowsingHistory, IBrowsingHistory } from './BrowsingHistory';
+export { default as ProductViewCache, IProductViewCache } from './ProductViewCache';
+export { default as RecommendationCache, IRecommendationCache } from './RecommendationCache';

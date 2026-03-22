@@ -13,7 +13,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { messageService } from '../../../services/MessageService';
-import { Message, MessageThread } from '../../../types/messages';
+import { Message, MessageThread } from '../../../types/message';
 import { useMessages } from '../../../contexts/MessagesContext';
 import { theme } from '../../../theme';
 
@@ -76,36 +76,32 @@ export default function MessageThreadScreen() {
 
   const load = useCallback(async () => {
     try {
-      const response = await messageService.getThreadMessages(threadId, {
-        page: 1,
-        limit: 100, // Get all messages for now
-      });
+      const response = await messageService.getThreadMessages(threadId);
       
       if (response.success && response.data) {
-        setMessages(response.data);
+        setThread(response.data.thread);
+        setMessages(response.data.messages);
         
-        // Get thread info (we'll need to get this from the threads list or a separate endpoint)
-        const threadsResponse = await messageService.getThreads({ page: 1, limit: 100 });
-        if (threadsResponse.success && threadsResponse.data) {
-          const foundThread = threadsResponse.data.find(t => t.id === threadId);
-          if (foundThread) {
-            setThread(foundThread);
-            
-            // Mark messages as read
-            try {
-              await messageService.markAsRead(threadId);
-              // Refresh unread count after marking as read
-              refreshUnreadCount();
-            } catch (error) {
-              console.warn('Failed to mark messages as read:', error);
-            }
+        // Mark messages as read
+        const unreadMessages = response.data.messages.filter(
+          msg => !msg.isRead && msg.senderRole === 'customer'
+        );
+        
+        for (const message of unreadMessages) {
+          try {
+            await messageService.markAsRead(message._id);
+          } catch (error) {
+            console.error('Error marking message as read:', error);
           }
         }
+        
+        // Refresh unread count after marking as read
+        refreshUnreadCount();
       }
     } catch (error) {
       console.error('Error loading thread messages:', error);
     }
-  }, [threadId]);
+  }, [threadId, refreshUnreadCount]);
 
   useEffect(() => {
     load();
@@ -118,13 +114,13 @@ export default function MessageThreadScreen() {
     
     try {
       const response = await messageService.sendMessage({
-        threadId: thread.id,
+        threadId: thread.threadId,
         text,
       });
       
       if (response.success && response.data) {
         // Add the new message to the list
-        setMessages(prev => [...prev, response.data!]);
+        setMessages(prev => [...prev, response.data]);
         setInput('');
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
       } else {
@@ -134,10 +130,11 @@ export default function MessageThreadScreen() {
       console.error('Error sending message:', error);
       // For now, just add the message locally as fallback
       const newMsg: Message = {
-        id: `msg-${Date.now()}`,
-        threadId: thread.id,
+        _id: `msg-${Date.now()}`,
+        threadId: thread.threadId,
         senderId: 'admin',
         senderName: 'Admin',
+        senderRole: 'admin',
         text,
         createdAt: new Date().toISOString(),
         isRead: true,
@@ -167,8 +164,8 @@ export default function MessageThreadScreen() {
       <FlatList
         ref={listRef}
         data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <Bubble message={item} isAdmin={item.senderId === 'admin'} />}
+        keyExtractor={(item) => item._id}
+        renderItem={({ item }) => <Bubble message={item} isAdmin={item.senderRole === 'admin'} />}
         contentContainerStyle={styles.listContent}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         showsVerticalScrollIndicator={false}
@@ -176,6 +173,9 @@ export default function MessageThreadScreen() {
           <View style={styles.threadHeader}>
             <Text style={styles.threadName}>{thread.customerName}</Text>
             <Text style={styles.threadSub}>Last active {formatRelativeTime(thread.lastMessageAt)}</Text>
+            {thread.productName && (
+              <Text style={styles.productInfo}>Product: {thread.productName}</Text>
+            )}
           </View>
         }
       />
@@ -219,6 +219,7 @@ const styles = StyleSheet.create({
   },
   threadName: { fontSize: theme.fontSizes.base, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.text },
   threadSub: { fontSize: theme.fontSizes.xs, color: theme.colors.textLight, marginTop: 2 },
+  productInfo: { fontSize: theme.fontSizes.xs, color: theme.colors.primary, marginTop: 4, fontStyle: 'italic' },
   // Bubbles
   bubbleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing.sm, marginBottom: theme.spacing.xs },
   bubbleRowAdmin: { flexDirection: 'row-reverse' },

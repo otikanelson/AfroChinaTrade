@@ -5,7 +5,7 @@ import User from '../models/User';
 
 export const createMessage = async (req: Request, res: Response) => {
   try {
-    const { threadId, text, recipientId } = req.body;
+    const { threadId, text, recipientId, productId, productImage, productName, threadType = 'general' } = req.body;
 
     if (!threadId || !text) {
       return res.status(400).json({ 
@@ -28,36 +28,71 @@ export const createMessage = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if thread exists, if not create it
+    // Check if thread exists
     let thread = await MessageThread.findOne({ threadId });
-    if (!thread && recipientId) {
-      const recipient = await User.findById(recipientId);
-      if (!recipient) {
-        return res.status(404).json({ 
-          success: false,
-          error: {
-            code: 'RECIPIENT_NOT_FOUND',
-            message: 'Recipient not found'
-          }
-        });
+    
+    // If thread doesn't exist, create it
+    if (!thread) {
+      let recipient = null;
+      
+      if (recipientId) {
+        recipient = await User.findById(recipientId);
+        if (!recipient) {
+          return res.status(404).json({ 
+            success: false,
+            error: {
+              code: 'RECIPIENT_NOT_FOUND',
+              message: 'Recipient not found'
+            }
+          });
+        }
+      } else {
+        // If no recipientId provided, find any admin user for general support
+        recipient = await User.findOne({ role: 'admin' });
+        if (!recipient) {
+          return res.status(404).json({ 
+            success: false,
+            error: {
+              code: 'NO_ADMIN_FOUND',
+              message: 'No admin users available to handle your message'
+            }
+          });
+        }
+      }
+
+      // Get product info if productId is provided
+      let productName = undefined;
+      let productImage = undefined;
+      if (productId) {
+        const Product = require('../models/Product').default;
+        const product = await Product.findById(productId);
+        if (product) {
+          productName = product.name;
+          productImage = product.images && product.images.length > 0 ? product.images[0] : undefined;
+        }
       }
 
       thread = await MessageThread.create({
         threadId,
-        customerId: user.role === 'customer' ? req.userId : recipientId,
+        customerId: user.role === 'customer' ? req.userId : recipient._id,
         customerName: user.role === 'customer' ? user.name : recipient.name,
+        productId: productId || undefined,
+        productName,
+        productImage,
+        threadType,
         lastMessage: text,
         lastMessageAt: new Date(),
         unreadCount: user.role === 'customer' ? 0 : 1
       });
     }
 
+    // If thread still doesn't exist, return error (this shouldn't happen now)
     if (!thread) {
-      return res.status(404).json({ 
+      return res.status(500).json({ 
         success: false,
         error: {
-          code: 'THREAD_NOT_FOUND',
-          message: 'Thread not found'
+          code: 'THREAD_CREATION_FAILED',
+          message: 'Failed to create or find thread'
         }
       });
     }
@@ -79,16 +114,22 @@ export const createMessage = async (req: Request, res: Response) => {
       senderName: user.name,
       senderRole: user.role,
       text,
+      productImage: productImage || undefined,
+      productName: productName || undefined,
     });
 
-    // Update thread with last message info and increment unread count if sender is not the customer
+    // Update thread with last message info and increment unread count appropriately
     const updateData: any = {
       lastMessage: text,
       lastMessageAt: new Date(),
     };
 
-    if (user.role === 'admin' && thread.customerId.toString() !== req.userId) {
+    // Increment unread count if the sender is not the customer (i.e., admin is replying)
+    if (user.role === 'admin') {
       updateData.$inc = { unreadCount: 1 };
+    } else {
+      // Reset unread count when customer sends a message (they've seen their own message)
+      updateData.unreadCount = 0;
     }
 
     await MessageThread.findOneAndUpdate(
@@ -102,6 +143,7 @@ export const createMessage = async (req: Request, res: Response) => {
       data: message,
     });
   } catch (error: any) {
+    console.error('Error in createMessage:', error);
     res.status(500).json({ 
       success: false,
       error: {
@@ -224,6 +266,9 @@ export const getThreadMessages = async (req: Request, res: Response) => {
           threadId: thread.threadId,
           customerId: thread.customerId,
           customerName: thread.customerName,
+          productName: thread.productName,
+          productImage: thread.productImage,
+          threadType: thread.threadType,
           status: thread.status
         },
         messages
@@ -344,6 +389,122 @@ export const getUnreadCount = async (req: Request, res: Response) => {
       data: { unreadCount }
     });
   } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }
+    });
+  }
+};
+
+export const createProductThread = async (req: Request, res: Response) => {
+  try {
+    const { productId, initialMessage, threadType = 'product_inquiry' } = req.body;
+
+    if (!productId || !initialMessage) {
+      return res.status(400).json({ 
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Product ID and initial message are required'
+        }
+      });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found'
+        }
+      });
+    }
+
+    // Get product info
+    const Product = require('../models/Product').default;
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ 
+        success: false,
+        error: {
+          code: 'PRODUCT_NOT_FOUND',
+          message: 'Product not found'
+        }
+      });
+    }
+
+    // Generate unique thread ID
+    const threadId = `${user._id}_${productId}_${Date.now()}`;
+
+    // Create thread
+    const thread = await MessageThread.create({
+      threadId,
+      customerId: req.userId,
+      customerName: user.name,
+      productId,
+      productName: product.name,
+      productImage: product.images && product.images.length > 0 ? product.images[0] : undefined,
+      threadType,
+      lastMessage: '',
+      lastMessageAt: new Date(),
+      unreadCount: 0
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Product thread created successfully',
+      data: {
+        thread,
+        isExisting: false
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }
+    });
+  }
+};
+
+export const clearHistory = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    const userRole = req.userRole;
+
+    // For customers, only delete their own threads
+    // For admins, delete all threads
+    const filter = userRole === 'admin' ? {} : { customerId: userId };
+
+    // First, get all thread IDs that will be deleted
+    const threadsToDelete = await MessageThread.find(filter).distinct('threadId');
+
+    // Delete all messages in those threads
+    const messageResult = await Message.deleteMany(
+      userRole === 'admin' 
+        ? {} 
+        : { threadId: { $in: threadsToDelete } }
+    );
+
+    // Delete all message threads
+    const threadResult = await MessageThread.deleteMany(filter);
+
+    res.json({
+      success: true,
+      message: 'Message history cleared successfully',
+      data: {
+        threadsDeleted: threadResult.deletedCount,
+        messagesDeleted: messageResult.deletedCount
+      }
+    });
+  } catch (error: any) {
+    console.error('Error clearing message history:', error);
     res.status(500).json({ 
       success: false,
       error: {

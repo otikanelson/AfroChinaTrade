@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -18,6 +17,7 @@ import { DataList } from '../../../components/admin/DataList';
 import { SearchBar } from '../../../components/admin/SearchBar';
 import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { Header } from '../../../components/Header';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -262,24 +262,6 @@ export default function OrdersScreen() {
     screen: {
       flex: 1,
       backgroundColor: colors.surface,
-    },
-
-    // Header
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.lg,
-      backgroundColor: colors.background,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-      ...shadows.sm,
-    },
-    headerTitle: {
-      fontSize: fontSizes['3xl'],
-      fontWeight: fontWeights.bold as any,
-      color: colors.text,
     },
 
     // List
@@ -655,10 +637,22 @@ export default function OrdersScreen() {
 
   if (error && !loading && orders.length === 0) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Orders</Text>
-        </View>
+      <View style={styles.screen}>
+        <Header 
+          title="Orders"
+          subtitle="Track sales and fulfillment"
+          rightAction={
+            <TouchableOpacity
+              style={styles.periodButton}
+              onPress={() => setPeriodModalVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Select time period"
+            >
+              <Text style={styles.periodButtonText}>{periodLabel}</Text>
+              <Ionicons name="chevron-down" size={14} color={colors.primary} />
+            </TouchableOpacity>
+          }
+        />
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
           <Text style={styles.errorText}>{error}</Text>
@@ -666,26 +660,29 @@ export default function OrdersScreen() {
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // ── Main render ────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Orders</Text>
-        <TouchableOpacity
-          style={styles.periodButton}
-          onPress={() => setPeriodModalVisible(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Select time period"
-        >
-          <Text style={styles.periodButtonText}>{periodLabel}</Text>
-          <Ionicons name="chevron-down" size={14} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.screen}>
+      <Header 
+        title="Orders"
+        subtitle="Track sales and fulfillment"
+        rightAction={
+          <TouchableOpacity
+            style={styles.periodButton}
+            onPress={() => setPeriodModalVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Select time period"
+          >
+            <Text style={styles.periodButtonText}>{periodLabel}</Text>
+            <Ionicons name="chevron-down" size={14} color={colors.primary} />
+          </TouchableOpacity>
+        }
+      />
 
       <DataList<Order>
         data={filteredOrders}
@@ -710,6 +707,6 @@ export default function OrdersScreen() {
         onSelect={setTimePeriod}
         onClose={() => setPeriodModalVisible(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }

@@ -15,24 +15,21 @@ import { tokenManager } from '../services/api/tokenManager';
 import { API_BASE_URL } from '../constants/config';
 import { useTheme } from '../contexts/ThemeContext';
 
-interface DeliveryAddress {
-  _id: string;
-  type: 'home' | 'work' | 'other';
-  isDefault: boolean;
-  fullName: string;
-  phoneNumber: string;
-  addressLine1: string;
-  addressLine2?: string;
+interface Address {
+  street: string;
   city: string;
   state: string;
   country: string;
-  postalCode?: string;
+  postalCode: string;
+  isDefault: boolean;
+  landmark?: string;
+  locationSummary?: string;
 }
 
 export default function AddressesScreen() {
   const router = useRouter();
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
-  const [addresses, setAddresses] = useState<DeliveryAddress[]>([]);
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
 
   const styles = StyleSheet.create({
@@ -195,13 +192,13 @@ export default function AddressesScreen() {
     if (!token) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/addresses`, {
+      const response = await fetch(`${API_BASE_URL}/users/profile`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
       const data = await response.json();
-      if (data.success) {
-        setAddresses(data.data);
+      if (data.status === 'success') {
+        setAddresses(data.data.addresses || []);
       }
     } catch (error) {
       console.error('Error fetching addresses:', error);
@@ -210,31 +207,35 @@ export default function AddressesScreen() {
     }
   };
 
-  const setDefaultAddress = async (addressId: string) => {
+  const setDefaultAddress = async (addressIndex: number) => {
     const token = await tokenManager.getAccessToken();
     if (!token) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/addresses/${addressId}/default`, {
+      const updatedAddresses = addresses.map((addr, idx) => ({
+        ...addr,
+        isDefault: idx === addressIndex
+      }));
+
+      const response = await fetch(`${API_BASE_URL}/users/profile/addresses`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ addresses: updatedAddresses }),
       });
 
       const data = await response.json();
-      if (data.success) {
-        setAddresses(prev => 
-          prev.map(address => ({
-            ...address,
-            isDefault: address._id === addressId
-          }))
-        );
+      if (data.status === 'success') {
+        setAddresses(updatedAddresses);
       }
     } catch (error) {
       console.error('Error setting default address:', error);
     }
   };
 
-  const deleteAddress = async (addressId: string) => {
+  const deleteAddress = async (addressIndex: number) => {
     Alert.alert(
       'Delete Address',
       'Are you sure you want to delete this address?',
@@ -248,14 +249,19 @@ export default function AddressesScreen() {
             if (!token) return;
 
             try {
-              const response = await fetch(`${API_BASE_URL}/addresses/${addressId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` },
+              const updatedAddresses = addresses.filter((_, idx) => idx !== addressIndex);
+              const response = await fetch(`${API_BASE_URL}/users/profile/addresses`, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ addresses: updatedAddresses }),
               });
 
               const data = await response.json();
-              if (data.success) {
-                setAddresses(prev => prev.filter(address => address._id !== addressId));
+              if (data.status === 'success') {
+                setAddresses(updatedAddresses);
               }
             } catch (error) {
               console.error('Error deleting address:', error);
@@ -290,7 +296,7 @@ export default function AddressesScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Delivery Addresses</Text>
         <TouchableOpacity 
-          onPress={() => router.push('/addresses/new')} 
+          onPress={() => router.push('/addresses/new-address')} 
           style={styles.addButton}
         >
           <Ionicons name="add" size={24} color={colors.primary} />
@@ -312,25 +318,22 @@ export default function AddressesScreen() {
           </Text>
           <TouchableOpacity
             style={styles.addAddressButton}
-            onPress={() => router.push('/addresses/new')}
+            onPress={() => router.push('/addresses/new-address')}
           >
             <Text style={styles.addAddressButtonText}>Add Address</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <ScrollView style={styles.addressesList} showsVerticalScrollIndicator={false}>
-          {addresses.map((address) => (
-            <View key={address._id} style={styles.addressCard}>
+          {addresses.map((address, index) => (
+            <View key={index} style={styles.addressCard}>
               <View style={styles.addressHeader}>
                 <View style={styles.addressTypeContainer}>
                   <Ionicons 
-                    name={getAddressTypeIcon(address.type) as any} 
+                    name="location-outline"
                     size={20} 
                     color={colors.primary} 
                   />
-                  <Text style={styles.addressType}>
-                    {getAddressTypeLabel(address.type)}
-                  </Text>
                   {address.isDefault && (
                     <View style={styles.defaultBadge}>
                       <Text style={styles.defaultBadgeText}>Default</Text>
@@ -342,14 +345,20 @@ export default function AddressesScreen() {
                   {!address.isDefault && (
                     <TouchableOpacity
                       style={styles.actionButton}
-                      onPress={() => setDefaultAddress(address._id)}
+                      onPress={() => setDefaultAddress(index)}
                     >
                       <Text style={styles.actionButtonText}>Set Default</Text>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => router.push(`/addresses/${index}`)}
+                  >
+                    <Text style={styles.actionButtonText}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     style={styles.deleteButton}
-                    onPress={() => deleteAddress(address._id)}
+                    onPress={() => deleteAddress(index)}
                   >
                     <Ionicons name="trash-outline" size={18} color={colors.error} />
                   </TouchableOpacity>
@@ -357,17 +366,20 @@ export default function AddressesScreen() {
               </View>
               
               <View style={styles.addressDetails}>
-                <Text style={styles.addressName}>{address.fullName}</Text>
                 <Text style={styles.addressText}>
-                  {address.addressLine1}
-                  {address.addressLine2 ? `, ${address.addressLine2}` : ''}
+                  {address.street}
                 </Text>
                 <Text style={styles.addressText}>
                   {address.city}, {address.state}
                   {address.postalCode ? ` ${address.postalCode}` : ''}
                 </Text>
                 <Text style={styles.addressText}>{address.country}</Text>
-                <Text style={styles.addressPhone}>{address.phoneNumber}</Text>
+                {address.landmark && (
+                  <Text style={styles.addressText}>📍 {address.landmark}</Text>
+                )}
+                {address.locationSummary && (
+                  <Text style={styles.addressText}>📌 {address.locationSummary}</Text>
+                )}
               </View>
             </View>
           ))}

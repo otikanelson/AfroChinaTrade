@@ -11,6 +11,7 @@ export interface Product {
   reviewCount: number;
   stock: number;
   supplier?: Supplier;
+  supplierId?: Supplier | string; // Handle both populated and non-populated cases
   tags?: string[];
   specifications?: Record<string, string>;
   discount?: number;
@@ -18,11 +19,18 @@ export interface Product {
   isFeatured?: boolean;
   isActive?: boolean;
   imageHeight?: number;
+  // New discovery fields
+  viewCount?: number;
+  isSellerFavorite?: boolean;
+  trendingScore?: number;
+  lastViewedAt?: string;
 }
 
 export interface Supplier {
-  id: string;
+  id?: string;
+  _id?: string; // MongoDB ObjectId
   name: string;
+  email?: string;
   verified: boolean;
   rating: number;
   location: string;

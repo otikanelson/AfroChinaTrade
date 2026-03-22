@@ -9,7 +9,14 @@ export const getWishlist = async (req: Request, res: Response) => {
     const userId = req.userId;
     
     const wishlist = await Wishlist.find({ userId })
-      .populate('productId', 'name price images category stock isActive')
+      .populate({
+        path: 'productId',
+        select: 'name price images category stock isActive supplierId',
+        populate: {
+          path: 'supplierId',
+          select: 'name email verified rating location responseTime'
+        }
+      })
       .sort({ addedAt: -1 });
 
     // Filter out products that are no longer active
@@ -64,7 +71,14 @@ export const addToWishlist = async (req: Request, res: Response) => {
     });
 
     await wishlistItem.save();
-    await wishlistItem.populate('productId', 'name price images category');
+    await wishlistItem.populate({
+      path: 'productId',
+      select: 'name price images category supplierId',
+      populate: {
+        path: 'supplierId',
+        select: 'name email verified rating location responseTime'
+      }
+    });
 
     res.status(201).json({
       success: true,

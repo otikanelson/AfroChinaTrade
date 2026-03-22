@@ -228,11 +228,12 @@ class SimpleApiClient {
   async uploadFile<T = any>(
     url: string, 
     file: { uri: string; type: string; name: string }, 
-    additionalData?: Record<string, any>
+    additionalData?: Record<string, any>,
+    fieldName: string = 'file'
   ): Promise<ApiResponse<T>> {
     const formData = new FormData();
     
-    formData.append('file', {
+    formData.append(fieldName, {
       uri: file.uri,
       type: file.type,
       name: file.name,

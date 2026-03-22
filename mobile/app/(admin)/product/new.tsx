@@ -6,28 +6,20 @@ import { Button } from '../../../components/admin/Button';
 import { FormField } from '../../../components/admin/forms/FormField';
 import { ImagePickerField, PickedImage } from '../../../components/admin/forms/ImagePickerField';
 import { PickerField, PickerOption } from '../../../components/admin/forms/PickerField';
-import { SwitchField } from '../../../components/admin/forms/SwitchField';
+import { TagSelector } from '../../../components/admin/forms/TagSelector';
 import { SpecificationsTable } from '../../../components/admin/forms/SpecificationsTable';
 import { PolicyFields } from '../../../components/admin/forms/PolicyFields';
 import { mobileToastManager } from '../../../utils/toast';
 import { productService } from '../../../services/ProductService';
 import { supplierService } from '../../../services/SupplierService';
+import { categoryService } from '../../../services/CategoryService';
 import { theme } from '../../../theme';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const CATEGORIES: PickerOption[] = [
-  { label: 'Electronics', value: 'Electronics' },
-  { label: 'Fashion', value: 'Fashion' },
-  { label: 'Home & Garden', value: 'Home & Garden' },
-  { label: 'Sports & Outdoors', value: 'Sports & Outdoors' },
-  { label: 'Books & Media', value: 'Books & Media' },
-  { label: 'Health & Beauty', value: 'Health & Beauty' },
-  { label: 'Automotive', value: 'Automotive' },
-  { label: 'Toys & Games', value: 'Toys & Games' },
-];
+// Categories will be loaded dynamically from the backend
 
 // ---------------------------------------------------------------------------
 // Form state type
@@ -119,7 +111,9 @@ export default function NewProductScreen() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
+  const [loadingCategories, setLoadingCategories] = useState(true);
   const [suppliers, setSuppliers] = useState<PickerOption[]>([]);
+  const [categories, setCategories] = useState<PickerOption[]>([]);
 
   const [form, setForm] = useState<FormState>({
     name: '',
@@ -143,6 +137,7 @@ export default function NewProductScreen() {
   // Load suppliers on component mount
   useEffect(() => {
     loadSuppliers();
+    loadCategories();
   }, []);
 
   const loadSuppliers = async () => {
@@ -182,6 +177,33 @@ export default function NewProductScreen() {
       }
     } finally {
       setLoadingSuppliers(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      setLoadingCategories(true);
+      const response = await categoryService.getCategories();
+      
+      if (response.success && response.data) {
+        const categoryOptions = response.data.map((category: any) => ({
+          label: category.name,
+          value: category.name
+        }));
+        setCategories(categoryOptions);
+      }
+    } catch (error: any) {
+      console.error('Failed to load categories:', error);
+      // Only show alert for non-authentication errors
+      if (error?.code !== 'NETWORK_ERROR' && error?.code !== 'NO_TOKEN') {
+        Alert.alert('Error', 'Failed to load categories. Please try again.');
+      }
+      // For authentication errors, set empty categories list
+      if (error?.code === 'NO_TOKEN') {
+        setCategories([]);
+      }
+    } finally {
+      setLoadingCategories(false);
     }
   };
 
@@ -232,6 +254,8 @@ export default function NewProductScreen() {
         }, {} as Record<string, string>),
         // Include policies
         policies: form.policies,
+        // Map favorite field to isSellerFavorite for backend
+        isSellerFavorite: form.favorite,
       };
 
       const response = await productService.createProduct(productData);
@@ -375,9 +399,10 @@ export default function NewProductScreen() {
           label="Category"
           value={form.category}
           onValueChange={(v) => setField('category', v)}
-          options={CATEGORIES}
-          placeholder="Select a category"
+          options={categories}
+          placeholder={loadingCategories ? "Loading categories..." : categories.length === 0 ? "No categories available" : "Select a category"}
           required
+          disabled={loadingCategories}
           error={errors.category}
           testID="new-product-category"
         />
@@ -395,37 +420,33 @@ export default function NewProductScreen() {
           testID="new-product-supplier"
         />
 
-        {/* Toggles */}
-        <SwitchField
-          label="Active"
-          value={form.isActive}
-          onValueChange={(v) => setField('isActive', v)}
-          description="Product is visible to customers when active"
-          testID="new-product-active"
-        />
-
-        <SwitchField
-          label="Featured"
-          value={form.featured}
-          onValueChange={(v) => setField('featured', v)}
-          description="Show this product in featured sections"
-          testID="new-product-featured"
-        />
-
-        <SwitchField
-          label="Favorite"
-          value={form.favorite}
-          onValueChange={(v) => setField('favorite', v)}
-          description="Mark as a seller favorite"
-          testID="new-product-favorite"
-        />
-
-        <SwitchField
-          label="Discounted"
-          value={form.discounted}
-          onValueChange={(v) => setField('discounted', v)}
-          description="Apply a discount to this product"
-          testID="new-product-discounted"
+        {/* Product Status Tags */}
+        <TagSelector
+          label="Product Status & Features"
+          description="Select which features apply to this product"
+          tags={[
+            { id: 'active', label: 'Active', value: form.isActive },
+            { id: 'featured', label: 'Featured', value: form.featured },
+            { id: 'favorite', label: 'Seller Favorite', value: form.favorite },
+            { id: 'discounted', label: 'Discounted', value: form.discounted },
+          ]}
+          onTagToggle={(tagId) => {
+            switch (tagId) {
+              case 'active':
+                setField('isActive', !form.isActive);
+                break;
+              case 'featured':
+                setField('featured', !form.featured);
+                break;
+              case 'favorite':
+                setField('favorite', !form.favorite);
+                break;
+              case 'discounted':
+                setField('discounted', !form.discounted);
+                break;
+            }
+          }}
+          testID="new-product-status-tags"
         />
 
         {/* Conditional discount amount */}

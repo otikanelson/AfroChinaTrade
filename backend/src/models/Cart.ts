@@ -74,11 +74,10 @@ const cartSchema = new Schema<ICart>({
 });
 
 // Update totals before saving
-cartSchema.pre('save', function(next) {
+cartSchema.pre('save', function() {
   this.totalItems = this.items.reduce((total, item) => total + item.quantity, 0);
   this.totalAmount = this.items.reduce((total, item) => total + (item.price * item.quantity), 0);
   this.lastUpdated = new Date();
-  next();
 });
 
 export default mongoose.model<ICart>('Cart', cartSchema);

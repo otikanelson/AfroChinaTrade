@@ -76,7 +76,7 @@ const helpTicketSchema = new Schema<IHelpTicket>({
 });
 
 // Generate ticket number before saving
-helpTicketSchema.pre('save', async function(next) {
+helpTicketSchema.pre('save', async function() {
   if (this.isNew) {
     const count = await mongoose.model('HelpTicket').countDocuments();
     this.ticketNumber = `HT${String(count + 1).padStart(6, '0')}`;
@@ -85,8 +85,6 @@ helpTicketSchema.pre('save', async function(next) {
   if (this.status === 'resolved' && !this.resolvedAt) {
     this.resolvedAt = new Date();
   }
-  
-  next();
 });
 
 export default mongoose.model<IHelpTicket>('HelpTicket', helpTicketSchema);

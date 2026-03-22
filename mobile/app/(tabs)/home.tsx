@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Text, Image, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, StatusBar, Text, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Header } from '../../components/Header';
 import { SearchBar } from '../../components/SearchBar';
 import { CategoryTabs } from '../../components/CategoryTabs';
 import { ProductCard } from '../../components/ProductCard';
@@ -12,68 +11,45 @@ import { productService } from '../../services/ProductService';
 import { categoryService } from '../../services/CategoryService';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCart } from '../../contexts/CartContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useRecommendations } from '../../hooks/useRecommendations';
 import { Product, Category } from '../../types/product';
+import { NavigationSource } from '../../types/navigation';
+import { spacing } from '../../theme/spacing';
 
 export default function HomeTab() {
   const router = useRouter();
-  const { colors, fonts, fontSizes, spacing } = useTheme();
+  const { fonts, fontSizes, colors, isDark } = useTheme();
   const { cartCount } = useCart();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState('All');
   const [products, setProducts] = useState<Product[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
+  const [sellerFavorites, setSellerFavorites] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Use the recommendations hook
+  const { recommendations, hasRecommendations, refreshRecommendations } = useRecommendations();
 
   const styles = StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.surface,
     },
-    header: {
-      backgroundColor: colors.background,
-      paddingTop: 10,
-      paddingBottom: spacing.sm,
-      paddingHorizontal: spacing.base,
+    stickySection: {
+      backgroundColor: colors.surface,
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
-    },
-    logoContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    logoSection: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    },
-    logo: {
-      width: 40,
-      height: 40,
-      marginRight: spacing.sm,
-    },
-    headerTextContainer: {},
-    headerTitle: {
-      fontSize: 18,
-      fontFamily: fonts.bold,
-      fontWeight: '700',
-      marginBottom: 2,
-    },
-    afro: {
-      color: colors.secondary,
-    },
-    china: {
-      color: colors.primary,
-    },
-    trade: {
-      color: colors.text,
-    },
-    headerSubtitle: {
-      fontSize: fontSizes.xs,
-      fontFamily: fonts.regular,
-      color: colors.textSecondary,
+      elevation: 2,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      zIndex: 1,
     },
     scrollView: {
       flex: 1,
@@ -91,7 +67,7 @@ export default function HomeTab() {
       gap: spacing.sm,
     },
     section: {
-      marginBottom: spacing.lg,
+      marginBottom: spacing.sm,
     },
     horizontalList: {
       paddingHorizontal: spacing.base,
@@ -147,26 +123,6 @@ export default function HomeTab() {
       color: colors.textLight,
       textAlign: 'center',
     },
-    cartButton: {
-      position: 'relative',
-      padding: spacing.sm,
-    },
-    cartBadge: {
-      position: 'absolute',
-      top: 4,
-      right: 4,
-      backgroundColor: colors.error,
-      borderRadius: 10,
-      minWidth: 20,
-      height: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    cartBadgeText: {
-      color: colors.textInverse,
-      fontSize: 10,
-      fontWeight: '600',
-    },
   });
 
   // Load initial data
@@ -174,43 +130,86 @@ export default function HomeTab() {
     loadInitialData();
   }, []);
 
-  // Load products when category or search changes
+  // Load products when category changes
   useEffect(() => {
     loadProducts();
-  }, [activeCategory, searchQuery]);
+  }, [activeCategory]);
 
-  const loadInitialData = async () => {
+  // Refresh data when screen comes into focus (user navigates back to home)
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh recommendations when user comes back to home
+      refreshRecommendations();
+
+      // Optionally refresh other data if needed
+      // You can add a timestamp check to avoid too frequent refreshes
+      const lastRefresh = Date.now() - (window as any).lastHomeRefresh || 0;
+      if (lastRefresh > 30000) { // Refresh if last refresh was more than 30 seconds ago
+        handleRefresh();
+        (window as any).lastHomeRefresh = Date.now();
+      }
+    }, [refreshRecommendations])
+  );
+
+  const loadInitialData = async (isRefresh = false) => {
     try {
-      setIsLoading(true);
-      
-      // Load categories and featured products in parallel
-      const [categoriesResponse, featuredResponse] = await Promise.all([
-        categoryService.getCategories(),
-        productService.getFeaturedProducts(10)
-      ]);
+      if (!isRefresh) {
+        setIsLoading(true);
+      }
 
+      // Load categories first
+      const categoriesResponse = await categoryService.getCategories();
       if (categoriesResponse.success && categoriesResponse.data) {
         setCategories(categoriesResponse.data);
       }
 
-      if (featuredResponse.success && featuredResponse.data) {
-        setFeaturedProducts(featuredResponse.data);
+      // Load different product collections in parallel with cache busting
+      const timestamp = Date.now();
+      const [featuredResponse, trendingResponse, sellerFavoritesResponse] = await Promise.all([
+        productService.getProductCollection('featured', { limit: 10, _t: timestamp } as any),
+        productService.getProductCollection('trending', { limit: 10, _t: timestamp } as any),
+        productService.getProductCollection('seller_favorites', { limit: 10, _t: timestamp } as any)
+      ]);
+
+      // Set featured products only if there are any
+      if (featuredResponse.success && featuredResponse.data?.products && featuredResponse.data.products.length > 0) {
+        setFeaturedProducts(featuredResponse.data.products);
+      } else {
+        setFeaturedProducts([]);
       }
 
-      // Load initial products
+      // Set trending products only if there are any
+      if (trendingResponse.success && trendingResponse.data?.products && trendingResponse.data.products.length > 0) {
+        setTrendingProducts(trendingResponse.data.products);
+      } else {
+        setTrendingProducts([]);
+      }
+
+      // Set seller favorites only if there are any
+      if (sellerFavoritesResponse.success && sellerFavoritesResponse.data?.products && sellerFavoritesResponse.data.products.length > 0) {
+        setSellerFavorites(sellerFavoritesResponse.data.products);
+      } else {
+        setSellerFavorites([]);
+      }
+
+      // Load initial products for the "All Products" section
       await loadProducts();
     } catch (error) {
       console.error('Failed to load initial data:', error);
-      Alert.alert('Error', 'Failed to load data. Please try again.');
+      if (!isRefresh) {
+        Alert.alert('Error', 'Failed to load data. Please try again.');
+      }
     } finally {
-      setIsLoading(false);
+      if (!isRefresh) {
+        setIsLoading(false);
+      }
     }
   };
 
   const loadProducts = async () => {
     try {
       setIsLoadingProducts(true);
-      
+
       const params: any = {
         limit: 20,
         page: 1
@@ -221,15 +220,11 @@ export default function HomeTab() {
         params.category = activeCategory;
       }
 
-      // Add search query if provided
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim();
-      }
-
       const response = await productService.getProducts(params);
-      
+
       if (response.success && response.data) {
-        setProducts(response.data);
+        const productsData = response.data || [];
+        setProducts(productsData);
       } else {
         setProducts([]);
       }
@@ -247,16 +242,23 @@ export default function HomeTab() {
     router.push({ pathname: '/product-detail/[id]', params: { id: productId } });
   };
 
-  const categoryNames = ['All', ...categories.map(c => c.name)];
+  // Pull to refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Reload all data
+      await Promise.all([
+        loadInitialData(true), // Pass true to indicate this is a refresh
+        refreshRecommendations()
+      ]);
+    } catch (error) {
+      console.error('Error refreshing home data:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshRecommendations]);
 
-  // Filter featured products by category and search query
-  const filteredFeaturedProducts = featuredProducts.filter(product => {
-    const matchesCategory = activeCategory === 'All' || product.category === activeCategory;
-    const matchesSearch = searchQuery === '' || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const categoryNames = ['All', ...categories.map(c => c.name)];
 
   // Split products into two columns for masonry layout
   const getMasonryColumns = (productList: Product[]) => {
@@ -273,58 +275,48 @@ export default function HomeTab() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.container}>
+        <Header
+          title="AfroChinaTrade"
+          showLogo={true}
+          showCart={true}
+          cartCount={cartCount}
+          onCartPress={() => router.push('/cart')}
+        />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading products...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
-      
-      {/* Header with Logo */}
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logoSection}>
-            <Image
-              source={require('../../assets/images/Logo_bg.png')}
-              style={styles.logo}
-            />
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>
-                <Text style={styles.afro}>Afro</Text>
-                <Text style={styles.china}>China</Text>
-                <Text style={styles.trade}>Trade</Text>
-              </Text>
-              <Text style={styles.headerSubtitle}>
-                Connecting Africa and China through Trade
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.cartButton} onPress={() => router.push('/cart')}>
-            <Ionicons name="cart-outline" size={24} color={colors.text} />
-            {cartCount > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+    <View style={styles.container}>
+      <StatusBar
+        backgroundColor={colors.surface}
+        barStyle={isDark ? "light-content" : "dark-content"}
+      />
 
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
+      <Header
+        title="AfroChinaTrade"
+        showLogo={true}
+        showCart={user?.role !== 'admin'} // Hide cart for admin users
+        cartCount={cartCount}
+        onCartPress={() => router.push('/cart')}
+      />
+
+      {/* Sticky Search and Tabs Section */}
+      <View style={styles.stickySection}>
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
+            value=""
+            onChangeText={() => { }}
             placeholder="Search products, suppliers..."
             onCameraPress={() => console.log('Camera pressed')}
-            onSearchPress={() => console.log('Search pressed')}
+            onPress={() => router.push('/search')}
+            editable={false}
           />
         </View>
 
@@ -334,11 +326,23 @@ export default function HomeTab() {
           activeCategory={activeCategory}
           onCategoryPress={setActiveCategory}
         />
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
 
         {/* Feature Cards - Single Row */}
         <View style={styles.featureCardsContainer}>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.featureCardsRow}
           >
@@ -348,6 +352,7 @@ export default function HomeTab() {
               title="Verified"
               subtitle="Suppliers"
               iconColor={colors.secondary}
+              onPress={() => router.push('/suppliers')}
             />
             <FeatureCard
               key="secure-trading"
@@ -369,33 +374,131 @@ export default function HomeTab() {
               title="Get Quotes"
               subtitle="Request"
               iconColor={colors.secondary}
+              onPress={() => router.push('/messages')}
             />
           </ScrollView>
         </View>
 
-        {/* Featured Products */}
-        {filteredFeaturedProducts.length > 0 && (
+        {/* Featured Products - Only show if there are featured products */}
+        {featuredProducts.length > 0 && (
           <View style={styles.section}>
-            <SectionHeader 
-              title="Featured Products" 
+            <SectionHeader
+              title="Featured Products"
               subtitle="Handpicked deals for you"
               actionText="See All"
-              onActionPress={() => console.log('See all featured')} 
+              navigationSource={NavigationSource.HOME_FEATURED}
+              collectionType="featured"
             />
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.horizontalList}
             >
-              {filteredFeaturedProducts.map(product => {
+              {featuredProducts.map(product => {
                 const productId = (product as any)._id || product.id;
-                const badgeText = product.discount && product.discount > 0 ? 'Hot Deal' : product.isNew ? 'New' : undefined;
+                const badgeText = product.isNew ? 'New' : undefined;
                 return (
                   <View key={productId} style={styles.featuredCardWrapper}>
                     <ProductCard
                       product={product}
                       badge={badgeText}
                       onPress={() => handleProductPress(product)}
+                      showViewCount={true}
+                    />
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Trending Products - Only show if there are trending products */}
+        {trendingProducts.length > 0 && (
+          <View style={styles.section}>
+            <SectionHeader
+              title="Trending Products"
+              subtitle="Popular right now"
+              actionText="See All"
+              navigationSource={NavigationSource.HOME_TRENDING}
+              collectionType="trending"
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalList}
+            >
+              {trendingProducts.map(product => {
+                const productId = (product as any)._id || product.id;
+                return (
+                  <View key={productId} style={styles.featuredCardWrapper}>
+                    <ProductCard
+                      product={product}
+                      onPress={() => handleProductPress(product)}
+                      showViewCount={true}
+                    />
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Seller Favorites - Only show if there are seller favorites */}
+        {sellerFavorites.length > 0 && (
+          <View style={styles.section}>
+            <SectionHeader
+              title="Seller Favorites"
+              subtitle="Top picks from our sellers"
+              actionText="See All"
+              navigationSource={NavigationSource.HOME_SELLER_FAVORITES}
+              collectionType="seller_favorites"
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalList}
+            >
+              {sellerFavorites.map(product => {
+                const productId = (product as any)._id || product.id;
+                const badgeText = 'Seller Pick';
+                return (
+                  <View key={productId} style={styles.featuredCardWrapper}>
+                    <ProductCard
+                      product={product}
+                      badge={badgeText}
+                      onPress={() => handleProductPress(product)}
+                      showViewCount={true}
+                    />
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Recommended Products - Only show for authenticated users with recommendations */}
+        {user && hasRecommendations && (
+          <View style={styles.section}>
+            <SectionHeader
+              title="Recommended for You"
+              subtitle="Based on your interests"
+              actionText="See All"
+              navigationSource={NavigationSource.HOME_RECOMMENDED}
+              collectionType="recommended"
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalList}
+            >
+              {recommendations.map(product => {
+                const productId = (product as any)._id || product.id;
+                return (
+                  <View key={productId} style={styles.featuredCardWrapper}>
+                    <ProductCard
+                      product={product}
+                      onPress={() => handleProductPress(product)}
+                      showViewCount={true}
                     />
                   </View>
                 );
@@ -414,24 +517,26 @@ export default function HomeTab() {
 
         {/* Masonry Product Grid */}
         <View style={styles.section}>
-          <SectionHeader 
+          <SectionHeader
             title={activeCategory === 'All' ? 'All Products' : activeCategory}
             subtitle={`${products.length || 0} products`}
             actionText="See All"
-            onActionPress={() => console.log('See all', activeCategory)} 
+            navigationSource={NavigationSource.HOME_ALL}
+            collectionType="all"
           />
           {products.length > 0 ? (
             <View style={styles.masonryContainer}>
               <View style={styles.masonryColumn}>
                 {leftColumn.map(product => {
                   const productId = (product as any)._id || product.id;
-                  const badgeText = product.discount && product.discount > 0 ? `${product.discount}% OFF` : product.isNew ? 'New' : undefined;
+                  const badgeText = product.isNew ? 'New' : undefined;
                   return (
                     <View key={productId} style={styles.masonryItem}>
                       <ProductCard
                         product={product}
                         badge={badgeText}
                         onPress={() => handleProductPress(product)}
+                        showViewCount={true}
                       />
                     </View>
                   );
@@ -440,13 +545,14 @@ export default function HomeTab() {
               <View style={styles.masonryColumn}>
                 {rightColumn.map(product => {
                   const productId = (product as any)._id || product.id;
-                  const badgeText = product.discount && product.discount > 0 ? `${product.discount}% OFF` : product.isNew ? 'New' : undefined;
+                  const badgeText = product.isNew ? 'New' : undefined;
                   return (
                     <View key={productId} style={styles.masonryItem}>
                       <ProductCard
                         product={product}
                         badge={badgeText}
                         onPress={() => handleProductPress(product)}
+                        showViewCount={true}
                       />
                     </View>
                   );
@@ -461,6 +567,6 @@ export default function HomeTab() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

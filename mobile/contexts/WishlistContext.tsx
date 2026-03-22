@@ -12,6 +12,15 @@ interface WishlistItem {
     images: string[];
     category: string;
     stock: number;
+    supplierId?: {
+      _id: string;
+      name: string;
+      email: string;
+      verified: boolean;
+      rating: number;
+      location: string;
+      responseTime: string;
+    };
   };
   addedAt: string;
 }

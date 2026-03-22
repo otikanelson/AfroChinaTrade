@@ -22,15 +22,3 @@ export {
   LargeSpacer,
   SectionSpacer,
 } from './Spacer';
-
-// Header components
-export {
-  AppHeader,
-  BackHeader,
-  LargeHeader,
-  MinimalHeader,
-  CenteredHeader,
-} from './AppHeader';
-
-// Re-export types
-export type { AppHeaderProps } from './AppHeader';

@@ -80,6 +80,42 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   const showClear = inputValue.length > 0;
 
+  const styles = StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: theme.borderRadius.lg,
+      paddingHorizontal: theme.spacing.lg,
+      minHeight: 48,
+      ...theme.shadows.sm,
+    },
+    containerFocused: {
+      borderColor: colors.primary,
+      backgroundColor: colors.background,
+      ...theme.shadows.md,
+    },
+    searchIcon: {
+      marginRight: theme.spacing.md,
+    },
+    input: {
+      flex: 1,
+      ...theme.typography.body,
+      color: colors.text,
+      fontSize: theme.fontSizes.base,
+      paddingVertical: Platform.OS === 'ios' ? theme.spacing.sm : 0,
+    },
+    clearButton: {
+      marginLeft: theme.spacing.sm,
+      minWidth: 44,
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });
+
   return (
     <View
       style={[
@@ -138,39 +174,3 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.lg,
-    paddingHorizontal: theme.spacing.lg,
-    minHeight: 48,
-    ...theme.shadows.sm,
-  },
-  containerFocused: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.background,
-    ...theme.shadows.md,
-  },
-  searchIcon: {
-    marginRight: theme.spacing.md,
-  },
-  input: {
-    flex: 1,
-    ...theme.typography.body,
-    color: theme.colors.text,
-    fontSize: theme.fontSizes.base,
-    paddingVertical: Platform.OS === 'ios' ? theme.spacing.sm : 0,
-  },
-  clearButton: {
-    marginLeft: theme.spacing.sm,
-    minWidth: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

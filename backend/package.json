@@ -18,6 +18,7 @@
     "db:clear": "ts-node src/scripts/clearDatabase.ts",
     "db:clear:confirm": "ts-node src/scripts/clearDatabase.ts --confirm",
     "db:clear:products": "ts-node src/scripts/clearProducts.ts",
+    "db:clear:carts": "ts-node src/scripts/clearAllCarts.ts",
     "db:clear:products:confirm": "ts-node src/scripts/clearProducts.ts --confirm",
     "db:health": "ts-node src/scripts/healthCheck.ts",
     "db:verify": "ts-node src/scripts/verifyIndexes.ts"

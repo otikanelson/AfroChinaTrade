@@ -70,7 +70,6 @@ export default function OrdersScreen() {
       color: colors.text,
       flex: 1,
       textAlign: 'center',
-      marginHorizontal: spacing.base,
     },
     placeholder: {
       width: 40,

@@ -6,15 +6,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { messageService } from '../../../services/MessageService';
-import { MessageThread } from '../../../types/messages';
+import { MessageThread } from '../../../types/message';
 import { Card } from '../../../components/admin/Card';
 import { DataList } from '../../../components/admin/DataList';
 import { SearchBar } from '../../../components/admin/SearchBar';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { Header } from '../../../components/Header';
 import { Ionicons } from '@expo/vector-icons';
 
 
@@ -216,10 +216,7 @@ export default function MessagesScreen() {
       else setLoading(true);
       setError(null);
 
-      const response = await messageService.getThreads({
-        page: 1,
-        limit: 100, // Get all threads for now
-      });
+      const response = await messageService.getThreads(1, 100);
 
       if (response.success && response.data) {
         setThreads(response.data);
@@ -273,7 +270,7 @@ export default function MessagesScreen() {
     (thread: MessageThread) => {
       router.push({
         pathname: '/(admin)/message/[threadId]',
-        params: { threadId: thread.id },
+        params: { threadId: thread.threadId },
       });
     },
     [router],
@@ -288,43 +285,12 @@ export default function MessagesScreen() {
     [handleThreadPress],
   );
 
-  const keyExtractor = useCallback((item: MessageThread) => item.id, []);
+  const keyExtractor = useCallback((item: MessageThread) => item.threadId, []);
 
   const styles = StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: colors.background,
-    },
-
-    // Header
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-      backgroundColor: colors.background,
-      gap: spacing.sm,
-    },
-    headerTitle: {
-      fontSize: fontSizes['2xl'],
-      fontWeight: fontWeights.bold as any,
-      color: colors.text,
-    },
-    headerBadge: {
-      backgroundColor: colors.primary,
-      borderRadius: borderRadius.full,
-      minWidth: 22,
-      height: 22,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 6,
-    },
-    headerBadgeText: {
-      fontSize: fontSizes.xs,
-      fontWeight: fontWeights.bold as any,
-      color: colors.background,
+      backgroundColor: colors.surface,
     },
 
     // List
@@ -510,10 +476,12 @@ export default function MessagesScreen() {
 
   if (error && !loading && threads.length === 0) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Messages</Text>
-        </View>
+      <View style={styles.screen}>
+        <Header 
+          title="Messages"
+          subtitle="Customer communications"
+          badge={{ count: totalUnread }}
+        />
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
           <Text style={styles.errorText}>{error}</Text>
@@ -521,22 +489,19 @@ export default function MessagesScreen() {
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // ── Main render ────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Messages</Text>
-        {totalUnread > 0 && (
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>{totalUnread}</Text>
-          </View>
-        )}
-      </View>
+    <View style={styles.screen}>
+      <Header 
+        title="Messages"
+        subtitle="Customer communications"
+        badge={{ count: totalUnread }}
+      />
 
       <DataList<MessageThread>
         data={filteredThreads}
@@ -554,6 +519,6 @@ export default function MessagesScreen() {
         ListHeaderComponent={ListHeader}
         skeletonCount={5}
       />
-    </SafeAreaView>
+    </View>
   );
 }

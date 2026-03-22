@@ -10,8 +10,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { Header } from '../components/Header';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { tokenManager } from '../services/api/tokenManager';
 import { API_BASE_URL } from '../constants/config';
 
@@ -47,6 +49,7 @@ interface DeliveryAddress {
 export default function CheckoutScreen() {
   const { cart, clearCart } = useCart();
   const { user } = useAuth();
+  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [addresses, setAddresses] = useState<DeliveryAddress[]>([]);
   const [selectedPayment, setSelectedPayment] = useState<string>('');
@@ -140,352 +143,351 @@ export default function CheckoutScreen() {
     }
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.surface,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    section: {
+      backgroundColor: colors.background,
+      marginTop: spacing.sm,
+      padding: spacing.base,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.base,
+    },
+    sectionTitle: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold,
+      color: colors.text,
+    },
+    manageLink: {
+      color: colors.primary,
+      fontSize: fontSizes.sm,
+    },
+    orderItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: spacing.xs,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    itemName: {
+      flex: 1,
+      fontSize: fontSizes.sm,
+      color: colors.text,
+    },
+    itemDetails: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+      marginHorizontal: spacing.xs,
+    },
+    itemTotal: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium,
+      color: colors.text,
+    },
+    totalRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingTop: spacing.base,
+      marginTop: spacing.xs,
+      borderTopWidth: 2,
+      borderTopColor: colors.border,
+    },
+    totalLabel: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.medium,
+      color: colors.text,
+    },
+    totalAmount: {
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.bold,
+      color: colors.text,
+    },
+    optionCard: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: borderRadius.base,
+      padding: spacing.sm,
+      marginBottom: spacing.xs,
+    },
+    selectedCard: {
+      borderColor: colors.primary,
+      backgroundColor: colors.surface,
+    },
+    optionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    optionTitle: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium,
+      color: colors.text,
+      flex: 1,
+    },
+    optionSubtitle: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    radioButton: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    radioSelected: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.primary,
+    },
+    addButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderStyle: 'dashed',
+      borderRadius: borderRadius.base,
+      padding: spacing.base,
+    },
+    addButtonText: {
+      color: colors.primary,
+      fontSize: fontSizes.sm,
+      marginLeft: spacing.xs,
+    },
+    footer: {
+      padding: spacing.base,
+      backgroundColor: colors.background,
+      marginTop: spacing.sm,
+    },
+    placeOrderButton: {
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.base,
+      paddingVertical: spacing.base,
+      alignItems: 'center',
+    },
+    disabledButton: {
+      backgroundColor: colors.textSecondary,
+    },
+    placeOrderText: {
+      color: colors.textInverse,
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+    },
+    emptyText: {
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.semibold,
+      color: colors.text,
+      marginTop: spacing.base,
+      marginBottom: spacing.lg,
+    },
+    shopButton: {
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.base,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+    },
+    shopButtonText: {
+      color: colors.textInverse,
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+  });
+
   if (!cart || cart.items.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Ionicons name="cart-outline" size={64} color="#ccc" />
-        <Text style={styles.emptyText}>Your cart is empty</Text>
-        <TouchableOpacity
-          style={styles.shopButton}
-          onPress={() => router.replace('/(tabs)/home')}
-        >
-          <Text style={styles.shopButtonText}>Continue Shopping</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <Header
+          title="Checkout"
+          showBack={true}
+        />
+        <View style={styles.emptyContainer}>
+          <Ionicons name="cart-outline" size={64} color={colors.textSecondary} />
+          <Text style={styles.emptyText}>Your cart is empty</Text>
+          <TouchableOpacity
+            style={styles.shopButton}
+            onPress={() => router.replace('/(tabs)/home')}
+          >
+            <Text style={styles.shopButtonText}>Continue Shopping</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={styles.container}>
+        <Header
+          title="Checkout"
+          showBack={true}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Checkout</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
-      {/* Order Summary */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Order Summary</Text>
-        {cart.items.map((item) => (
-          <View key={`${item.productId._id}-${JSON.stringify(item.selectedVariant)}`} style={styles.orderItem}>
-            <Text style={styles.itemName}>{item.productId.name}</Text>
-            <Text style={styles.itemDetails}>
-              Qty: {item.quantity} × ${item.price.toFixed(2)}
-            </Text>
-            <Text style={styles.itemTotal}>${(item.quantity * item.price).toFixed(2)}</Text>
-          </View>
-        ))}
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total ({cart.totalItems} items)</Text>
-          <Text style={styles.totalAmount}>${cart.totalAmount.toFixed(2)}</Text>
-        </View>
-      </View>
-
-      {/* Delivery Address */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Delivery Address</Text>
-          <TouchableOpacity onPress={() => router.push('/addresses')}>
-            <Text style={styles.manageLink}>Manage</Text>
-          </TouchableOpacity>
-        </View>
-        {addresses.length === 0 ? (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => router.push('/addresses/new')}
-          >
-            <Ionicons name="add" size={20} color="#007AFF" />
-            <Text style={styles.addButtonText}>Add Delivery Address</Text>
-          </TouchableOpacity>
-        ) : (
-          addresses.map((address) => (
-            <TouchableOpacity
-              key={address._id}
-              style={[
-                styles.optionCard,
-                selectedAddress === address._id && styles.selectedCard,
-              ]}
-              onPress={() => setSelectedAddress(address._id)}
-            >
-              <View style={styles.optionHeader}>
-                <Text style={styles.optionTitle}>{address.fullName}</Text>
-                <View style={styles.radioButton}>
-                  {selectedAddress === address._id && (
-                    <View style={styles.radioSelected} />
-                  )}
-                </View>
-              </View>
-              <Text style={styles.optionSubtitle}>
-                {address.addressLine1}, {address.city}, {address.state}
+    <View style={styles.container}>
+      <Header
+        title="Checkout"
+        showBack={true}
+      />
+      <ScrollView style={styles.scrollView}>
+        {/* Order Summary */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Order Summary</Text>
+          {cart.items.map((item, index) => (
+            <View key={`${item.productId._id}-${JSON.stringify(item.selectedVariant || {})}-${index}`} style={styles.orderItem}>
+              <Text style={styles.itemName}>{item.productId.name}</Text>
+              <Text style={styles.itemDetails}>
+                Qty: {item.quantity} × ₦{item.price.toLocaleString()}
               </Text>
-              <Text style={styles.optionSubtitle}>{address.phoneNumber}</Text>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
+              <Text style={styles.itemTotal}>₦{(item.quantity * item.price).toLocaleString()}</Text>
+            </View>
+          ))}
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total ({cart.totalItems} items)</Text>
+            <Text style={styles.totalAmount}>₦{cart.totalAmount.toLocaleString()}</Text>
+          </View>
+        </View>
 
-      {/* Payment Method */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Payment Method</Text>
-          <TouchableOpacity onPress={() => router.push('/payment-methods')}>
-            <Text style={styles.manageLink}>Manage</Text>
+        {/* Delivery Address */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Delivery Address</Text>
+            <TouchableOpacity onPress={() => router.push('/addresses')}>
+              <Text style={styles.manageLink}>Manage</Text>
+            </TouchableOpacity>
+          </View>
+          {addresses.length === 0 ? (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => router.push('/addresses/new-address')}
+            >
+              <Ionicons name="add" size={20} color={colors.primary} />
+              <Text style={styles.addButtonText}>Add Delivery Address</Text>
+            </TouchableOpacity>
+          ) : (
+            addresses.map((address) => (
+              <TouchableOpacity
+                key={address._id}
+                style={[
+                  styles.optionCard,
+                  selectedAddress === address._id && styles.selectedCard,
+                ]}
+                onPress={() => setSelectedAddress(address._id)}
+              >
+                <View style={styles.optionHeader}>
+                  <Text style={styles.optionTitle}>{address.fullName}</Text>
+                  <View style={styles.radioButton}>
+                    {selectedAddress === address._id && (
+                      <View style={styles.radioSelected} />
+                    )}
+                  </View>
+                </View>
+                <Text style={styles.optionSubtitle}>
+                  {address.addressLine1}, {address.city}, {address.state}
+                </Text>
+                <Text style={styles.optionSubtitle}>{address.phoneNumber}</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+
+        {/* Payment Method */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Payment Method</Text>
+            <TouchableOpacity onPress={() => router.push('/payment-methods')}>
+              <Text style={styles.manageLink}>Manage</Text>
+            </TouchableOpacity>
+          </View>
+          {paymentMethods.length === 0 ? (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => router.push('/payment-methods/new')}
+            >
+              <Ionicons name="add" size={20} color={colors.primary} />
+              <Text style={styles.addButtonText}>Add Payment Method</Text>
+            </TouchableOpacity>
+          ) : (
+            paymentMethods.map((method) => (
+              <TouchableOpacity
+                key={method._id}
+                style={[
+                  styles.optionCard,
+                  selectedPayment === method._id && styles.selectedCard,
+                ]}
+                onPress={() => setSelectedPayment(method._id)}
+              >
+                <View style={styles.optionHeader}>
+                  <Text style={styles.optionTitle}>
+                    {method.type === 'card' && method.cardDetails
+                      ? `${method.cardDetails.brand} •••• ${method.cardDetails.last4}`
+                      : method.type === 'mobile_money' && method.mobileMoneyDetails
+                      ? `${method.mobileMoneyDetails.provider} - ${method.mobileMoneyDetails.phoneNumber}`
+                      : method.type.replace('_', ' ').toUpperCase()}
+                  </Text>
+                  <View style={styles.radioButton}>
+                    {selectedPayment === method._id && (
+                      <View style={styles.radioSelected} />
+                    )}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+
+        {/* Place Order Button */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[
+              styles.placeOrderButton,
+              (!selectedPayment || !selectedAddress || processing) && styles.disabledButton,
+            ]}
+            onPress={processOrder}
+            disabled={!selectedPayment || !selectedAddress || processing}
+          >
+            {processing ? (
+              <ActivityIndicator color={colors.textInverse} />
+            ) : (
+              <Text style={styles.placeOrderText}>
+                Place Order - ₦{cart.totalAmount.toLocaleString()}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
-        {paymentMethods.length === 0 ? (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => router.push('/payment-methods/new')}
-          >
-            <Ionicons name="add" size={20} color="#007AFF" />
-            <Text style={styles.addButtonText}>Add Payment Method</Text>
-          </TouchableOpacity>
-        ) : (
-          paymentMethods.map((method) => (
-            <TouchableOpacity
-              key={method._id}
-              style={[
-                styles.optionCard,
-                selectedPayment === method._id && styles.selectedCard,
-              ]}
-              onPress={() => setSelectedPayment(method._id)}
-            >
-              <View style={styles.optionHeader}>
-                <Text style={styles.optionTitle}>
-                  {method.type === 'card' && method.cardDetails
-                    ? `${method.cardDetails.brand} •••• ${method.cardDetails.last4}`
-                    : method.type === 'mobile_money' && method.mobileMoneyDetails
-                    ? `${method.mobileMoneyDetails.provider} - ${method.mobileMoneyDetails.phoneNumber}`
-                    : method.type.replace('_', ' ').toUpperCase()}
-                </Text>
-                <View style={styles.radioButton}>
-                  {selectedPayment === method._id && (
-                    <View style={styles.radioSelected} />
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
-
-      {/* Place Order Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[
-            styles.placeOrderButton,
-            (!selectedPayment || !selectedAddress || processing) && styles.disabledButton,
-          ]}
-          onPress={processOrder}
-          disabled={!selectedPayment || !selectedAddress || processing}
-        >
-          {processing ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.placeOrderText}>
-              Place Order - ${cart.totalAmount.toFixed(2)}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  section: {
-    backgroundColor: '#fff',
-    marginTop: 12,
-    padding: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  manageLink: {
-    color: '#007AFF',
-    fontSize: 14,
-  },
-  orderItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  itemName: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333',
-  },
-  itemDetails: {
-    fontSize: 12,
-    color: '#666',
-    marginHorizontal: 8,
-  },
-  itemTotal: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 16,
-    marginTop: 8,
-    borderTopWidth: 2,
-    borderTopColor: '#eee',
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-  },
-  totalAmount: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-  },
-  optionCard: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-  },
-  selectedCard: {
-    borderColor: '#007AFF',
-    backgroundColor: '#f0f8ff',
-  },
-  optionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  optionTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    flex: 1,
-  },
-  optionSubtitle: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#ddd',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioSelected: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#007AFF',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    borderStyle: 'dashed',
-    borderRadius: 8,
-    padding: 16,
-  },
-  addButtonText: {
-    color: '#007AFF',
-    fontSize: 14,
-    marginLeft: 8,
-  },
-  footer: {
-    padding: 16,
-    backgroundColor: '#fff',
-    marginTop: 12,
-  },
-  placeOrderButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  placeOrderText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  shopButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  shopButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

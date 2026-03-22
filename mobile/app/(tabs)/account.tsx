@@ -1,60 +1,141 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { useWishlist } from '../../contexts/WishlistContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { Header } from '../../components/Header';
+import { ThemeModal } from '../../components/ThemeModal';
+import { spacing } from '../../theme/spacing';
+import { getDisplayPhone } from '../../utils/phoneUtils';
+import { fontWeights } from '../../theme';
 
+interface MenuItemProps {
+  icon: string;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  showChevron?: boolean;
+  variant?: 'default' | 'grid';
+  disabled?: boolean;
+}
+
+const MenuItem: React.FC<MenuItemProps> = ({ icon, title, subtitle, onPress, showChevron = true, variant = 'default', disabled = false }) => {
+  const { colors, fontSizes, fonts } = useTheme();
+  
+  const styles = StyleSheet.create({
+    menuItem: {
+      flexDirection: variant === 'grid' ? 'column' : 'row',
+      alignItems: 'center',
+      paddingHorizontal: variant === 'grid' ? spacing.xs : spacing.sm,
+      paddingVertical: variant === 'grid' ? spacing.sm : spacing.sm,
+      marginHorizontal: variant === 'grid' ? 0 : spacing.sm,
+      marginBottom: spacing.xs,
+      borderRadius: 8,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
+      flex: variant === 'grid' ? 1 : undefined,
+      minHeight: variant === 'grid' ? 60 : undefined,
+      opacity: disabled ? 0.5 : 1,
+    },
+    iconContainer: {
+      width: variant === 'grid' ? 28 : 32,
+      height: variant === 'grid' ? 28 : 32,
+      borderRadius: variant === 'grid' ? 14 : 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: variant === 'grid' ? 0 : spacing.sm,
+      marginBottom: variant === 'grid' ? spacing.xs : 0,
+    },
+    menuContent: {
+      flex: variant === 'grid' ? 0 : 1,
+      alignItems: variant === 'grid' ? 'center' : 'flex-start',
+    },
+    menuTitle: {
+      marginBottom: variant === 'default' ? 1 : 0,
+      textAlign: variant === 'grid' ? 'center' : 'left',
+      fontSize: variant === 'grid' ? fontSizes.xs : fontSizes.sm,
+    },
+    menuSubtitle: {
+      lineHeight: 16,
+      textAlign: variant === 'grid' ? 'center' : 'left',
+      fontSize: fontSizes.xs,
+    },
+  });
+  
+  return (
+    <TouchableOpacity 
+      style={[styles.menuItem, { backgroundColor: colors.background }]} 
+      onPress={disabled ? () => {} : onPress}
+      activeOpacity={disabled ? 1 : 0.7}
+      disabled={disabled}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: colors.surface }]}>
+        <Ionicons name={icon as any} size={variant === 'grid' ? 16 : 18} color={disabled ? colors.textLight : colors.primary} />
+      </View>
+      <View style={styles.menuContent}>
+        <Text style={[styles.menuTitle, { color: disabled ? colors.textLight : colors.text, fontFamily: fonts.medium }]}>
+          {title}
+        </Text>
+        {variant === 'default' && (
+          <Text style={[styles.menuSubtitle, { color: disabled ? colors.textLight : colors.textSecondary, fontFamily: fonts.regular }]}>
+            {subtitle}
+          </Text>
+        )}
+      </View>
+      {showChevron && variant === 'default' && (
+        <Ionicons name="chevron-forward" size={16} color={disabled ? colors.textLight : colors.textLight} />
+      )}
+    </TouchableOpacity>
+  );
+};
 
 export default function AccountTab() {
   const router = useRouter();
-  const { user, logout, isAuthenticated } = useAuth();
-  const { wishlistCount } = useWishlist();
-  const { colors, fonts, fontSizes, spacing } = useTheme();
+  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { colors, fonts, fontSizes } = useTheme();
+  const [themeModalVisible, setThemeModalVisible] = useState(false);
+
+  // Check if admin is viewing customer app
+  const isAdminViewingCustomer = isAdmin;
 
   const styles = StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.surface,
     },
-    header: {
-      backgroundColor: colors.background,
-      paddingTop: 10,
-      paddingBottom: spacing.base,
-      paddingHorizontal: spacing.base,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-    },
-    headerTitle: {
-      fontSize: fontSizes['2xl'],
-      fontFamily: fonts.bold,
-      color: colors.text,
-      marginBottom: 4,
-    },
-    headerSubtitle: {
-      fontSize: fontSizes.sm,
-      fontFamily: fonts.regular,
-      color: colors.textSecondary,
-    },
-    content: {
-      flex: 1,
+    scrollContent: {
+      paddingBottom: 20,
     },
     userCard: {
       backgroundColor: colors.background,
-      margin: spacing.base,
-      padding: spacing.base,
-      borderRadius: 12,
+      margin: spacing.sm,
+      padding: spacing.md,
+      borderRadius: 16,
       flexDirection: 'row',
       alignItems: 'center',
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 6,
+      elevation: 4,
     },
     avatar: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
       backgroundColor: colors.primary,
       justifyContent: 'center',
       alignItems: 'center',
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
     },
     userInfo: {
       flex: 1,
@@ -62,274 +143,389 @@ export default function AccountTab() {
     },
     userName: {
       fontSize: fontSizes.lg,
-      fontFamily: fonts.medium,
+      fontFamily: fonts.bold,
       color: colors.text,
-      marginBottom: 4,
+      marginBottom: 2,
     },
     userEmail: {
       fontSize: fontSizes.sm,
       fontFamily: fonts.regular,
       color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    userPhone: {
+      fontSize: fontSizes.sm,
+      fontFamily: fonts.regular,
+      color: colors.textSecondary,
+      marginBottom: 4,
     },
     userRole: {
       fontSize: fontSizes.xs,
-      fontFamily: fonts.medium,
+      fontFamily: fonts.bold,
       color: colors.primary,
-      marginTop: 2,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 12,
+      alignSelf: 'flex-start',
     },
     signInButton: {
       backgroundColor: colors.primary,
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.sm,
-      borderRadius: 8,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderRadius: 12,
     },
     signInText: {
       color: colors.textInverse,
-      fontSize: fontSizes.sm,
-      fontFamily: fonts.medium,
-    },
-    menuSection: {
-      backgroundColor: colors.background,
-      marginHorizontal: spacing.base,
-      marginTop: spacing.base,
-      borderRadius: 12,
-    },
-    menuItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: spacing.base,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-    },
-    menuIconContainer: {
-      width: 40,
-      height: 40,
-      borderRadius: 8,
-      backgroundColor: colors.surface,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacing.md,
-    },
-    menuContent: {
-      flex: 1,
-    },
-    menuRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    badge: {
-      backgroundColor: colors.primary,
-      borderRadius: 10,
-      minWidth: 20,
-      height: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 6,
-    },
-    badgeText: {
-      color: colors.background,
-      fontSize: fontSizes.xs,
+      fontSize: fontSizes.base,
       fontFamily: fonts.bold,
-    },
-    menuTitle: {
-      fontSize: fontSizes.base,
-      fontFamily: fonts.medium,
-      color: colors.text,
-      marginBottom: 2,
-    },
-    menuSubtitle: {
-      fontSize: fontSizes.xs,
-      fontFamily: fonts.regular,
-      color: colors.textSecondary,
-    },
-    logoutButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.background,
-      marginHorizontal: spacing.base,
-      marginTop: spacing.base,
-      marginBottom: spacing.xl,
-      padding: spacing.base,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.error,
-    },
-    logoutText: {
-      fontSize: fontSizes.base,
-      fontFamily: fonts.medium,
-      color: colors.error,
-      marginLeft: spacing.sm,
     },
     adminButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.primary,
-      marginHorizontal: spacing.base,
-      marginTop: spacing.sm,
-      marginBottom: spacing.xl,
-      padding: spacing.base,
+      backgroundColor: colors.background,
+      marginHorizontal: spacing['3xl'],
+      marginTop: spacing.md,
+      padding: spacing.lg,
       borderRadius: 12,
-      gap: spacing.sm,
+      gap: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.primary,
     },
     adminButtonText: {
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.sm,
       fontFamily: fonts.medium,
-      color: colors.background,
+      color: colors.primary,
+    },
+    gridContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginHorizontal: spacing.sm,
+      gap: spacing.xs,
+      marginBottom: spacing.sm,
+    },
+    gridItem: {
+      width: '48.5%',
+    },
+    sectionTitle: {
+      fontSize: fontSizes.base,
+      fontFamily: fonts.bold,
+      fontWeight: fontWeights.bold,
+      color: colors.text,
+      marginHorizontal: spacing.lg,
+      marginTop: spacing.md,
+      marginBottom: spacing.md,
+    },
+    guestContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.lg,
+    },
+    guestIcon: {
+      marginBottom: spacing.lg,
+    },
+    guestTitle: {
+      fontSize: fontSizes.xl,
+      fontFamily: fonts.bold,
+      color: colors.text,
+      marginBottom: spacing.sm,
+      textAlign: 'center',
+    },
+    guestSubtitle: {
+      fontSize: fontSizes.base,
+      fontFamily: fonts.regular,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: spacing.lg,
+      lineHeight: 22,
+    },
+    adminNotice: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      marginHorizontal: spacing.sm,
+      marginBottom: spacing.md,
+      padding: spacing.md,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.warning,
+      gap: spacing.sm,
+    },
+    adminNoticeText: {
+      flex: 1,
+      fontSize: fontSizes.sm,
+      fontFamily: fonts.medium,
+      color: colors.warning,
     },
   });
-
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/auth/login');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to logout');
-            }
-          }
-        },
-      ]
-    );
-  };
 
   const handleSignIn = () => {
     router.push('/auth/login');
   };
 
-  const handleMenuItemPress = (title: string) => {
-    switch (title) {
-      case 'Profile':
-        router.push('/profile');
-        break;
-      case 'Orders':
-        router.push('/orders');
-        break;
-      case 'Wishlist':
-        router.push('/wishlist');
-        break;
-      case 'Addresses':
-        router.push('/addresses');
-        break;
-      case 'Payment Methods':
-        router.push('/payment-methods');
-        break;
-      case 'Settings':
-        router.push('/settings');
-        break;
-      case 'Help & Support':
-        router.push('/help-support');
-        break;
-      default:
-        break;
-    }
+  const handleLogout = async () => {
+    await logout();
   };
 
-  const menuItems = [
-    { icon: 'person-outline', title: 'Profile', subtitle: 'Edit your information' },
-    { icon: 'receipt-outline', title: 'Orders', subtitle: 'View order history' },
-    { 
-      icon: 'heart-outline', 
-      title: 'Wishlist', 
-      subtitle: `${wishlistCount} saved products`,
-      badge: wishlistCount > 0 ? wishlistCount : undefined
-    },
-    { icon: 'location-outline', title: 'Addresses', subtitle: 'Manage delivery addresses' },
-    { icon: 'card-outline', title: 'Payment Methods', subtitle: 'Manage payment options' },
-    { icon: 'settings-outline', title: 'Settings', subtitle: 'App preferences' },
-    { icon: 'help-circle-outline', title: 'Help & Support', subtitle: 'Get assistance' },
-  ];
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.container}>
+        <Header
+          title="Account"
+          subtitle="Manage your profile and settings"
+        />
+        <View style={styles.guestContainer}>
+          <View style={styles.guestIcon}>
+            <Ionicons name="person-circle-outline" size={80} color={colors.textSecondary} />
+          </View>
+          <Text style={styles.guestTitle}>Welcome to AfroChinaTrade</Text>
+          <Text style={styles.guestSubtitle}>
+            Sign in to access your orders, wishlist, and personalized shopping experience
+          </Text>
+          <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
+            <Text style={styles.signInText}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Show loading state while user data is being fetched
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <Header
+          title="My Account"
+          subtitle="Loading..."
+        />
+        <View style={styles.guestContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.guestSubtitle, { marginTop: spacing.md }]}>
+            Loading your account information...
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Account</Text>
-        <Text style={styles.headerSubtitle}>Manage your profile and preferences</Text>
-      </View>
+      <Header
+        title="My Account"
+        subtitle="Manage your profile and settings"
+      />
 
-      <ScrollView style={styles.content}>
-        {/* User Info */}
-        <View style={styles.userCard}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={40} color={colors.background} />
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Admin Viewing Notice */}
+        {isAdminViewingCustomer && (
+          <View style={styles.adminNotice}>
+            <Ionicons name="eye" size={20} color={colors.warning} />
+            <Text style={styles.adminNoticeText}>
+              You are viewing as admin - customer settings are disabled
+            </Text>
           </View>
-          <View style={styles.userInfo}>
-            {isAuthenticated && user ? (
-              <>
-                <Text style={styles.userName}>{user.name}</Text>
-                <Text style={styles.userEmail}>{user.email}</Text>
-                <Text style={styles.userRole}>Role: {user.role}</Text>
-              </>
-            ) : (
-              <>
-                <Text style={styles.userName}>Guest User</Text>
-                <Text style={styles.userEmail}>Sign in to access all features</Text>
-              </>
-            )}
-          </View>
-          {!isAuthenticated && (
-            <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-              <Text style={styles.signInText}>Sign In</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Menu Items */}
-        <View style={styles.menuSection}>
-          {menuItems.map((item) => (
-            <TouchableOpacity 
-              key={item.title} 
-              style={styles.menuItem}
-              onPress={() => handleMenuItemPress(item.title)}
-            >
-              <View style={styles.menuIconContainer}>
-                <Ionicons name={item.icon as any} size={24} color={colors.primary} />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-              </View>
-              <View style={styles.menuRight}>
-                {item.badge && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{item.badge}</Text>
-                  </View>
-                )}
-                <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Logout Button - only show if authenticated */}
-        {isAuthenticated && (
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={20} color={colors.error} />
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
         )}
 
-        {/* Admin Dashboard shortcut - only show for admin users */}
-        {isAuthenticated && (user?.role === 'admin' || user?.role === 'super_admin') && (
+        {/* User Profile Card */}
+        <View style={styles.userCard}>
+          <View style={styles.avatar}>
+            {user?.avatar ? (
+              <Image 
+                source={{ uri: user.avatar }} 
+                style={styles.avatarImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons name="person" size={28} color={colors.textInverse} />
+            )}
+          </View>
+          <View style={styles.userInfo}>
+            <Text style={styles.userName}>{user?.name || 'User'}</Text>
+            <Text style={styles.userEmail}>{user?.email}</Text>
+            {user?.phone && (
+              <Text style={styles.userPhone}>{getDisplayPhone(user.phone)}</Text>
+            )}
+            <Text style={styles.userRole}>
+              {user?.role === 'admin' || user?.role === 'super_admin' ? 'Administrator' : 'Customer'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Orders Section */}
+        <Text style={styles.sectionTitle}>Features</Text>
+        <View style={styles.gridContainer}>
+          <View style={styles.gridItem}>
+            <MenuItem
+              icon="receipt"
+              title="Orders"
+              subtitle=""
+              onPress={() => router.push('/orders')}
+              variant="grid"
+              showChevron={false}
+              disabled={isAdminViewingCustomer}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <MenuItem
+              icon="refresh"
+              title="Refunds"
+              subtitle=""
+              onPress={() => console.log('Navigate to refunds')}
+              variant="grid"
+              showChevron={false}
+              disabled={isAdminViewingCustomer}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <MenuItem
+              icon="heart"
+              title="Favorites"
+              subtitle=""
+              onPress={() => router.push('/wishlist')}
+              variant="grid"
+              showChevron={false}
+              disabled={isAdminViewingCustomer}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <MenuItem
+              icon="time"
+              title="Browsing History"
+              subtitle=""
+              onPress={() => console.log('Navigate to browsing history')}
+              variant="grid"
+              showChevron={false}
+              disabled={isAdminViewingCustomer}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <MenuItem
+              icon="mail"
+              title="Inquiries"
+              subtitle=""
+              onPress={() => console.log('Navigate to inquiries')}
+              variant="grid"
+              showChevron={false}
+              disabled={isAdminViewingCustomer}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <MenuItem
+              icon="chatbubble"
+              title="Quotations"
+              subtitle=""
+              onPress={() => console.log('Navigate to quotations')}
+              variant="grid"
+              showChevron={false}
+              disabled={isAdminViewingCustomer}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <MenuItem
+              icon="star"
+              title="Reviews"
+              subtitle=""
+              onPress={() => console.log('Navigate to reviews')}
+              variant="grid"
+              showChevron={false}
+              disabled={isAdminViewingCustomer}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <MenuItem
+              icon="happy"
+              title="Preferences"
+              subtitle=""
+              onPress={() => setThemeModalVisible(true)}
+              variant="grid"
+              showChevron={false}
+            />
+          </View>
+        </View>
+
+        {/* Account Settings */}
+        <Text style={styles.sectionTitle}>Account Settings</Text>
+        
+        <MenuItem
+          icon="person-outline"
+          title="Profile"
+          subtitle="Edit your information"
+          onPress={() => router.push('/profile')}
+        />
+        
+        <MenuItem
+          icon="lock-closed-outline"
+          title="Change Password"
+          subtitle="Update your account password"
+          onPress={() => router.push('/change-password')}
+        />
+
+        <MenuItem
+          icon="location-outline"
+          title="Addresses"
+          subtitle="Manage delivery addresses"
+          onPress={() => router.push('/addresses')}
+          disabled={isAdminViewingCustomer}
+        />
+        
+        <MenuItem
+          icon="card-outline"
+          title="Payment Methods"
+          subtitle="Manage payment options"
+          onPress={() => router.push('/payment-methods')}
+          disabled={isAdminViewingCustomer}
+        />
+        
+        <MenuItem
+          icon="help-circle-outline"
+          title="Help & Support"
+          subtitle="Get help and contact support"
+          onPress={() => router.push('/help-support')}
+          disabled={isAdminViewingCustomer}
+        />
+
+        <MenuItem
+          icon="notifications-outline"
+          title="Notifications"
+          subtitle="Manage notification preferences"
+          onPress={() => console.log('Navigate to notifications')}
+        />
+        
+        <MenuItem
+          icon="language-outline"
+          title="Language"
+          subtitle="English"
+          onPress={() => console.log('Navigate to language')}
+        />
+
+        {/* Logout */}
+        <MenuItem
+          icon="log-out-outline"
+          title="Sign Out"
+          subtitle="Sign out of your account"
+          onPress={handleLogout}
+          showChevron={false}
+        />
+
+        <ThemeModal
+          visible={themeModalVisible}
+          onClose={() => setThemeModalVisible(false)}
+        />
+        
+        {/* Admin Dashboard shortcut */}
+        {(user?.role === 'admin' || user?.role === 'super_admin') && (
           <TouchableOpacity
             style={styles.adminButton}
             onPress={() => router.push('/(admin)/(tabs)/products')}
           >
-            <Ionicons name="settings-outline" size={20} color={colors.background} />
+            <Ionicons name="settings" size={18} color={colors.primary} />
             <Text style={styles.adminButtonText}>Admin Dashboard</Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.primary} />
           </TouchableOpacity>
         )}
+
       </ScrollView>
     </View>
   );

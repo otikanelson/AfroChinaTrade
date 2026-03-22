@@ -12,8 +12,16 @@ export interface IDeliveryAddress extends Document {
   addressLine2?: string;
   city: string;
   state: string;
+  localGovernment?: string;
   country: string;
   postalCode?: string;
+  
+  // Device location (GPS coordinates)
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+  };
   
   // Additional details
   landmark?: string;
@@ -69,6 +77,10 @@ const deliveryAddressSchema = new Schema<IDeliveryAddress>({
     required: true,
     trim: true
   },
+  localGovernment: {
+    type: String,
+    trim: true
+  },
   country: {
     type: String,
     required: true,
@@ -78,6 +90,20 @@ const deliveryAddressSchema = new Schema<IDeliveryAddress>({
   postalCode: {
     type: String,
     trim: true
+  },
+  location: {
+    latitude: {
+      type: Number,
+      required: false
+    },
+    longitude: {
+      type: Number,
+      required: false
+    },
+    accuracy: {
+      type: Number,
+      required: false
+    }
   },
   landmark: {
     type: String,
@@ -97,14 +123,13 @@ const deliveryAddressSchema = new Schema<IDeliveryAddress>({
 });
 
 // Ensure only one default address per user
-deliveryAddressSchema.pre('save', async function(next) {
+deliveryAddressSchema.pre('save', async function() {
   if (this.isDefault && this.isModified('isDefault')) {
     await mongoose.model('DeliveryAddress').updateMany(
       { userId: this.userId, _id: { $ne: this._id } },
       { isDefault: false }
     );
   }
-  next();
 });
 
 export default mongoose.model<IDeliveryAddress>('DeliveryAddress', deliveryAddressSchema);

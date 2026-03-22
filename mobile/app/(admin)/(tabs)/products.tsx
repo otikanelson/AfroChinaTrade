@@ -7,21 +7,24 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Product } from '../../../types/product';
 import { productService } from '../../../services/ProductService';
+import { categoryService } from '../../../services/CategoryService';
 import { Card } from '../../../components/admin/Card';
 import { DataList } from '../../../components/admin/DataList';
 import { SearchBar } from '../../../components/admin/SearchBar';
 import { StatusBadge } from '../../../components/admin/StatusBadge';
+import { CategoryFilterModal } from '../../../components/admin/CategoryFilterModal';
+import { Header } from '../../../components/Header';
 import { useTheme } from '../../../contexts/ThemeContext';
 
 // ─── Filter chips ─────────────────────────────────────────────────────────────
 
 type StatusFilter = 'all' | 'active' | 'inactive';
+type DiscountFilter = 'all' | 'discounted' | 'regular';
 
 interface FilterChipProps {
   label: string;
@@ -29,18 +32,44 @@ interface FilterChipProps {
   onPress: () => void;
 }
 
-const FilterChip: React.FC<FilterChipProps> = ({ label, active, onPress }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    style={[styles.chip, active && styles.chipActive]}
-    accessibilityRole="button"
-    accessibilityState={{ selected: active }}
-  >
-    <Text style={[styles.chipText, active && styles.chipTextActive]}>
-      {label}
-    </Text>
-  </TouchableOpacity>
-);
+const FilterChip: React.FC<FilterChipProps> = ({ label, active, onPress }) => {
+  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        {
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.xs,
+          borderRadius: borderRadius.full,
+          borderWidth: 1.5,
+          borderColor: colors.border,
+          backgroundColor: colors.background,
+        },
+        active && {
+          borderColor: colors.primary,
+          backgroundColor: colors.primary,
+        }
+      ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={[
+        {
+          fontSize: fontSizes.sm,
+          fontWeight: fontWeights.medium as any,
+          color: colors.textSecondary,
+        },
+        active && {
+          color: colors.background,
+        }
+      ]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
 // ─── Product card ─────────────────────────────────────────────────────────────
 
@@ -55,11 +84,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onStatusTog
   const isActive = product.isActive ?? true; // Default to true if not specified
   const imageUri = product.images?.[0];
   const hasDiscount = product.discount && product.discount > 0;
-  
+
   const formatPrice = (price: number) => {
     return `₦${price.toLocaleString()}`;
   };
-  
+
   const getDiscountedPrice = () => {
     if (hasDiscount && product.discount) {
       const discountAmount = (product.price * product.discount) / 100;
@@ -99,20 +128,20 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onStatusTog
               <Ionicons name="cube-outline" size={28} color={colors.textLight} />
             </View>
           )}
-          
+
           {/* Discount Badge */}
           {hasDiscount && product.discount && (
             <View style={{
               position: 'absolute',
               top: 4,
               left: 4,
-              backgroundColor: '#FF3B30',
+              backgroundColor: colors.error,
               paddingHorizontal: 4,
               paddingVertical: 2,
               borderRadius: 4,
             }}>
               <Text style={{
-                color: 'white',
+                color: colors.textInverse,
                 fontSize: 8,
                 fontWeight: '600',
               }}>{product.discount}% OFF</Text>
@@ -130,7 +159,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onStatusTog
           }} numberOfLines={2}>
             {product.name}
           </Text>
-          
+
           {/* Price with discount */}
           {hasDiscount ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
@@ -144,7 +173,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onStatusTog
               <Text style={{
                 fontSize: fontSizes.base,
                 fontWeight: fontWeights.bold as any,
-                color: '#FF3B30',
+                color: colors.error,
               }}>
                 {formatPrice(getDiscountedPrice())}
               </Text>
@@ -158,7 +187,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onStatusTog
               {formatPrice(product.price)}
             </Text>
           )}
-          
+
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <Text style={{
               fontSize: fontSizes.sm,
@@ -166,6 +195,27 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onStatusTog
             }}>
               Stock: {product.stock}
             </Text>
+            
+            {/* Seller Favorite Badge */}
+            {(product as any).isSellerFavorite && (
+              <View style={{
+                backgroundColor: colors.primary,
+                paddingHorizontal: spacing.xs,
+                paddingVertical: 2,
+                borderRadius: borderRadius.sm,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 2,
+              }}>
+                <Ionicons name="star" size={10} color={colors.textInverse} />
+                <Text style={{
+                  fontSize: 8,
+                  fontWeight: '600',
+                  color: colors.textInverse,
+                }}>SELLER PICK</Text>
+              </View>
+            )}
+            
             <TouchableOpacity onPress={handleStatusToggle}>
               <StatusBadge
                 status={isActive ? 'active' : 'failed'}
@@ -192,94 +242,100 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onStatusTog
 
 export default function ProductsScreen() {
   const router = useRouter();
-  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
+  const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius } = useTheme();
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Array<{ label: string, value: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingCategories, setLoadingCategories] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [discountFilter, setDiscountFilter] = useState<DiscountFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [featuredOnly, setFeaturedOnly] = useState(false);
+  const [sellerFavoriteOnly, setSellerFavoriteOnly] = useState(false);
+  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
 
   const styles = StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: colors.background,
-    },
-
-    // Header
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-      backgroundColor: colors.background,
-    },
-    headerTitle: {
-      fontSize: fontSizes['2xl'],
-      fontWeight: fontWeights.bold as any,
-      color: colors.text,
-    },
-    addButton: {
-      width: 40,
-      height: 40,
-      borderRadius: borderRadius.md,
-      backgroundColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: themeColors.surface,
     },
 
     // List
     listContent: {
-      paddingBottom: spacing.xl,
+      paddingBottom: themeSpacing.xl,
     },
     listHeader: {
-      paddingHorizontal: spacing.base,
-      paddingTop: spacing.md,
-      paddingBottom: spacing.sm,
-      gap: spacing.sm,
+      paddingHorizontal: themeSpacing.base,
+      paddingTop: themeSpacing.md,
+      paddingBottom: themeSpacing.sm,
+      gap: themeSpacing.sm,
     },
     searchBar: {
-      marginBottom: spacing.xs,
+      marginBottom: themeSpacing.xs,
     },
     filterRow: {
       flexDirection: 'row',
-      gap: spacing.sm,
+      gap: themeSpacing.sm,
       flexWrap: 'wrap',
+    },
+    filterSectionLabel: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium as any,
+      color: themeColors.textSecondary,
+      marginBottom: themeSpacing.xs,
+      marginTop: themeSpacing.sm,
+    },
+    clearFiltersButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: themeSpacing.md,
+      paddingVertical: themeSpacing.xs,
+      borderRadius: borderRadius.full,
+      backgroundColor: themeColors.surface,
+      borderWidth: 1,
+      borderColor: themeColors.border,
+      alignSelf: 'flex-start',
+      marginTop: themeSpacing.sm,
+    },
+    clearFiltersText: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium as any,
+      color: themeColors.textSecondary,
+      marginLeft: themeSpacing.xs,
     },
 
     // Filter chips
     chip: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
+      paddingHorizontal: themeSpacing.md,
+      paddingVertical: themeSpacing.xs,
       borderRadius: borderRadius.full,
       borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.background,
+      borderColor: themeColors.border,
+      backgroundColor: themeColors.background,
     },
     chipActive: {
-      borderColor: colors.primary,
-      backgroundColor: colors.primary,
+      borderColor: themeColors.primary,
+      backgroundColor: themeColors.primary,
     },
     chipText: {
       fontSize: fontSizes.sm,
       fontWeight: fontWeights.medium as any,
-      color: colors.textSecondary,
+      color: themeColors.textSecondary,
     },
     chipTextActive: {
-      color: colors.background,
+      color: themeColors.background,
     },
 
     // Product card
     card: {
-      marginHorizontal: spacing.base,
-      marginVertical: spacing.xs,
+      marginHorizontal: themeSpacing.base,
+      marginVertical: themeSpacing.xs,
     },
     cardRow: {
       flexDirection: 'row',
@@ -290,8 +346,8 @@ export default function ProductsScreen() {
       height: 72,
       borderRadius: borderRadius.base,
       overflow: 'hidden',
-      backgroundColor: colors.surface,
-      marginRight: spacing.md,
+      backgroundColor: themeColors.surface,
+      marginRight: themeSpacing.md,
       flexShrink: 0,
       position: 'relative',
     },
@@ -320,27 +376,27 @@ export default function ProductsScreen() {
     },
     cardInfo: {
       flex: 1,
-      gap: spacing.xs,
+      gap: themeSpacing.xs,
     },
     productName: {
       fontSize: fontSizes.base,
       fontWeight: fontWeights.semibold as any,
-      color: colors.text,
+      color: themeColors.text,
       lineHeight: 20,
     },
     priceContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.xs,
+      gap: themeSpacing.xs,
     },
     productPrice: {
       fontSize: fontSizes.base,
       fontWeight: fontWeights.bold as any,
-      color: colors.primary,
+      color: themeColors.primary,
     },
     originalPrice: {
       fontSize: fontSizes.sm,
-      color: colors.textSecondary,
+      color: themeColors.textSecondary,
       textDecorationLine: 'line-through',
     },
     discountedPrice: {
@@ -351,14 +407,14 @@ export default function ProductsScreen() {
     cardMeta: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
+      gap: themeSpacing.sm,
     },
     stockText: {
       fontSize: fontSizes.sm,
-      color: colors.textSecondary,
+      color: themeColors.textSecondary,
     },
     chevron: {
-      marginLeft: spacing.sm,
+      marginLeft: themeSpacing.sm,
       flexShrink: 0,
     },
 
@@ -367,28 +423,48 @@ export default function ProductsScreen() {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: spacing.xl,
-      gap: spacing.md,
+      padding: themeSpacing.xl,
+      gap: themeSpacing.md,
     },
     errorText: {
       fontSize: fontSizes.base,
-      color: colors.textSecondary,
+      color: themeColors.textSecondary,
       textAlign: 'center',
     },
     retryButton: {
-      paddingHorizontal: spacing.xl,
-      paddingVertical: spacing.sm,
+      paddingHorizontal: themeSpacing.xl,
+      paddingVertical: themeSpacing.sm,
       borderRadius: borderRadius.md,
-      backgroundColor: colors.primary,
+      backgroundColor: themeColors.primary,
     },
     retryText: {
       fontSize: fontSizes.base,
       fontWeight: fontWeights.semibold as any,
-      color: colors.background,
+      color: themeColors.background,
     },
   });
 
   // ── Data fetching ──────────────────────────────────────────────────────────
+
+  const loadCategories = useCallback(async () => {
+    try {
+      setLoadingCategories(true);
+      const response = await categoryService.getCategories();
+
+      if (response.success && response.data) {
+        const categoryOptions = response.data.map((category: any) => ({
+          label: category.name,
+          value: category.name
+        }));
+        setCategories(categoryOptions);
+      }
+    } catch (error: any) {
+      console.error('Failed to load categories:', error);
+      // Silently fail for categories as it's not critical
+    } finally {
+      setLoadingCategories(false);
+    }
+  }, []);
 
   const fetchProducts = useCallback(async (isRefresh = false) => {
     try {
@@ -398,13 +474,13 @@ export default function ProductsScreen() {
         setLoading(true);
       }
       setError(null);
-      
+
       const response = await productService.getAdminProducts({
         page: 1,
         limit: 100, // Get all products for now
         status: statusFilter === 'all' ? undefined : statusFilter,
       });
-      
+
       if (response.success && response.data) {
         setProducts(response.data);
       } else {
@@ -421,7 +497,8 @@ export default function ProductsScreen() {
 
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]);
+    loadCategories();
+  }, [fetchProducts, loadCategories]);
 
   const handleRefresh = useCallback(() => {
     fetchProducts(true);
@@ -446,13 +523,41 @@ export default function ProductsScreen() {
       result = result.filter((p) => !(p.isActive ?? true));
     }
 
+    // Discount filter
+    if (discountFilter === 'discounted') {
+      result = result.filter((p) => p.discount && p.discount > 0);
+    } else if (discountFilter === 'regular') {
+      result = result.filter((p) => !p.discount || p.discount === 0);
+    }
+
+    // Category filter
+    if (categoryFilter !== 'all') {
+      result = result.filter((p) => p.category === categoryFilter);
+    }
+
     // Featured filter
     if (featuredOnly) {
       result = result.filter((p) => p.isFeatured);
     }
 
+    // Seller Favorite filter
+    if (sellerFavoriteOnly) {
+      result = result.filter((p) => (p as any).isSellerFavorite);
+    }
+
     return result;
-  }, [products, searchQuery, statusFilter, featuredOnly]);
+  }, [products, searchQuery, statusFilter, discountFilter, categoryFilter, featuredOnly, sellerFavoriteOnly]);
+
+  const hasActiveFilters = statusFilter !== 'all' || discountFilter !== 'all' || categoryFilter !== 'all' || featuredOnly || sellerFavoriteOnly || searchQuery.trim();
+
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setDiscountFilter('all');
+    setCategoryFilter('all');
+    setFeaturedOnly(false);
+    setSellerFavoriteOnly(false);
+  };
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
@@ -473,7 +578,7 @@ export default function ProductsScreen() {
     async (product: Product, newStatus: boolean) => {
       const productId = (product as any)._id || product.id;
       const statusText = newStatus ? 'activate' : 'deactivate';
-      
+
       Alert.alert(
         `${newStatus ? 'Activate' : 'Deactivate'} Product`,
         `Are you sure you want to ${statusText} "${product.name}"?`,
@@ -487,9 +592,9 @@ export default function ProductsScreen() {
                 const response = await productService.toggleProductStatus(productId, newStatus);
                 if (response.success) {
                   // Update the product in the local state
-                  setProducts(prevProducts => 
-                    prevProducts.map(p => 
-                      ((p as any)._id || p.id) === productId 
+                  setProducts(prevProducts =>
+                    prevProducts.map(p =>
+                      ((p as any)._id || p.id) === productId
                         ? { ...p, isActive: newStatus }
                         : p
                     )
@@ -513,8 +618,8 @@ export default function ProductsScreen() {
 
   const renderProduct = useCallback(
     ({ item }: { item: Product }) => (
-      <ProductCard 
-        product={item} 
+      <ProductCard
+        product={item}
         onPress={() => handleProductPress(item)}
         onStatusToggle={handleStatusToggle}
       />
@@ -533,6 +638,9 @@ export default function ProductsScreen() {
         style={styles.searchBar}
         testID="products-search"
       />
+
+      {/* Status Filters */}
+      <Text style={styles.filterSectionLabel}>Status & Features</Text>
       <View style={styles.filterRow}>
         <FilterChip
           label="All"
@@ -554,7 +662,72 @@ export default function ProductsScreen() {
           active={featuredOnly}
           onPress={() => setFeaturedOnly((v) => !v)}
         />
+        <FilterChip
+          label="Seller Favorite"
+          active={sellerFavoriteOnly}
+          onPress={() => setSellerFavoriteOnly((v) => !v)}
+        />
       </View>
+
+      {/* Discount Filters */}
+      <Text style={styles.filterSectionLabel}>Pricing</Text>
+      <View style={styles.filterRow}>
+        <FilterChip
+          label="All Prices"
+          active={discountFilter === 'all'}
+          onPress={() => setDiscountFilter('all')}
+        />
+        <FilterChip
+          label="Discounted"
+          active={discountFilter === 'discounted'}
+          onPress={() => setDiscountFilter('discounted')}
+        />
+        <FilterChip
+          label="Regular Price"
+          active={discountFilter === 'regular'}
+          onPress={() => setDiscountFilter('regular')}
+        />
+      </View>
+
+      {/* Category Filters */}
+      {!loadingCategories && categories.length > 0 && (
+        <>
+          <Text style={styles.filterSectionLabel}>Categories</Text>
+          <View style={styles.filterRow}>
+            <FilterChip
+              label="All Categories"
+              active={categoryFilter === 'all'}
+              onPress={() => setCategoryFilter('all')}
+            />
+            {categories.slice(0, 4).map((category) => (
+              <FilterChip
+                key={category.value}
+                label={category.label}
+                active={categoryFilter === category.value}
+                onPress={() => setCategoryFilter(category.value)}
+              />
+            ))}
+            {categories.length > 4 && (
+              <FilterChip
+                label={`+${categories.length - 4} more`}
+                active={false}
+                onPress={() => setCategoryModalVisible(true)}
+              />
+            )}
+          </View>
+        </>
+      )}
+
+      {/* Clear Filters Button */}
+      {hasActiveFilters && (
+        <TouchableOpacity
+          style={styles.clearFiltersButton}
+          onPress={clearAllFilters}
+        >
+          <Ionicons name="close-circle-outline" size={16} color={themeColors.textSecondary} />
+          <Text style={styles.clearFiltersText}>Clear Filters</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -562,45 +735,28 @@ export default function ProductsScreen() {
 
   if (error && !loading && products.length === 0) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Products</Text>
-          <TouchableOpacity
-            onPress={handleAddProduct}
-            style={styles.addButton}
-            accessibilityRole="button"
-            accessibilityLabel="Add product"
-          >
-            <Ionicons name="add" size={24} color={colors.background} />
-          </TouchableOpacity>
-        </View>
+      <View style={styles.screen}>
+        <Header
+          title="Products"
+          subtitle="Manage your inventory"
+        />
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+          <Ionicons name="alert-circle-outline" size={48} color={themeColors.error} />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity onPress={() => fetchProducts()} style={styles.retryButton}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  // ── Main render ────────────────────────────────────────────────────────────
-
   return (
-    <SafeAreaView style={styles.screen}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Products</Text>
-        <TouchableOpacity
-          onPress={handleAddProduct}
-          style={styles.addButton}
-          accessibilityRole="button"
-          accessibilityLabel="Add product"
-        >
-          <Ionicons name="add" size={24} color={colors.background} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.screen}>
+      <Header
+        title="Products"
+        subtitle={`Manage your inventory${hasActiveFilters ? ` • ${filteredProducts.length} filtered` : ` • ${products.length} total`}`}
+      />
 
       {/* List */}
       <DataList<Product>
@@ -611,7 +767,7 @@ export default function ProductsScreen() {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         emptyMessage={
-          searchQuery || statusFilter !== 'all' || featuredOnly
+          searchQuery || statusFilter !== 'all' || discountFilter !== 'all' || categoryFilter !== 'all' || featuredOnly || sellerFavoriteOnly
             ? 'No products match your filters.'
             : 'No products yet. Tap + to add one.'
         }
@@ -619,93 +775,15 @@ export default function ProductsScreen() {
         ListHeaderComponent={ListHeader}
         skeletonCount={8}
       />
-    </SafeAreaView>
+
+      {/* Category Filter Modal */}
+      <CategoryFilterModal
+        visible={categoryModalVisible}
+        onClose={() => setCategoryModalVisible(false)}
+        categories={categories}
+        selectedCategory={categoryFilter}
+        onSelectCategory={setCategoryFilter}
+      />
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#212529',
-  },
-  addButton: {
-    backgroundColor: '#007bff',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listContent: {
-    padding: 16,
-  },
-  listHeader: {
-    marginBottom: 16,
-  },
-  searchBar: {
-    marginBottom: 12,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#e9ecef',
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-  },
-  chipActive: {
-    backgroundColor: '#007bff',
-    borderColor: '#007bff',
-  },
-  chipText: {
-    fontSize: 14,
-    color: '#6c757d',
-    fontWeight: '500',
-  },
-  chipTextActive: {
-    color: '#ffffff',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#6c757d',
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: '#007bff',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

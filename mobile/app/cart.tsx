@@ -8,21 +8,29 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCart } from '../contexts/CartContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { Header } from '../components/Header';
 
 export default function CartScreen() {
   const router = useRouter();
-  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
-  const { cart, loading, updateQuantity, removeFromCart, refreshCart } = useCart();
+  const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
+  const { cart, loading, updateQuantity, removeFromCart, clearCart, refreshCart } = useCart();
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     refreshCart();
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshCart();
+    setRefreshing(false);
+  };
 
   const handleQuantityChange = async (productId: string, newQuantity: number, selectedVariant?: any) => {
     if (newQuantity < 1) {
@@ -30,30 +38,21 @@ export default function CartScreen() {
       return;
     }
     
+    console.log('Cart - Attempting to update quantity:', { productId, newQuantity, selectedVariant });
     const success = await updateQuantity(productId, newQuantity, selectedVariant);
+    console.log('Cart - Update quantity result:', success);
     if (!success) {
-      Alert.alert('Error', 'Failed to update quantity');
+      Alert.alert('Error', 'Failed to update quantity. Please check your connection and try again.');
     }
   };
 
   const handleRemoveItem = async (productId: string, selectedVariant?: any) => {
-    Alert.alert(
-      'Remove Item',
-      'Are you sure you want to remove this item from your cart?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            const success = await removeFromCart(productId, selectedVariant);
-            if (!success) {
-              Alert.alert('Error', 'Failed to remove item');
-            }
-          },
-        },
-      ]
-    );
+    console.log('Cart - Attempting to remove item:', { productId, selectedVariant });
+    const success = await removeFromCart(productId, selectedVariant);
+    console.log('Cart - Remove result:', success);
+    if (!success) {
+      Alert.alert('Error', 'Failed to remove item. Please check your connection and try again.');
+    }
   };
 
   const handleCheckout = () => {
@@ -64,6 +63,14 @@ export default function CartScreen() {
     router.push('/checkout');
   };
 
+  const handleClearCart = async () => {
+    console.log('Attempting to clear cart');
+    const success = await clearCart();
+    if (!success) {
+      Alert.alert('Error', 'Failed to clear cart. Please check your connection and try again.');
+    }
+  };
+
   const formatPrice = (price: number) => {
     return `₦${price.toLocaleString()}`;
   };
@@ -71,30 +78,7 @@ export default function CartScreen() {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.sm,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-    backButton: {
-      padding: spacing.xs,
-      marginRight: spacing.sm,
-    },
-    headerTitle: {
-      fontSize: fontSizes.lg,
-      fontWeight: fontWeights.semibold,
-      color: colors.text,
-      flex: 1,
-    },
-    cartCount: {
-      fontSize: fontSizes.sm,
-      color: colors.textSecondary,
+      backgroundColor: themeColors.background,
     },
     loadingContainer: {
       flex: 1,
@@ -105,32 +89,32 @@ export default function CartScreen() {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      paddingHorizontal: spacing.xl,
+      paddingHorizontal: themeSpacing.xl,
     },
     emptyIcon: {
-      marginBottom: spacing.lg,
+      marginBottom: themeSpacing.lg,
     },
     emptyTitle: {
       fontSize: fontSizes.xl,
       fontWeight: fontWeights.bold,
-      color: colors.text,
-      marginBottom: spacing.sm,
+      color: themeColors.text,
+      marginBottom: themeSpacing.sm,
       textAlign: 'center',
     },
     emptyText: {
       fontSize: fontSizes.base,
-      color: colors.textSecondary,
+      color: themeColors.textSecondary,
       textAlign: 'center',
-      marginBottom: spacing.xl,
+      marginBottom: themeSpacing.xl,
     },
     shopButton: {
-      backgroundColor: colors.primary,
-      paddingHorizontal: spacing.xl,
-      paddingVertical: spacing.md,
+      backgroundColor: themeColors.primary,
+      paddingHorizontal: themeSpacing.xl,
+      paddingVertical: themeSpacing.md,
       borderRadius: borderRadius.md,
     },
     shopButtonText: {
-      color: colors.textInverse,
+      color: themeColors.textInverse,
       fontSize: fontSizes.base,
       fontWeight: fontWeights.semibold,
     },
@@ -139,10 +123,10 @@ export default function CartScreen() {
     },
     cartItem: {
       flexDirection: 'row',
-      padding: spacing.base,
-      backgroundColor: colors.surface,
-      marginHorizontal: spacing.base,
-      marginVertical: spacing.xs,
+      padding: themeSpacing.base,
+      backgroundColor: themeColors.surface,
+      marginHorizontal: themeSpacing.base,
+      marginVertical: themeSpacing.xs,
       borderRadius: borderRadius.md,
       ...shadows.sm,
     },
@@ -150,28 +134,28 @@ export default function CartScreen() {
       width: 80,
       height: 80,
       borderRadius: borderRadius.sm,
-      backgroundColor: colors.background,
+      backgroundColor: themeColors.background,
     },
     itemDetails: {
       flex: 1,
-      marginLeft: spacing.sm,
+      marginLeft: themeSpacing.sm,
     },
     itemName: {
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.lg,
       fontWeight: fontWeights.medium,
-      color: colors.text,
-      marginBottom: spacing.xs,
+      color: themeColors.text,
+      marginBottom: themeSpacing.xs,
     },
     itemPrice: {
       fontSize: fontSizes.base,
       fontWeight: fontWeights.bold,
-      color: colors.primary,
-      marginBottom: spacing.xs,
+      color: themeColors.primary,
+      marginBottom: themeSpacing.xs,
     },
     itemVariant: {
       fontSize: fontSizes.sm,
-      color: colors.textSecondary,
-      marginBottom: spacing.sm,
+      color: themeColors.textSecondary,
+      marginBottom: themeSpacing.sm,
     },
     quantityContainer: {
       flexDirection: 'row',
@@ -182,70 +166,70 @@ export default function CartScreen() {
       height: 32,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: colors.background,
+      backgroundColor: themeColors.background,
       borderRadius: borderRadius.sm,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: themeColors.border,
     },
     quantityText: {
       fontSize: fontSizes.base,
-      color: colors.text,
-      marginHorizontal: spacing.sm,
+      color: themeColors.text,
+      marginHorizontal: themeSpacing.sm,
       minWidth: 30,
       textAlign: 'center',
     },
     removeButton: {
       position: 'absolute',
-      top: spacing.sm,
-      right: spacing.sm,
-      padding: spacing.xs,
+      top: themeSpacing.sm,
+      right: themeSpacing.sm,
+      padding: themeSpacing.xs,
     },
     summaryContainer: {
-      backgroundColor: colors.surface,
-      padding: spacing.base,
+      backgroundColor: themeColors.surface,
+      padding: themeSpacing.base,
       borderTopWidth: 1,
-      borderTopColor: colors.border,
+      borderTopColor: themeColors.border,
     },
     summaryRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginBottom: spacing.sm,
+      marginBottom: themeSpacing.sm,
     },
     summaryLabel: {
       fontSize: fontSizes.base,
-      color: colors.textSecondary,
+      color: themeColors.textSecondary,
     },
     summaryValue: {
       fontSize: fontSizes.base,
-      color: colors.text,
+      color: themeColors.text,
       fontWeight: fontWeights.medium,
     },
     totalRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      paddingTop: spacing.sm,
+      paddingTop: themeSpacing.sm,
       borderTopWidth: 1,
-      borderTopColor: colors.border,
-      marginBottom: spacing.lg,
+      borderTopColor: themeColors.border,
+      marginBottom: themeSpacing.lg,
     },
     totalLabel: {
       fontSize: fontSizes.lg,
       fontWeight: fontWeights.bold,
-      color: colors.text,
+      color: themeColors.text,
     },
     totalValue: {
       fontSize: fontSizes.lg,
       fontWeight: fontWeights.bold,
-      color: colors.primary,
+      color: themeColors.primary,
     },
     checkoutButton: {
-      backgroundColor: colors.primary,
-      paddingVertical: spacing.md,
+      backgroundColor: themeColors.primary,
+      paddingVertical: themeSpacing.md,
       borderRadius: borderRadius.md,
       alignItems: 'center',
     },
     checkoutButtonText: {
-      color: colors.textInverse,
+      color: themeColors.textInverse,
       fontSize: fontSizes.base,
       fontWeight: fontWeights.semibold,
     },
@@ -257,32 +241,28 @@ export default function CartScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Shopping Cart</Text>
-        </View>
+      <View style={styles.container}>
+        <Header
+          title="Shopping Cart"
+          showBack={true}
+        />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={themeColors.primary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!cart || cart.items.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Shopping Cart</Text>
-        </View>
+      <View style={styles.container}>
+        <Header
+          title="Shopping Cart"
+          showBack={true}
+        />
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
-            <Ionicons name="cart-outline" size={64} color={colors.textSecondary} />
+            <Ionicons name="cart-outline" size={64} color={themeColors.textSecondary} />
           </View>
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptyText}>
@@ -292,28 +272,52 @@ export default function CartScreen() {
             <Text style={styles.shopButtonText}>Start Shopping</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Shopping Cart</Text>
-        <Text style={styles.cartCount}>{cart.totalItems} items</Text>
-      </View>
+    <View style={styles.container}>
+      <Header
+        title="Shopping Cart"
+        showBack={true}
+        rightAction={
+          cart && cart.items.length > 0 ? (
+            <View style={{ flexDirection: 'row', gap: themeSpacing.sm }}>
+              <TouchableOpacity onPress={refreshCart}>
+                <Ionicons name="refresh" size={20} color={themeColors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleClearCart}>
+                <Text style={{ color: themeColors.error, fontSize: fontSizes.sm }}>Clear All</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={refreshCart}>
+              <Ionicons name="refresh" size={20} color={themeColors.primary} />
+            </TouchableOpacity>
+          )
+        }
+      />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {cart.items.map((item) => (
-          <View key={`${item.productId._id}-${JSON.stringify(item.selectedVariant)}`} style={styles.cartItem}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[themeColors.primary]}
+            tintColor={themeColors.primary}
+          />
+        }
+      >
+        {cart.items.map((item, index) => (
+          <View key={`${item.productId._id}-${JSON.stringify(item.selectedVariant || {})}-${index}`} style={styles.cartItem}>
             <TouchableOpacity
               style={styles.removeButton}
               onPress={() => handleRemoveItem(item.productId._id, item.selectedVariant)}
             >
-              <Ionicons name="close" size={20} color={colors.textSecondary} />
+              <Ionicons name="trash-outline" size={20} color={themeColors.error} />
             </TouchableOpacity>
 
             {item.productId.images && item.productId.images.length > 0 ? (
@@ -324,7 +328,7 @@ export default function CartScreen() {
               />
             ) : (
               <View style={[styles.itemImage, styles.placeholderImage]}>
-                <Ionicons name="image-outline" size={32} color={colors.textSecondary} />
+                <Ionicons name="image-outline" size={32} color={themeColors.textSecondary} />
               </View>
             )}
 
@@ -345,16 +349,26 @@ export default function CartScreen() {
               <View style={styles.quantityContainer}>
                 <TouchableOpacity
                   style={styles.quantityButton}
-                  onPress={() => handleQuantityChange(item.productId._id, item.quantity - 1, item.selectedVariant)}
+                  onPress={() => {
+                    if (item.quantity <= 1) {
+                      handleRemoveItem(item.productId._id, item.selectedVariant);
+                    } else {
+                      handleQuantityChange(item.productId._id, item.quantity - 1, item.selectedVariant);
+                    }
+                  }}
                 >
-                  <Ionicons name="remove" size={16} color={colors.text} />
+                  <Ionicons 
+                    name={item.quantity <= 1 ? "trash-outline" : "remove"} 
+                    size={16} 
+                    color={item.quantity <= 1 ? themeColors.error : themeColors.text} 
+                  />
                 </TouchableOpacity>
                 <Text style={styles.quantityText}>{item.quantity}</Text>
                 <TouchableOpacity
                   style={styles.quantityButton}
                   onPress={() => handleQuantityChange(item.productId._id, item.quantity + 1, item.selectedVariant)}
                 >
-                  <Ionicons name="add" size={16} color={colors.text} />
+                  <Ionicons name="add" size={16} color={themeColors.text} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -375,6 +389,6 @@ export default function CartScreen() {
           <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

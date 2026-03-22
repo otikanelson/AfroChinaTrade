@@ -282,7 +282,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     const user = await User.findByIdAndUpdate(
       req.userId,
       { name, phone, avatar },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).select('-password');
 
     if (!user) {

@@ -20,6 +20,38 @@ export interface OrderStats {
   }>;
 }
 
+export interface ViewTrackingRequest {
+  userId?: string;
+  sessionId?: string;
+  metadata?: {
+    viewDuration?: number;
+    scrollDepth?: number;
+    imageViews?: number;
+    source?: string;
+    timestamp?: string;
+  };
+}
+
+export interface ViewTrackingResponse {
+  status: 'success' | 'error';
+  data: {
+    productId: string;
+    newViewCount: number;
+    tracked: boolean;
+  };
+}
+
+export interface ProductCardInteractionRequest {
+  interactionType: 'tap' | 'view' | 'add_to_cart' | 'add_to_wishlist';
+  metadata?: {
+    viewDuration?: number;
+    scrollDepth?: number;
+    imageViews?: number;
+    source?: string;
+    timestamp?: string;
+  };
+}
+
 class AnalyticsService {
   private readonly basePath = '/analytics';
 
@@ -53,6 +85,52 @@ class AnalyticsService {
 
   async getProductStats(): Promise<ApiResponse<any>> {
     return apiClient.get(`${this.basePath}/products`);
+  }
+
+  /**
+   * Track a product view with optional metadata
+   * @param productId - The ID of the product being viewed
+   * @param userId - Optional user ID for authenticated users
+   * @param metadata - Optional metadata about the view (duration, source, etc.)
+   */
+  async trackProductView(
+    productId: string, 
+    userId?: string, 
+    metadata?: ViewTrackingRequest['metadata']
+  ): Promise<ApiResponse<ViewTrackingResponse>> {
+    const requestBody: ViewTrackingRequest = {
+      userId,
+      metadata
+    };
+
+    return apiClient.post<ViewTrackingResponse>(`/products/${productId}/view`, requestBody);
+  }
+
+  /**
+   * Track product card interactions (tap, add to cart, etc.)
+   * @param productId - The ID of the product
+   * @param interactionType - Type of interaction
+   * @param metadata - Optional metadata about the interaction
+   */
+  async trackProductCardInteraction(
+    productId: string,
+    interactionType: ProductCardInteractionRequest['interactionType'],
+    metadata?: ProductCardInteractionRequest['metadata']
+  ): Promise<ApiResponse<any>> {
+    const requestBody: ProductCardInteractionRequest = {
+      interactionType,
+      metadata
+    };
+
+    return apiClient.post(`/products/${productId}/interaction`, requestBody);
+  }
+
+  /**
+   * Get view analytics for a specific product (admin only)
+   * @param productId - The ID of the product
+   */
+  async getProductAnalytics(productId: string): Promise<ApiResponse<any>> {
+    return apiClient.get(`/products/${productId}/analytics`);
   }
 }
 

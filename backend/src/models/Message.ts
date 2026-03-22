@@ -7,6 +7,8 @@ export interface IMessage extends Document {
   senderName: string;
   senderRole: 'customer' | 'admin';
   text: string;
+  productImage?: string;
+  productName?: string;
   isRead: boolean;
   createdAt: Date;
 }
@@ -42,6 +44,14 @@ const MessageSchema = new Schema<IMessage>(
       required: [true, 'Message text is required'],
       trim: true,
       maxlength: [1000, 'Message text must not exceed 1000 characters'],
+    },
+    productImage: {
+      type: String,
+      trim: true,
+    },
+    productName: {
+      type: String,
+      trim: true,
     },
     isRead: {
       type: Boolean,

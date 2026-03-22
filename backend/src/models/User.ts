@@ -9,6 +9,8 @@ export interface IAddress {
   country: string;
   postalCode: string;
   isDefault: boolean;
+  landmark?: string;
+  locationSummary?: string;
 }
 
 // User document interface
@@ -53,6 +55,12 @@ const AddressSchema = new Schema<IAddress>({
   isDefault: {
     type: Boolean,
     default: false,
+  },
+  landmark: {
+    type: String,
+  },
+  locationSummary: {
+    type: String,
   },
 }, { _id: false });
 

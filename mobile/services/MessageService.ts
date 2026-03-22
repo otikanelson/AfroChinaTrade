@@ -1,110 +1,141 @@
-import apiClient, { ApiResponse } from './api/apiClient';
-import { MessageThread } from '../types/messages';
-
-export interface Message {
-  id: string;
-  threadId: string;
-  senderId: string;
-  senderName: string;
-  senderRole: 'customer' | 'admin';
-  text: string;
-  isRead: boolean;
-  createdAt: string;
-}
-
-export interface CreateMessageData {
-  threadId: string;
-  text: string;
-}
+import { apiClient as api } from './api/apiClient';
+import { ApiResponse } from '../types/api';
+import { Message, MessageThread, SendMessageRequest } from '../types/message';
 
 class MessageService {
-  private readonly basePath = '/messages';
-
-  /**
-   * Get user's message threads
-   */
-  async getThreads(params: {
-    page?: number;
-    limit?: number;
-  } = {}): Promise<ApiResponse<MessageThread[]>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params.page) queryParams.append('page', params.page.toString());
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-
-    const queryString = queryParams.toString();
-    const url = queryString ? `${this.basePath}/threads?${queryString}` : `${this.basePath}/threads`;
-    
-    return apiClient.get<MessageThread[]>(url);
+  async getThreads(page = 1, limit = 20): Promise<ApiResponse<MessageThread[]>> {
+    try {
+      const response = await api.get('/messages/threads', {
+        params: { page, limit }
+      });
+      return response;
+    } catch (error: any) {
+      console.error('Error fetching threads:', error);
+      return {
+        success: false,
+        error: {
+          code: 'FETCH_ERROR',
+          message: error.response?.data?.error?.message || 'Failed to fetch threads'
+        }
+      };
+    }
   }
 
-  /**
-   * Get messages in a specific thread
-   */
-  async getThreadMessages(threadId: string, params: {
-    page?: number;
-    limit?: number;
-  } = {}): Promise<ApiResponse<Message[]>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params.page) queryParams.append('page', params.page.toString());
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-
-    const queryString = queryParams.toString();
-    const url = queryString ? 
-      `${this.basePath}/threads/${threadId}?${queryString}` : 
-      `${this.basePath}/threads/${threadId}`;
-    
-    return apiClient.get<Message[]>(url);
+  async getThreadMessages(threadId: string, page = 1, limit = 50): Promise<ApiResponse<{
+    thread: MessageThread;
+    messages: Message[];
+  }>> {
+    try {
+      const response = await api.get(`/messages/threads/${threadId}`, {
+        params: { page, limit }
+      });
+      return response;
+    } catch (error: any) {
+      console.error('Error fetching thread messages:', error);
+      return {
+        success: false,
+        error: {
+          code: 'FETCH_ERROR',
+          message: error.response?.data?.error?.message || 'Failed to fetch messages'
+        }
+      };
+    }
   }
 
-  /**
-   * Send a message
-   */
-  async sendMessage(messageData: CreateMessageData): Promise<ApiResponse<Message>> {
-    return apiClient.post<Message>(this.basePath, messageData);
+  async sendMessage(request: SendMessageRequest): Promise<ApiResponse<Message>> {
+    try {
+      console.log('MessageService: Sending message', { threadId: request.threadId, textLength: request.text.length });
+      
+      const response = await api.post('/messages', request);
+      
+      console.log('MessageService: Send message response', response);
+      return response;
+    } catch (error: any) {
+      console.error('MessageService: Error sending message:', error);
+      return {
+        success: false,
+        error: {
+          code: 'SEND_ERROR',
+          message: error.response?.data?.error?.message || error.message || 'Failed to send message'
+        }
+      };
+    }
   }
 
-  /**
-   * Mark message as read
-   */
-  async markAsRead(messageId: string): Promise<ApiResponse<void>> {
-    return apiClient.patch<void>(`${this.basePath}/${messageId}/read`);
+  async createProductThread(productId: string, initialMessage: string, threadType: 'product_inquiry' | 'quote_request' = 'product_inquiry'): Promise<ApiResponse<{
+    thread: MessageThread;
+    isExisting: boolean;
+  }>> {
+    try {
+      console.log('MessageService: Creating product thread', { productId, threadType });
+      
+      const response = await api.post('/messages/product-thread', {
+        productId,
+        initialMessage,
+        threadType
+      });
+      
+      console.log('MessageService: Product thread response', response);
+      return response;
+    } catch (error: any) {
+      console.error('MessageService: Error creating product thread:', error);
+      return {
+        success: false,
+        error: {
+          code: 'CREATE_ERROR',
+          message: error.response?.data?.error?.message || error.message || 'Failed to create thread'
+        }
+      };
+    }
   }
 
-  /**
-   * Mark all messages in thread as read
-   */
-  async markThreadAsRead(threadId: string): Promise<ApiResponse<void>> {
-    return apiClient.patch<void>(`${this.basePath}/threads/${threadId}/read`);
+  async markAsRead(messageId: string): Promise<ApiResponse<Message>> {
+    try {
+      const response = await api.patch(`/messages/${messageId}/read`);
+      return response;
+    } catch (error: any) {
+      console.error('Error marking message as read:', error);
+      return {
+        success: false,
+        error: {
+          code: 'UPDATE_ERROR',
+          message: error.response?.data?.error?.message || 'Failed to mark as read'
+        }
+      };
+    }
   }
 
-  /**
-   * Get unread message count
-   */
-  async getUnreadCount(): Promise<ApiResponse<{ count: number }>> {
-    return apiClient.get<{ count: number }>(`${this.basePath}/unread-count`);
+  async getUnreadCount(): Promise<ApiResponse<{ unreadCount: number }>> {
+    try {
+      const response = await api.get('/messages/unread-count');
+      return response;
+    } catch (error: any) {
+      console.error('Error fetching unread count:', error);
+      return {
+        success: false,
+        error: {
+          code: 'FETCH_ERROR',
+          message: error.response?.data?.error?.message || 'Failed to fetch unread count'
+        }
+      };
+    }
   }
 
-  /**
-   * Create a new message thread (typically done automatically when sending first message)
-   */
-  async createThread(data: {
-    subject?: string;
-    initialMessage: string;
-    recipientId?: string;
-  }): Promise<ApiResponse<MessageThread>> {
-    return apiClient.post<MessageThread>(`${this.basePath}/threads`, data);
-  }
-
-  /**
-   * Delete a message (soft delete)
-   */
-  async deleteMessage(messageId: string): Promise<ApiResponse<void>> {
-    return apiClient.delete<void>(`${this.basePath}/${messageId}`);
+  async clearHistory(): Promise<ApiResponse<{ message: string }>> {
+    try {
+      const response = await api.delete('/messages');
+      return response;
+    } catch (error: any) {
+      console.error('Error clearing message history:', error);
+      return {
+        success: false,
+        error: {
+          code: 'DELETE_ERROR',
+          message: error.response?.data?.error?.message || 'Failed to clear message history'
+        }
+      };
+    }
   }
 }
 
-// Export singleton instance
 export const messageService = new MessageService();
-export default messageService;

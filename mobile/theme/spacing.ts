@@ -1,4 +1,21 @@
+// Enhanced comprehensive spacing scale as per design requirements
 export const spacing = {
+  // Comprehensive spacing scale (0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96px)
+  0: 0,
+  1: 4,
+  2: 8,
+  3: 12,
+  4: 16,
+  5: 20,
+  6: 24,
+  8: 32,
+  10: 40,
+  12: 48,
+  16: 64,
+  20: 80,
+  24: 96,
+  
+  // Legacy naming for backward compatibility
   xs: 4,
   sm: 8,
   md: 12,
@@ -9,6 +26,19 @@ export const spacing = {
   '3xl': 48,
   '4xl': 64,
   '5xl': 64, // Alias for compatibility
+  
+  // Semantic spacing names as per design requirements
+  tight: 4,
+  snug: 8,
+  normal: 16,
+  relaxed: 24,
+  loose: 32,
+  
+  // Component-specific spacing
+  cardPadding: 16,
+  screenPadding: 16,
+  sectionSpacing: 24,
+  itemSpacing: 12,
 } as const;
 
 export const borderRadius = {

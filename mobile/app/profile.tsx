@@ -18,8 +18,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { userService, UserProfile } from '../services/UserService';
 import { FormField } from '../components/admin/forms/FormField';
+import { PhoneInput } from '../components/PhoneInput';
 import { Button } from '../components/admin/Button';
-import { AppHeader } from '../components/common/AppHeader';
+import { Header } from '../components/Header';
+import { formatNigerianPhone, validateNigerianPhone } from '../utils/phoneUtils';
 
 interface ProfileScreenProps {
   isAdmin?: boolean;
@@ -28,7 +30,7 @@ interface ProfileScreenProps {
 export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, updateProfile: updateAuthProfile } = useAuth();
+  const { user, updateProfile: updateAuthProfile, isAdmin: userIsAdmin } = useAuth();
   const { colors, fonts, fontSizes, spacing } = useTheme();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -42,6 +44,7 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
   const [avatar, setAvatar] = useState<string | undefined>();
 
   const isAdminUser = isAdmin || user?.role === 'admin' || user?.role === 'super_admin' || pathname?.includes('/(admin)/');
+  const isAdminViewingCustomer = userIsAdmin && !pathname?.includes('/(admin)/');
 
   const styles = StyleSheet.create({
     container: {
@@ -223,6 +226,24 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
       paddingHorizontal: spacing.base,
       paddingVertical: spacing.md,
     },
+    adminNotice: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      marginHorizontal: spacing.base,
+      marginBottom: spacing.md,
+      padding: spacing.md,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.warning,
+      gap: spacing.sm,
+    },
+    adminNoticeText: {
+      flex: 1,
+      fontSize: fontSizes.sm,
+      fontFamily: fonts.medium,
+      color: colors.warning,
+    },
   });
 
   useEffect(() => {
@@ -237,7 +258,8 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
       if (response.success && response.data) {
         setProfile(response.data);
         setName(response.data.name);
-        setPhone(response.data.phone || '');
+        // Format phone number with +234 prefix
+        setPhone(response.data.phone ? formatNigerianPhone(response.data.phone) : '+234');
         setAvatar(response.data.avatar);
       } else {
         Alert.alert('Error', 'Failed to load profile');
@@ -256,11 +278,17 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
       return;
     }
 
+    // Validate phone number if provided
+    if (phone && phone !== '+234' && !validateNigerianPhone(phone)) {
+      Alert.alert('Error', 'Please enter a valid Nigerian phone number');
+      return;
+    }
+
     try {
       setSaving(true);
       const response = await userService.updateProfile({
         name: name.trim(),
-        phone: phone.trim() || undefined,
+        phone: phone && phone !== '+234' ? phone : undefined,
         avatar,
       });
 
@@ -343,9 +371,11 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
       const response = await userService.uploadAvatar(imageFile);
       
       if (response.success && response.data) {
-        setAvatar(response.data.imageUrl);
+        // Backend returns 'url' field, but we need 'imageUrl' for consistency
+        const imageUrl = response.data.imageUrl || (response.data as any).url;
+        setAvatar(imageUrl);
       } else {
-        throw new Error('Failed to upload image');
+        throw new Error(response.error?.message || 'Failed to upload image');
       }
     } catch (error) {
       console.error('Error uploading avatar:', error);
@@ -380,7 +410,7 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
             </Text>
           </View>
         ) : (
-          <AppHeader title="Profile" />
+          <Header title="Profile" showBack={true} />
         )}
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -402,10 +432,20 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
           </Text>
         </View>
       ) : (
-        <AppHeader title="Profile" />
+        <Header title="Profile" showBack={true} />
       )}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Admin Viewing Notice */}
+        {isAdminViewingCustomer && (
+          <View style={styles.adminNotice}>
+            <Ionicons name="eye" size={20} color={colors.warning} />
+            <Text style={styles.adminNoticeText}>
+              You are viewing as admin - profile editing is disabled
+            </Text>
+          </View>
+        )}
+
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <TouchableOpacity onPress={handleAvatarPress} style={styles.avatarContainer}>
@@ -444,7 +484,7 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
             value={name}
             onChangeText={setName}
             placeholder="Enter your full name"
-            required
+            required={true}
           />
 
           <FormField
@@ -456,12 +496,11 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
             style={styles.disabledField}
           />
 
-          <FormField
+          <PhoneInput
             label="Phone Number"
             value={phone}
             onChangeText={setPhone}
-            placeholder="Enter your phone number"
-            keyboardType="phone-pad"
+            required={true}
           />
 
           {isAdminUser ? (

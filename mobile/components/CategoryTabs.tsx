@@ -53,13 +53,12 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   content: {
-    // Styles applied inline
+    marginBottom: 5,
   },
   tab: {
     position: 'relative',
   },
   tabText: {
-    // Styles applied inline
   },
   activeIndicator: {
     position: 'absolute',
@@ -67,5 +66,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
+    
   },
 });

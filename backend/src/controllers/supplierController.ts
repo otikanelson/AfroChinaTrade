@@ -22,7 +22,8 @@ export const getSuppliers = async (req: Request, res: Response) => {
     const total = await Supplier.countDocuments(filter);
 
     res.json({
-      suppliers,
+      status: 'success',
+      data: suppliers,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -44,7 +45,10 @@ export const getSupplierById = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Supplier not found' });
     }
 
-    res.json(supplier);
+    res.json({
+      status: 'success',
+      data: supplier,
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

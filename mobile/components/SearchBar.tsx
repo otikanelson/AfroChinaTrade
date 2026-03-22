@@ -9,6 +9,8 @@ interface SearchBarProps {
   placeholder?: string;
   onCameraPress?: () => void;
   onSearchPress?: () => void;
+  onPress?: () => void; // New prop for making the search bar pressable
+  editable?: boolean; // New prop to control if the input is editable
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({
@@ -17,10 +19,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   placeholder = 'Search products...',
   onCameraPress,
   onSearchPress,
+  onPress,
+  editable = true,
 }) => {
   const { colors, spacing, borderRadius, fontSizes, shadows } = useTheme();
 
-  return (
+  const SearchBarContent = (
     <View style={[styles.container, { 
       backgroundColor: colors.background, 
       borderRadius: borderRadius.lg, 
@@ -28,11 +32,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       ...shadows.sm 
     }]}>
       <TextInput
-        style={[styles.input, { fontSize: fontSizes.base, color: colors.text }]}
+        style={[styles.input, { fontSize: fontSizes.sm, color: colors.text }]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={colors.textLight}
+        editable={editable}
+        pointerEvents={onPress ? 'none' : 'auto'}
       />
       {onCameraPress && (
         <TouchableOpacity style={[styles.iconButton, { padding: spacing.sm, marginLeft: spacing.sm }]} onPress={onCameraPress}>
@@ -50,6 +56,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       )}
     </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+        {SearchBarContent}
+      </TouchableOpacity>
+    );
+  }
+
+  return SearchBarContent;
 };
 
 const styles = StyleSheet.create({

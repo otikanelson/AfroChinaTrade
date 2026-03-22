@@ -26,6 +26,11 @@ export interface IProduct extends Document {
   isNewProduct: boolean;
   isFeatured: boolean;
   isActive: boolean;
+  // New discovery fields
+  viewCount: number;
+  isSellerFavorite: boolean;
+  trendingScore: number;
+  lastViewedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -132,6 +137,24 @@ const ProductSchema = new Schema<IProduct>(
       type: Boolean,
       default: true,
     },
+    // New discovery fields
+    viewCount: {
+      type: Number,
+      default: 0,
+      min: [0, 'View count cannot be negative'],
+    },
+    isSellerFavorite: {
+      type: Boolean,
+      default: false,
+    },
+    trendingScore: {
+      type: Number,
+      default: 0,
+      min: [0, 'Trending score cannot be negative'],
+    },
+    lastViewedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt
@@ -153,6 +176,25 @@ ProductSchema.index({ tags: 1 });
 
 // Index on createdAt for sorting by creation date
 ProductSchema.index({ createdAt: -1 });
+
+// New indexes for discovery features
+// Compound index for active products with view count (trending)
+ProductSchema.index({ isActive: 1, viewCount: -1 });
+
+// Compound index for active featured products
+ProductSchema.index({ isActive: 1, isFeatured: 1 });
+
+// Compound index for active seller favorites
+ProductSchema.index({ isActive: 1, isSellerFavorite: 1 });
+
+// Compound index for category-based trending
+ProductSchema.index({ isActive: 1, category: 1, viewCount: -1 });
+
+// Index on trending score for trending calculations
+ProductSchema.index({ trendingScore: -1 });
+
+// Index on lastViewedAt for trending timeframe queries
+ProductSchema.index({ lastViewedAt: -1 });
 
 // Create and export the Product model
 const Product = mongoose.model<IProduct>('Product', ProductSchema);

@@ -85,14 +85,13 @@ const paymentMethodSchema = new Schema<IPaymentMethod>({
 });
 
 // Ensure only one default payment method per user
-paymentMethodSchema.pre('save', async function(next) {
+paymentMethodSchema.pre('save', async function() {
   if (this.isDefault && this.isModified('isDefault')) {
     await mongoose.model('PaymentMethod').updateMany(
       { userId: this.userId, _id: { $ne: this._id } },
       { isDefault: false }
     );
   }
-  next();
 });
 
 export default mongoose.model<IPaymentMethod>('PaymentMethod', paymentMethodSchema);

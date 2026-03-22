@@ -179,7 +179,7 @@ export const updateUserStatus = async (req: AuthRequest, res: Response) => {
     const user = await User.findByIdAndUpdate(
       id,
       updateData,
-      { new: true }
+      { returnDocument: 'after' }
     ).select('-password');
 
     // Create audit log entry
@@ -369,7 +369,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     const user = await User.findByIdAndUpdate(
       userId,
       updateData,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).select('-password');
 
     if (!user) {
@@ -519,7 +519,7 @@ export const updateAddress = async (req: AuthRequest, res: Response) => {
     const user = await User.findByIdAndUpdate(
       userId,
       { addresses: validatedAddresses },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).select('-password');
 
     if (!user) {

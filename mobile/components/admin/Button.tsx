@@ -3,13 +3,15 @@ import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
-  StyleSheet,
   ViewStyle,
   TextStyle,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
+import { colors } from '../../theme/colors';
+import { spacing, borderRadius, shadows } from '../../theme/spacing';
+import { fontSizes, fontWeights } from '../../theme/typography';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -45,7 +47,7 @@ export const Button: React.FC<ButtonProps> = ({
   textStyle,
   testID,
 }) => {
-  const { colors, spacing, borderRadius, fontSizes, fontWeights, shadows } = useTheme();
+  const { colors: themeColors, spacing: themeSpacing, borderRadius: themeBorderRadius, fontSizes: themeFontSizes, fontWeights: themeFontWeights, shadows: themeShadows } = useTheme();
   
   const VARIANT_STYLES: Record<
     ButtonVariant,

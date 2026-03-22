@@ -145,10 +145,19 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     productId: string, 
     selectedVariant?: any
   ): Promise<boolean> => {
-    const token = await tokenManager.getAccessToken();
-    if (!token) return false;
-
     try {
+      // Initialize token manager if needed
+      await tokenManager.initialize();
+      
+      const token = await tokenManager.getAccessToken();
+      if (!token) {
+        console.error('No access token available for remove from cart operation');
+        return false;
+      }
+
+      console.log('Removing from cart:', { productId, selectedVariant });
+      console.log('API URL:', `${API_BASE_URL}/cart/${productId}`);
+
       const response = await fetch(`${API_BASE_URL}/cart/${productId}`, {
         method: 'DELETE',
         headers: {
@@ -158,7 +167,10 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         body: JSON.stringify({ selectedVariant }),
       });
 
+      console.log('Remove from cart response status:', response.status);
       const data = await response.json();
+      console.log('Remove from cart response data:', data);
+
       if (data.success) {
         setCart(data.data);
         return true;
@@ -177,10 +189,19 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     quantity: number, 
     selectedVariant?: any
   ): Promise<boolean> => {
-    const token = await tokenManager.getAccessToken();
-    if (!token || quantity < 1) return false;
-
     try {
+      // Initialize token manager if needed
+      await tokenManager.initialize();
+      
+      const token = await tokenManager.getAccessToken();
+      if (!token || quantity < 1) {
+        console.error('No access token or invalid quantity for update cart operation');
+        return false;
+      }
+
+      console.log('Updating cart quantity:', { productId, quantity, selectedVariant });
+      console.log('API URL:', `${API_BASE_URL}/cart/${productId}`);
+
       const response = await fetch(`${API_BASE_URL}/cart/${productId}`, {
         method: 'PUT',
         headers: {
@@ -190,7 +211,10 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         body: JSON.stringify({ quantity, selectedVariant }),
       });
 
+      console.log('Update cart response status:', response.status);
       const data = await response.json();
+      console.log('Update cart response data:', data);
+
       if (data.success) {
         setCart(data.data);
         return true;
@@ -205,10 +229,19 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   };
 
   const clearCart = async (): Promise<boolean> => {
-    const token = await tokenManager.getAccessToken();
-    if (!token) return false;
-
     try {
+      // Initialize token manager if needed
+      await tokenManager.initialize();
+      
+      const token = await tokenManager.getAccessToken();
+      if (!token) {
+        console.error('No access token available for clear cart operation');
+        return false;
+      }
+
+      console.log('Clearing cart');
+      console.log('API URL:', `${API_BASE_URL}/cart/clear`);
+
       const response = await fetch(`${API_BASE_URL}/cart/clear`, {
         method: 'DELETE',
         headers: {
@@ -217,7 +250,10 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         },
       });
 
+      console.log('Clear cart response status:', response.status);
       const data = await response.json();
+      console.log('Clear cart response data:', data);
+
       if (data.success) {
         setCart(data.data);
         return true;

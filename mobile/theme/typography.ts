@@ -1,4 +1,6 @@
+// Enhanced font sizes with semantic naming
 export const fontSizes = {
+  // Utility sizes
   xs: 12,
   sm: 14,
   base: 16,
@@ -8,17 +10,27 @@ export const fontSizes = {
   '2xl': 24,
   '3xl': 30,
   '4xl': 36,
-  '5xl': 40, // Keep for compatibility
+  '5xl': 48,
+  
+  // Semantic sizes
+  caption: 12,
+  body: 16,
+  bodyLarge: 18,
+  subtitle: 14,
+  title: 20,
+  headline: 24,
+  display: 30,
+  hero: 36,
 } as const;
 
 export const fontWeights = {
-  light: '300',
-  regular: '400',
-  medium: '500',
-  semibold: '600',
-  bold: '700',
-  extrabold: '800', // Keep for compatibility
-} as const;
+  light: '300' as const,
+  regular: '400' as const,
+  medium: '500' as const,
+  semibold: '600' as const,
+  bold: '700' as const,
+  extrabold: '800' as const,
+};
 
 export const letterSpacing = {
   tighter: -0.5,
@@ -36,31 +48,87 @@ export const lineHeights = {
   loose: 32,
 } as const;
 
+// Typography variants for consistent text styling - Enhanced hierarchy (h1-h6, body1-2, subtitle1-2, caption, button)
 export const typography = {
   h1: {
-    fontSize: fontSizes['4xl'],
-    fontWeight: fontWeights.bold,
-    letterSpacing: letterSpacing.tight,
-    lineHeight: lineHeights.tight,
+    fontSize: 36,
+    fontWeight: '700' as const,
+    lineHeight: 44,
+    letterSpacing: -0.5,
   },
   h2: {
-    fontSize: fontSizes['3xl'],
-    fontWeight: fontWeights.bold,
-    letterSpacing: letterSpacing.tight,
-    lineHeight: lineHeights.tight,
+    fontSize: 30,
+    fontWeight: '700' as const,
+    lineHeight: 38,
+    letterSpacing: -0.25,
   },
   h3: {
-    fontSize: fontSizes['2xl'],
-    fontWeight: fontWeights.semibold,
-    letterSpacing: letterSpacing.normal,
-    lineHeight: lineHeights.normal,
+    fontSize: 24,
+    fontWeight: '600' as const,
+    lineHeight: 32,
+    letterSpacing: 0,
   },
   h4: {
-    fontSize: fontSizes.xl,
-    fontWeight: fontWeights.semibold,
-    letterSpacing: letterSpacing.normal,
-    lineHeight: lineHeights.normal,
+    fontSize: 20,
+    fontWeight: '600' as const,
+    lineHeight: 28,
+    letterSpacing: 0.25,
   },
+  h5: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    lineHeight: 26,
+    letterSpacing: 0,
+  },
+  h6: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+  },
+  body1: {
+    fontSize: 16,
+    fontWeight: '400' as const,
+    lineHeight: 24,
+    letterSpacing: 0.5,
+  },
+  body2: {
+    fontSize: 14,
+    fontWeight: '400' as const,
+    lineHeight: 20,
+    letterSpacing: 0.25,
+  },
+  subtitle1: {
+    fontSize: 16,
+    fontWeight: '500' as const,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+  },
+  subtitle2: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    lineHeight: 20,
+    letterSpacing: 0.1,
+  },
+  caption: {
+    fontSize: 12,
+    fontWeight: '400' as const,
+    lineHeight: 16,
+    letterSpacing: 0.4,
+  },
+  overline: {
+    fontSize: 10,
+    fontWeight: '500' as const,
+    lineHeight: 16,
+    letterSpacing: 1.5,
+  },
+  button: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    lineHeight: 20,
+    letterSpacing: 1.25,
+  },
+  // Legacy typography for backward compatibility
   body: {
     fontSize: fontSizes.base,
     fontWeight: fontWeights.regular,
@@ -77,18 +145,6 @@ export const typography = {
     fontSize: fontSizes.sm,
     fontWeight: fontWeights.regular,
     letterSpacing: letterSpacing.normal,
-    lineHeight: lineHeights.normal,
-  },
-  caption: {
-    fontSize: fontSizes.xs,
-    fontWeight: fontWeights.regular,
-    letterSpacing: letterSpacing.wide,
-    lineHeight: lineHeights.normal,
-  },
-  button: {
-    fontSize: fontSizes.base,
-    fontWeight: fontWeights.semibold,
-    letterSpacing: letterSpacing.wide,
     lineHeight: lineHeights.normal,
   },
 } as const;

@@ -117,7 +117,7 @@ class UserService {
     type: string;
     name: string;
   }): Promise<ApiResponse<{ imageUrl: string }>> {
-    return apiClient.uploadFile('/upload/image', imageFile, { type: 'avatar' });
+    return apiClient.uploadFile('/upload/image', imageFile, { type: 'avatar' }, 'image');
   }
 
   /**

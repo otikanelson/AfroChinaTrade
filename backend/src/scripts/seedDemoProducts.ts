@@ -30,7 +30,12 @@ const demoProducts = [
     discount: 15,
     isNewProduct: true,
     isFeatured: true,
-    isActive: true
+    isActive: true,
+    // Enhanced discovery fields
+    viewCount: Math.floor(Math.random() * 5000) + 1000, // 1000-6000 views
+    isSellerFavorite: true,
+    trendingScore: Math.floor(Math.random() * 100) + 50, // 50-150 trending score
+    lastViewedAt: new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)) // Within last 7 days
   },
   {
     name: 'Professional Camera Lens 85mm f/1.4',
@@ -60,7 +65,12 @@ const demoProducts = [
     discount: 0,
     isNewProduct: false,
     isFeatured: true,
-    isActive: true
+    isActive: true,
+    // Enhanced discovery fields
+    viewCount: Math.floor(Math.random() * 3000) + 500, // 500-3500 views
+    isSellerFavorite: false,
+    trendingScore: Math.floor(Math.random() * 80) + 20, // 20-100 trending score
+    lastViewedAt: new Date(Date.now() - Math.floor(Math.random() * 3 * 24 * 60 * 60 * 1000)) // Within last 3 days
   },
   {
     name: 'Ergonomic Office Chair Premium',
@@ -88,7 +98,75 @@ const demoProducts = [
     discount: 10,
     isNewProduct: false,
     isFeatured: false,
-    isActive: true
+    isActive: true,
+    // Enhanced discovery fields
+    viewCount: Math.floor(Math.random() * 2000) + 200, // 200-2200 views
+    isSellerFavorite: true,
+    trendingScore: Math.floor(Math.random() * 60) + 10, // 10-70 trending score
+    lastViewedAt: new Date(Date.now() - Math.floor(Math.random() * 5 * 24 * 60 * 60 * 1000)) // Within last 5 days
+  },
+  // Add more products with enhanced discovery fields
+  {
+    name: 'Wireless Bluetooth Headphones Pro',
+    description: 'Premium noise-cancelling wireless headphones with 30-hour battery life and superior sound quality.',
+    price: 65000,
+    currency: 'NGN',
+    images: [
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop&crop=center',
+      'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=800&h=800&fit=crop&crop=center'
+    ],
+    category: 'Electronics',
+    subcategory: 'Audio',
+    rating: 4.6,
+    reviewCount: 1234,
+    stock: 45,
+    tags: ['headphones', 'wireless', 'bluetooth', 'noise-cancelling'],
+    specifications: new Map([
+      ['Battery Life', '30 hours'],
+      ['Connectivity', 'Bluetooth 5.0'],
+      ['Noise Cancellation', 'Active'],
+      ['Weight', '250g'],
+      ['Warranty', '2 years']
+    ]),
+    discount: 20,
+    isNewProduct: true,
+    isFeatured: true,
+    isActive: true,
+    viewCount: Math.floor(Math.random() * 8000) + 2000, // 2000-10000 views (trending)
+    isSellerFavorite: true,
+    trendingScore: Math.floor(Math.random() * 50) + 100, // 100-150 trending score (high)
+    lastViewedAt: new Date(Date.now() - Math.floor(Math.random() * 24 * 60 * 60 * 1000)) // Within last day
+  },
+  {
+    name: 'Gaming Mechanical Keyboard RGB',
+    description: 'High-performance mechanical gaming keyboard with customizable RGB lighting and tactile switches.',
+    price: 45000,
+    currency: 'NGN',
+    images: [
+      'https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=800&h=800&fit=crop&crop=center',
+      'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&h=800&fit=crop&crop=center'
+    ],
+    category: 'Electronics',
+    subcategory: 'Gaming',
+    rating: 4.3,
+    reviewCount: 678,
+    stock: 23,
+    tags: ['keyboard', 'gaming', 'mechanical', 'rgb'],
+    specifications: new Map([
+      ['Switch Type', 'Cherry MX Blue'],
+      ['Backlighting', 'RGB'],
+      ['Layout', 'Full Size'],
+      ['Connection', 'USB-C'],
+      ['Warranty', '1 year']
+    ]),
+    discount: 0,
+    isNewProduct: false,
+    isFeatured: false,
+    isActive: true,
+    viewCount: Math.floor(Math.random() * 1500) + 300, // 300-1800 views
+    isSellerFavorite: false,
+    trendingScore: Math.floor(Math.random() * 40) + 15, // 15-55 trending score
+    lastViewedAt: new Date(Date.now() - Math.floor(Math.random() * 10 * 24 * 60 * 60 * 1000)) // Within last 10 days
   }
 ];
 
@@ -129,10 +207,44 @@ async function seedDemoProducts() {
           supplierId: supplier._id
         });
         await product.save();
-        console.log(`Created product: ${product.name}`);
+        console.log(`Created product: ${product.name} (Views: ${product.viewCount}, Trending: ${product.trendingScore})`);
       } else {
-        console.log(`Product already exists: ${productData.name}`);
+        // Update existing products with new discovery fields if they don't have them
+        const updateData: any = {};
+        if (existingProduct.viewCount === undefined) updateData.viewCount = productData.viewCount;
+        if (existingProduct.isSellerFavorite === undefined) updateData.isSellerFavorite = productData.isSellerFavorite;
+        if (existingProduct.trendingScore === undefined) updateData.trendingScore = productData.trendingScore;
+        if (existingProduct.lastViewedAt === undefined) updateData.lastViewedAt = productData.lastViewedAt;
+        
+        if (Object.keys(updateData).length > 0) {
+          await Product.findByIdAndUpdate(existingProduct._id, updateData);
+          console.log(`Updated product with discovery fields: ${productData.name}`);
+        } else {
+          console.log(`Product already exists with discovery fields: ${productData.name}`);
+        }
       }
+    }
+
+    // Update any existing products that don't have the new discovery fields
+    const productsWithoutDiscoveryFields = await Product.find({
+      $or: [
+        { viewCount: { $exists: false } },
+        { isSellerFavorite: { $exists: false } },
+        { trendingScore: { $exists: false } }
+      ]
+    });
+
+    for (const product of productsWithoutDiscoveryFields) {
+      const updateData: any = {};
+      if (product.viewCount === undefined) updateData.viewCount = Math.floor(Math.random() * 1000) + 50;
+      if (product.isSellerFavorite === undefined) updateData.isSellerFavorite = Math.random() > 0.7; // 30% chance
+      if (product.trendingScore === undefined) updateData.trendingScore = Math.floor(Math.random() * 50) + 10;
+      if (product.lastViewedAt === undefined) {
+        updateData.lastViewedAt = new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)); // Within last 30 days
+      }
+      
+      await Product.findByIdAndUpdate(product._id, updateData);
+      console.log(`Updated existing product with discovery fields: ${product.name}`);
     }
 
     console.log('Demo products seeded successfully!');

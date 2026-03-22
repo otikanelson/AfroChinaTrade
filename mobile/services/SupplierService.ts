@@ -19,10 +19,11 @@ export interface CreateSupplierData {
 class SupplierService {
   private readonly basePath = '/suppliers';
 
-  async getSuppliers(params: { page?: number; limit?: number } = {}): Promise<ApiResponse<Supplier[]>> {
+  async getSuppliers(params: { page?: number; limit?: number; verified?: boolean } = {}): Promise<ApiResponse<Supplier[]>> {
     const queryParams = new URLSearchParams();
     if (params.page) queryParams.append('page', params.page.toString());
     if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.verified !== undefined) queryParams.append('verified', params.verified.toString());
     const queryString = queryParams.toString();
     const url = queryString ? `${this.basePath}?${queryString}` : this.basePath;
     return apiClient.get<Supplier[]>(url);

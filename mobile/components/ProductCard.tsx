@@ -2,25 +2,39 @@ import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Product } from '../types/product';
-import { useTheme } from '../contexts/ThemeContext';
 import { useCart } from '../contexts/CartContext';
 import { useWishlist } from '../contexts/WishlistContext';
+import { useAuth } from '../contexts/AuthContext';
+import { colors } from '../theme/colors';
+import { spacing, borderRadius, shadows } from '../theme/spacing';
+import { typography, fontSizes, fontWeights } from '../theme/typography';
 
 interface ProductCardProps {
   product: Product;
   onPress?: () => void;
   badge?: string;
   showAddButton?: boolean; // New prop to control add button visibility
+  variant?: 'grid' | 'list'; // New prop to control layout variant
+  showViewCount?: boolean; // New prop to show view count
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badge, showAddButton = false }) => {
-  const { colors, spacing, borderRadius, fontSizes, fontWeights, shadows } = useTheme();
+export const ProductCard: React.FC<ProductCardProps> = ({ 
+  product, 
+  onPress, 
+  badge, 
+  showAddButton = false, 
+  variant = 'grid',
+  showViewCount = true
+}) => {
   const { addToCart } = useCart();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
+  const { user } = useAuth();
   const [addingToCart, setAddingToCart] = useState(false);
   const [togglingWishlist, setTogglingWishlist] = useState(false);
 
-  const inWishlist = isInWishlist(product.id);
+  const isAdmin = user?.role === 'admin';
+  const getProductId = () => (product as any)._id || product.id;
+  const inWishlist = isInWishlist(getProductId());
 
   const formatPrice = (price: number) => {
     try {
@@ -31,6 +45,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badg
     }
   };
 
+  const formatViewCount = (count: number): string => {
+    if (count < 1000) return count.toString();
+    if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
+    return `${(count / 1000000).toFixed(1)}M`;
+  };
+
   const getDiscountedPrice = () => {
     if (product.discount && product.discount > 0) {
       const discountAmount = (product.price * product.discount) / 100;
@@ -39,10 +59,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badg
     return product.price;
   };
 
+  const getSupplier = () => {
+    // Handle both populated supplierId and direct supplier field
+    if (product.supplier) return product.supplier;
+    if (product.supplierId && typeof product.supplierId === 'object') return product.supplierId;
+    return null;
+  };
+
+  const supplier = getSupplier();
   const hasDiscount = product.discount && product.discount > 0;
 
   const handleAddToCart = async (e: any) => {
     e.stopPropagation();
+    
+    if (isAdmin) {
+      Alert.alert('Admin Mode', 'Admins cannot add items to cart. This is for viewing purposes only.');
+      return;
+    }
     
     if (product.stock === 0) {
       Alert.alert('Out of Stock', 'This product is currently out of stock');
@@ -50,7 +83,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badg
     }
 
     setAddingToCart(true);
-    const success = await addToCart(product.id, 1);
+    // Handle both _id and id fields from backend
+    const productId = (product as any)._id || product.id;
+    const success = await addToCart(productId, 1);
     
     if (success) {
       Alert.alert('Added to Cart', `${product.name} has been added to your cart`);
@@ -64,13 +99,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badg
   const handleToggleWishlist = async (e: any) => {
     e.stopPropagation();
     
+    if (isAdmin) {
+      Alert.alert('Admin Mode', 'Admins cannot manage wishlists. This is for viewing purposes only.');
+      return;
+    }
+    
     setTogglingWishlist(true);
     
+    // Handle both _id and id fields from backend
+    const productId = (product as any)._id || product.id;
     let success;
     if (inWishlist) {
-      success = await removeFromWishlist(product.id);
+      success = await removeFromWishlist(productId);
     } else {
-      success = await addToWishlist(product.id);
+      success = await addToWishlist(productId);
     }
     
     if (!success) {
@@ -79,6 +121,142 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badg
     
     setTogglingWishlist(false);
   };
+
+  // List variant layout
+  if (variant === 'list') {
+    return (
+      <TouchableOpacity 
+        style={[styles.listContainer, { backgroundColor: colors.background, borderRadius: borderRadius.md, ...shadows.sm }]} 
+        onPress={onPress} 
+        activeOpacity={0.85}
+      >
+        {/* Image */}
+        <View style={styles.listImageContainer}>
+          {product.images && product.images.length > 0 ? (
+            <Image
+              source={{ uri: product.images[0] }}
+              style={styles.listImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.listImage, styles.placeholderImage, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.placeholderText, { fontSize: fontSizes.xs, color: colors.textLight }]}>No Image</Text>
+            </View>
+          )}
+          
+          {/* Wishlist Button */}
+          <TouchableOpacity
+            style={[styles.listWishlistButton, { backgroundColor: 'rgba(255, 255, 255, 0.9)', ...shadows.sm }]}
+            onPress={handleToggleWishlist}
+            disabled={togglingWishlist}
+          >
+            <Ionicons
+              name={inWishlist ? 'heart' : 'heart-outline'}
+              size={16}
+              color={inWishlist ? colors.error : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          {hasDiscount && (
+            <View style={[styles.listDiscountBadge, { backgroundColor: colors.error, paddingHorizontal: spacing.xs, paddingVertical: 2, borderRadius: borderRadius.sm }]}>
+              <Text style={[styles.discountText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold }]}>{product.discount}% OFF</Text>
+            </View>
+          )}
+
+          {product.stock === 0 && (
+            <View style={[styles.listOutOfStockBadge, { backgroundColor: 'rgba(220, 53, 69, 0.9)', paddingHorizontal: spacing.xs, paddingVertical: 2, borderRadius: borderRadius.sm }]}>
+              <Text style={[styles.outOfStockText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold }]}>Out of Stock</Text>
+            </View>
+          )}
+
+          {/* View Count Badge */}
+          {showViewCount && (
+            <View style={[styles.listViewCountBadge, { backgroundColor: 'rgba(0, 0, 0, 0.7)', paddingHorizontal: spacing.xs, paddingVertical: 2, borderRadius: borderRadius.sm }]}>
+              <View style={styles.viewCountContent}>
+                <Ionicons name="eye" size={10} color={colors.textInverse} style={styles.viewCountIcon} />
+                <Text style={[styles.viewCountText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.medium, marginLeft: 2 }]}>
+                  {formatViewCount(product.viewCount || 0)}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Content */}
+        <View style={[styles.listContent, { padding: spacing.sm, flex: 1 }]}>
+          {/* Name */}
+          <Text style={[styles.listName, { ...typography.body, fontSize: fontSizes.sm, color: colors.text, lineHeight: 18 }]} numberOfLines={2}>
+            {product.name || 'Unnamed Product'}
+          </Text>
+
+          {/* Supplier */}
+          {supplier && supplier.name && (
+            <Text style={[styles.listSupplier, { fontSize: fontSizes.xs, color: colors.primary, marginTop: spacing.xs }]} numberOfLines={1}>
+              {supplier.verified ? '✓ ' : ''}{supplier.name}
+            </Text>
+          )}
+
+          {/* Price and Stats Row */}
+          <View style={[styles.listPriceRow, { marginTop: spacing.xs }]}>
+            <View style={styles.listPriceContainer}>
+              {hasDiscount ? (
+                <>
+                  <Text style={[styles.originalPrice, { fontSize: fontSizes.xs, color: colors.textSecondary, textDecorationLine: 'line-through' }]} numberOfLines={1}>
+                    {formatPrice(product.price || 0)}
+                  </Text>
+                  <Text style={[styles.discountedPrice, { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.error }]} numberOfLines={1}>
+                    {formatPrice(getDiscountedPrice())}
+                  </Text>
+                </>
+              ) : (
+                <Text style={[styles.listPrice, { fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.text }]} numberOfLines={1}>
+                  {formatPrice(product.price || 0)}
+                </Text>
+              )}
+            </View>
+            
+            {/* Stats and Add Button */}
+            <View style={styles.listActionsContainer}>
+              {product.reviewCount > 0 && (
+                <Text style={[styles.listStats, { fontSize: fontSizes.xs, color: colors.textSecondary }]}>
+                  {product.reviewCount > 999
+                    ? `${(product.reviewCount / 1000).toFixed(1)}k+`
+                    : `${product.reviewCount}+`}
+                </Text>
+              )}
+              {showAddButton && (
+                <TouchableOpacity
+                  style={[
+                    styles.listAddButton,
+                    { 
+                      backgroundColor: colors.surface, 
+                      borderColor: colors.primary, 
+                      borderRadius: borderRadius.full,
+                      borderWidth: 1,
+                      width: 24,
+                      height: 24,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      marginLeft: spacing.xs
+                    },
+                    (product.stock === 0 || addingToCart) && { backgroundColor: colors.surface, borderColor: colors.border }
+                  ]}
+                  onPress={handleAddToCart}
+                  disabled={product.stock === 0 || addingToCart}
+                >
+                  <Ionicons
+                    name={addingToCart ? 'hourglass-outline' : 'add'}
+                    size={12}
+                    color={product.stock === 0 ? colors.textLight : colors.primary}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <TouchableOpacity style={[styles.container, { backgroundColor: colors.background, borderRadius: borderRadius.md, ...shadows.sm }]} onPress={onPress} activeOpacity={0.85}>
@@ -98,40 +276,54 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badg
         
         {/* Wishlist Button */}
         <TouchableOpacity
-          style={styles.wishlistButton}
+          style={[styles.wishlistButton, { backgroundColor: 'rgba(255, 255, 255, 0.9)', ...shadows.sm }]}
           onPress={handleToggleWishlist}
           disabled={togglingWishlist}
         >
           <Ionicons
             name={inWishlist ? 'heart' : 'heart-outline'}
             size={20}
-            color={inWishlist ? '#FF3B30' : '#666'}
+            color={inWishlist ? colors.error : colors.textSecondary}
           />
         </TouchableOpacity>
 
-        {badge && !hasDiscount && (
-          <View style={[styles.badge, { backgroundColor: colors.primary, paddingHorizontal: spacing.md, borderTopRightRadius: borderRadius.base, borderBottomRightRadius: borderRadius.base }]}>
+        {/* Custom Badge (like "Seller Pick") - positioned on the left */}
+        {badge && (
+          <View style={[styles.badge, { backgroundColor: colors.primary, paddingHorizontal: spacing.sm, borderTopRightRadius: borderRadius.base, borderBottomRightRadius: borderRadius.base }]}>
             <Text style={[styles.badgeText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold }]}>{String(badge)}</Text>
           </View>
         )}
 
+        {/* Discount Badge - always positioned at top-left */}
         {hasDiscount && (
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountText}>{product.discount}% OFF</Text>
+          <View style={[styles.discountBadge, { backgroundColor: colors.error, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: borderRadius.sm }]}>
+            <Text style={[styles.discountText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold }]}>{product.discount}% OFF</Text>
           </View>
         )}
 
         {product.stock === 0 && (
-          <View style={styles.outOfStockBadge}>
-            <Text style={styles.outOfStockText}>Out of Stock</Text>
+          <View style={[styles.outOfStockBadge, { backgroundColor: 'rgba(220, 53, 69, 0.9)', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: borderRadius.sm }]}>
+            <Text style={[styles.outOfStockText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold }]}>Out of Stock</Text>
+          </View>
+        )}
+
+        {/* View Count Badge */}
+        {showViewCount && (
+          <View style={[styles.viewCountBadge, { backgroundColor: 'rgba(0, 0, 0, 0.7)', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: borderRadius.sm }]}>
+            <View style={styles.viewCountContent}>
+              <Ionicons name="eye" size={12} color={colors.textInverse} style={styles.viewCountIcon} />
+              <Text style={[styles.viewCountText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.medium, marginLeft: 2 }]}>
+                {formatViewCount(product.viewCount || 0)}
+              </Text>
+            </View>
           </View>
         )}
       </View>
 
       {/* Content */}
-      <View style={[styles.content, { padding: spacing.sm }]}>
+      <View style={[styles.content, { padding: spacing.sm, gap: spacing.xs }]}>
         {/* Name — fixed 2-line height so price always aligns */}
-        <Text style={[styles.name, { fontSize: fontSizes.sm, color: colors.text }]} numberOfLines={2}>
+        <Text style={[styles.name, { ...typography.body, fontSize: fontSizes.sm, color: colors.text, lineHeight: 20 }]} numberOfLines={2}>
           {product.name || 'Unnamed Product'}
         </Text>
 
@@ -140,15 +332,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badg
           <View style={styles.priceContainer}>
             {hasDiscount ? (
               <>
-                <Text style={[styles.originalPrice, { fontSize: fontSizes.sm, color: colors.textSecondary }]} numberOfLines={1}>
+                <Text style={[styles.originalPrice, { fontSize: fontSizes.xs, color: colors.textSecondary, textDecorationLine: 'line-through' }]} numberOfLines={1}>
                   {formatPrice(product.price || 0)}
                 </Text>
-                <Text style={[styles.discountedPrice, { fontSize: fontSizes.base, fontWeight: fontWeights.bold }]} numberOfLines={1}>
+                <Text style={[styles.discountedPrice, { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.error }]} numberOfLines={1}>
                   {formatPrice(getDiscountedPrice())}
                 </Text>
               </>
             ) : (
-              <Text style={[styles.price, { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.text }]} numberOfLines={1}>
+              <Text style={[styles.price, { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.text }]} numberOfLines={1}>
                 {formatPrice(product.price || 0)}
               </Text>
             )}
@@ -157,7 +349,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badg
             <TouchableOpacity
               style={[
                 styles.addButton,
-                (product.stock === 0 || addingToCart) && styles.disabledButton
+                { 
+                  backgroundColor: colors.surface, 
+                  borderColor: colors.primary, 
+                  borderRadius: borderRadius.full,
+                  borderWidth: 1,
+                  width: 28,
+                  height: 28,
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                },
+                (product.stock === 0 || addingToCart) && { backgroundColor: colors.surface, borderColor: colors.border }
               ]}
               onPress={handleAddToCart}
               disabled={product.stock === 0 || addingToCart}
@@ -165,21 +367,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, badg
               <Ionicons
                 name={addingToCart ? 'hourglass-outline' : 'add'}
                 size={16}
-                color={product.stock === 0 ? '#999' : '#007AFF'}
+                color={product.stock === 0 ? colors.textLight : colors.primary}
               />
             </TouchableOpacity>
           )}
         </View>
 
         {/* Supplier / stats row */}
-        <View style={styles.footer}>
-          {product.supplier && product.supplier.name && (
+        <View style={[styles.footer, { marginTop: spacing.xs }]}>
+          {supplier && supplier.name && (
             <Text style={[styles.supplier, { fontSize: fontSizes.xs, color: colors.primary }]} numberOfLines={1}>
-              {product.supplier.verified ? 'Verified ' : ''}{product.supplier.name}
+              {supplier.verified ? 'Verified ' : ''}{supplier.name}
             </Text>
           )}
           {product.reviewCount > 0 && (
-            <Text style={[styles.stats, { fontSize: fontSizes.xs, color: colors.textSecondary }]}>
+            <Text style={[styles.stats, { fontSize: fontSizes.xs, color: colors.textSecondary, marginLeft: spacing.xs }]}>
               {product.reviewCount > 999
                 ? `${(product.reviewCount / 1000).toFixed(1)}k+`
                 : `${product.reviewCount}+`}
@@ -196,6 +398,73 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'hidden',
   },
+  // List variant styles
+  listContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    overflow: 'hidden',
+    minHeight: 120,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  listImageContainer: {
+    width: 100,
+    height: 100,
+    position: 'relative',
+    alignSelf: 'center',
+  },
+  listWishlistButton: {
+    position: 'absolute',
+    top: spacing.xs,
+    right: spacing.xs,
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listDiscountBadge: {
+    position: 'absolute',
+    top: spacing.xs,
+    left: spacing.xs,
+  },
+  listOutOfStockBadge: {
+    position: 'absolute',
+    top: spacing.xs,
+    left: spacing.xs,
+  },
+  listContent: {
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
+  },
+  listName: {
+    // Styles applied inline
+  },
+  listSupplier: {
+    // Styles applied inline
+  },
+  listPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  listPriceContainer: {
+    flex: 1,
+  },
+  listPrice: {
+    // Styles applied inline
+  },
+  listActionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  listStats: {
+    // Styles applied inline
+  },
+  listAddButton: {
+    // Styles applied inline
+  },
+  // Grid variant styles (existing)
   imageContainer: {
     width: '100%',
     aspectRatio: 1,
@@ -207,62 +476,64 @@ const styles = StyleSheet.create({
   },
   wishlistButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: spacing.sm,
+    right: spacing.sm,
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
   },
   badge: {
     position: 'absolute',
-    bottom: 8,
+    bottom: spacing.sm,
     left: 0,
-    paddingVertical: 3,
+    paddingVertical: spacing.xs,
   },
   badgeText: {
     // Styles applied inline
   },
   discountBadge: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    top: spacing.sm,
+    left: spacing.sm,
   },
   discountText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '600',
+    // Styles applied inline
   },
   outOfStockBadge: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: 'rgba(255, 59, 48, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    top: spacing.sm,
+    left: spacing.sm,
   },
   outOfStockText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '600',
+    // Styles applied inline
+  },
+  viewCountBadge: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    right: spacing.sm,
+  },
+  listViewCountBadge: {
+    position: 'absolute',
+    bottom: spacing.xs,
+    right: spacing.xs,
+  },
+  viewCountContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  viewCountIcon: {
+    opacity: 0.8,
+  },
+  viewCountText: {
+    // Styles applied inline
   },
   content: {
-    gap: 4,
+    // Styles applied inline
   },
   name: {
-    lineHeight: 20,
+    // Styles applied inline
   },
   priceRow: {
     flexDirection: 'row',
@@ -276,36 +547,24 @@ const styles = StyleSheet.create({
     // Styles applied inline
   },
   originalPrice: {
-    textDecorationLine: 'line-through',
+    // Styles applied inline
   },
   discountedPrice: {
-    color: '#FF3B30',
+    // Styles applied inline
   },
   addButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#f0f8ff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  disabledButton: {
-    backgroundColor: '#f5f5f5',
-    borderColor: '#ddd',
+    // Styles applied inline
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 2,
   },
   supplier: {
     flex: 1,
   },
   stats: {
-    marginLeft: 4,
+    // Styles applied inline
   },
   placeholderImage: {
     justifyContent: 'center',
@@ -313,5 +572,10 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     // Styles applied inline
+  },
+  listImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
   },
 });

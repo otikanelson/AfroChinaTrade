@@ -110,3 +110,52 @@ export const authorize = (...allowedRoles: string[]) => {
     next();
   };
 };
+
+// Optional JWT token verification middleware (doesn't fail if no token)
+export const optionalAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+      // No token provided, continue without authentication
+      next();
+      return;
+    }
+
+    // Check if token is blacklisted
+    const blacklistedToken = await BlacklistedToken.findOne({ token });
+    if (blacklistedToken) {
+      // Token is blacklisted, continue without authentication
+      next();
+      return;
+    }
+
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      // Server config error, continue without authentication
+      next();
+      return;
+    }
+    
+    const decoded = jwt.verify(token, jwtSecret) as {
+      userId: string;
+      role: string;
+    };
+
+    // Verify user still exists and is active
+    const user = await User.findById(decoded.userId);
+    if (!user || user.status !== 'active') {
+      // User not found or inactive, continue without authentication
+      next();
+      return;
+    }
+
+    // Set user info if authentication successful
+    req.userId = decoded.userId;
+    req.userRole = decoded.role;
+    next();
+  } catch (error) {
+    // Any JWT error, continue without authentication
+    next();
+  }
+};

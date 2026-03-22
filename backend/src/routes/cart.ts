@@ -23,13 +23,13 @@ router.get('/summary', getCartSummary);
 // POST /api/cart - Add item to cart
 router.post('/', addToCart);
 
+// DELETE /api/cart/clear - Clear entire cart (must come before /:productId)
+router.delete('/clear', clearCart);
+
 // PUT /api/cart/:productId - Update cart item quantity
 router.put('/:productId', updateCartItem);
 
 // DELETE /api/cart/:productId - Remove item from cart
 router.delete('/:productId', removeFromCart);
-
-// DELETE /api/cart/clear - Clear entire cart
-router.delete('/clear', clearCart);
 
 export default router;

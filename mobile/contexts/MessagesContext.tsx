@@ -37,7 +37,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await messageService.getUnreadCount();
       if (response.success && response.data) {
-        setUnreadCount(response.data.count || 0);
+        setUnreadCount(response.data.unreadCount || 0);
       }
     } catch (error: any) {
       // Only log network errors, don't spam console when backend is down

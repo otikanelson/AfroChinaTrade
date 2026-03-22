@@ -1,13 +1,17 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
+import { NavigationSource, CollectionType } from '../types/navigation';
 
 interface SectionHeaderProps {
   title: string;
   subtitle?: string;
   actionText?: string;
   onActionPress?: () => void;
+  navigationSource?: NavigationSource; // New prop
+  collectionType?: CollectionType;     // New prop
 }
 
 export const SectionHeader: React.FC<SectionHeaderProps> = ({
@@ -15,8 +19,26 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   subtitle,
   actionText,
   onActionPress,
+  navigationSource,
+  collectionType,
 }) => {
   const { colors, spacing, borderRadius, fontSizes, fontWeights, shadows } = useTheme();
+  const router = useRouter();
+
+  const handleActionPress = () => {
+    if (onActionPress) {
+      onActionPress();
+    } else if (navigationSource && collectionType) {
+      router.push({
+        pathname: '/product-listing',
+        params: {
+          source: navigationSource,
+          collectionType,
+          title
+        }
+      });
+    }
+  };
 
   return (
     <View style={[styles.container, { 
@@ -36,8 +58,8 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
           fontWeight: fontWeights.medium 
         }]}>{subtitle}</Text>}
       </View>
-      {actionText && onActionPress && (
-        <TouchableOpacity onPress={onActionPress} style={[styles.actionButton, { 
+      {actionText && (onActionPress || (navigationSource && collectionType)) && (
+        <TouchableOpacity onPress={handleActionPress} style={[styles.actionButton, { 
           paddingHorizontal: spacing.md, 
           paddingVertical: spacing.sm, 
           borderRadius: borderRadius.lg, 

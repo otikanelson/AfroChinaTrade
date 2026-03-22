@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { PhoneInput } from '../../components/PhoneInput';
+import { validateNigerianPhone } from '../../utils/phoneUtils';
 
 export default function RegisterScreen() {
   const { colors, fonts, fontSizes, spacing, borderRadius } = useTheme();
@@ -80,18 +82,31 @@ export default function RegisterScreen() {
     },
   });
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '+234',
+    password: '',
+    confirmPassword: ''
+  });
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const router = useRouter();
 
+  const updateFormData = useCallback((field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
   const handleRegister = async () => {
-    if (!name || !email || !phone || !password || !confirmPassword) {
+    const { name, email, phone, password, confirmPassword } = formData;
+    
+    if (!name || !email || !phone || phone === '+234' || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (!validateNigerianPhone(phone)) {
+      Alert.alert('Error', 'Please enter a valid Nigerian phone number');
       return;
     }
 
@@ -140,34 +155,35 @@ export default function RegisterScreen() {
             <TextInput
               style={styles.input}
               placeholder="Full Name"
-              value={name}
-              onChangeText={setName}
+              value={formData.name}
+              onChangeText={(value) => updateFormData('name', value)}
               autoCapitalize="words"
             />
 
             <TextInput
               style={styles.input}
               placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
+              value={formData.email}
+              onChangeText={(value) => updateFormData('email', value)}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
             />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Phone Number"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
+            <PhoneInput
+              label=""
+              value={formData.phone}
+              onChangeText={(value) => updateFormData('phone', value)}
+              placeholder="8012345678"
+              required={true}
+              style={{ marginBottom: spacing.base }}
             />
 
             <TextInput
               style={styles.input}
               placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
+              value={formData.password}
+              onChangeText={(value) => updateFormData('password', value)}
               secureTextEntry
               autoCapitalize="none"
             />
@@ -175,8 +191,8 @@ export default function RegisterScreen() {
             <TextInput
               style={styles.input}
               placeholder="Confirm Password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              value={formData.confirmPassword}
+              onChangeText={(value) => updateFormData('confirmPassword', value)}
               secureTextEntry
               autoCapitalize="none"
             />

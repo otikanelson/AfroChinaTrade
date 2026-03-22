@@ -10,6 +10,8 @@ export interface ProductFilters {
   search?: string;
   tags?: string[];
   isFeatured?: boolean;
+  isSellerFavorite?: boolean;
+  supplierId?: string;
 }
 
 export interface ProductSortOptions {
@@ -20,6 +22,7 @@ export interface ProductSortOptions {
 export interface ProductListParams extends ProductFilters, ProductSortOptions {
   page?: number;
   limit?: number;
+  _t?: number; // Cache busting timestamp
 }
 
 export interface CreateProductData {
@@ -36,6 +39,8 @@ export interface CreateProductData {
   specifications?: Record<string, any>;
   isFeatured?: boolean;
   isActive?: boolean;
+  isSellerFavorite?: boolean;
+  policies?: Record<string, any>;
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {
@@ -63,6 +68,7 @@ class ProductService {
     if (params.inStock !== undefined) queryParams.append('inStock', params.inStock.toString());
     if (params.search) queryParams.append('search', params.search);
     if (params.isFeatured !== undefined) queryParams.append('isFeatured', params.isFeatured.toString());
+    if (params.isSellerFavorite !== undefined) queryParams.append('isSellerFavorite', params.isSellerFavorite.toString());
     
     // Add tags
     if (params.tags && params.tags.length > 0) {
@@ -187,7 +193,7 @@ class ProductService {
     if (params.limit) queryParams.append('limit', params.limit.toString());
     
     // Add filters
-    if (params.category) queryParams.append('category', params.category);
+    if (params.category) queryParams.append('categories', params.category);
     if (params.minPrice !== undefined) queryParams.append('minPrice', params.minPrice.toString());
     if (params.maxPrice !== undefined) queryParams.append('maxPrice', params.maxPrice.toString());
     if (params.minRating !== undefined) queryParams.append('minRating', params.minRating.toString());
@@ -200,7 +206,17 @@ class ProductService {
     const queryString = queryParams.toString();
     const url = queryString ? `/search/products?${queryString}` : '/search/products';
     
-    return apiClient.get<Product[]>(url);
+    const response = await apiClient.get<{ products: Product[] }>(url);
+    
+    // Transform the nested response to match the expected format
+    if (response.success && response.data?.products) {
+      return {
+        ...response,
+        data: response.data.products
+      };
+    }
+    
+    return response as ApiResponse<Product[]>;
   }
 
   /**
@@ -234,6 +250,33 @@ class ProductService {
   /**
    * Get product recommendations based on a product
    */
+  async getProductsBySupplier(supplierId: string, params: ProductListParams = {}): Promise<ApiResponse<Product[]>> {
+    const queryParams = new URLSearchParams();
+    
+    // Add supplier filter
+    queryParams.append('supplierId', supplierId);
+    
+    // Add other filters
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.category) queryParams.append('category', params.category);
+    if (params.minPrice) queryParams.append('minPrice', params.minPrice.toString());
+    if (params.maxPrice) queryParams.append('maxPrice', params.maxPrice.toString());
+    if (params.minRating) queryParams.append('minRating', params.minRating.toString());
+    if (params.inStock) queryParams.append('inStock', params.inStock.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.tags && params.tags.length > 0) {
+      params.tags.forEach(tag => queryParams.append('tags', tag));
+    }
+    if (params.isFeatured !== undefined) queryParams.append('isFeatured', params.isFeatured.toString());
+
+    const queryString = queryParams.toString();
+    const url = queryString ? `${this.basePath}?${queryString}` : this.basePath;
+    
+    return apiClient.get<Product[]>(url);
+  }
+
   async getRecommendations(productId: string, limit = 10): Promise<ApiResponse<Product[]>> {
     return apiClient.get<Product[]>(`${this.basePath}/${productId}/recommendations?limit=${limit}`);
   }
@@ -287,6 +330,104 @@ class ProductService {
    */
   async toggleProductStatus(productId: string, isActive: boolean): Promise<ApiResponse<Product>> {
     return apiClient.patch<Product>(`${this.basePath}/${productId}/status`, { isActive });
+  }
+
+  // Enhanced Product Discovery Methods
+
+  /**
+   * Get products by collection type
+   */
+  async getProductCollection(
+    collectionType: 'featured' | 'trending' | 'seller_favorites' | 'all',
+    params: ProductListParams & { timeframe?: string; _t?: number } = {}
+  ): Promise<ApiResponse<{ products: Product[]; pagination: any; metadata: any }>> {
+    const queryParams = new URLSearchParams();
+    
+    // Add pagination
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    
+    // Add cache busting timestamp
+    if (params._t) queryParams.append('_t', params._t.toString());
+    
+    // Add filters
+    if (params.category) queryParams.append('category', params.category);
+    if (params.minPrice !== undefined) queryParams.append('minPrice', params.minPrice.toString());
+    if (params.maxPrice !== undefined) queryParams.append('maxPrice', params.maxPrice.toString());
+    if (params.minRating !== undefined) queryParams.append('minRating', params.minRating.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    
+    // Add timeframe for trending collections
+    if (params.timeframe && collectionType === 'trending') {
+      queryParams.append('timeframe', params.timeframe);
+    }
+    
+    // Add tags
+    if (params.tags && params.tags.length > 0) {
+      params.tags.forEach(tag => queryParams.append('tags', tag));
+    }
+
+    const queryString = queryParams.toString();
+    const url = queryString ? 
+      `/products/collections/${collectionType}?${queryString}` : 
+      `/products/collections/${collectionType}`;
+    
+    return apiClient.get<{ products: Product[]; pagination: any; metadata: any }>(url);
+  }
+
+  /**
+   * Get trending products with timeframe
+   */
+  async getTrendingProducts(
+    timeframe: '1h' | '24h' | '7d' | '30d' = '24h',
+    page: number = 1,
+    limit: number = 20,
+    filters: ProductFilters = {}
+  ): Promise<ApiResponse<{ products: Product[]; pagination: any; metadata: any }>> {
+    return this.getProductCollection('trending', { 
+      page, 
+      limit, 
+      timeframe, 
+      ...filters 
+    });
+  }
+
+  /**
+   * Get seller favorite products
+   */
+  async getSellerFavorites(
+    page: number = 1,
+    limit: number = 20,
+    filters: ProductFilters = {}
+  ): Promise<ApiResponse<{ products: Product[]; pagination: any; metadata: any }>> {
+    return this.getProductCollection('seller_favorites', { 
+      page, 
+      limit, 
+      ...filters 
+    });
+  }
+
+  /**
+   * Get recommended products for a user
+   */
+  async getRecommendedProducts(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+    excludeCart: boolean = true
+  ): Promise<ApiResponse<{ products: Product[]; pagination: any; metadata: any }>> {
+    const queryParams = new URLSearchParams();
+    
+    queryParams.append('page', page.toString());
+    queryParams.append('limit', limit.toString());
+    if (excludeCart) queryParams.append('excludeCart', 'true');
+
+    const queryString = queryParams.toString();
+    const url = `/products/recommendations/${userId}?${queryString}`;
+    
+    return apiClient.get<{ products: Product[]; pagination: any; metadata: any }>(url);
   }
 }
 

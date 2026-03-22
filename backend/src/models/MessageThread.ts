@@ -5,6 +5,9 @@ export interface IMessageThread extends Document {
   threadId: string;
   customerId: mongoose.Types.ObjectId;
   customerName: string;
+  productId?: mongoose.Types.ObjectId;
+  productName?: string;
+  threadType: 'general' | 'product_inquiry' | 'quote_request';
   lastMessage: string;
   lastMessageAt: Date;
   unreadCount: number;
@@ -31,6 +34,23 @@ const MessageThreadSchema = new Schema<IMessageThread>(
       type: String,
       required: [true, 'Customer name is required'],
       trim: true,
+    },
+    productId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Product',
+      required: false,
+    },
+    productName: {
+      type: String,
+      trim: true,
+    },
+    threadType: {
+      type: String,
+      enum: {
+        values: ['general', 'product_inquiry', 'quote_request'],
+        message: '{VALUE} is not a valid thread type',
+      },
+      default: 'general',
     },
     lastMessage: {
       type: String,

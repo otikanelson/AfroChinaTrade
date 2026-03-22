@@ -23,6 +23,11 @@ import analyticsRoutes from './routes/analyticsRoutes';
 import searchRoutes from './routes/searchRoutes';
 import wishlistRoutes from './routes/wishlist';
 import cartRoutes from './routes/cart';
+import viewTrackingRoutes from './routes/viewTrackingRoutes';
+import productCollectionRoutes from './routes/productCollectionRoutes';
+import recommendationRoutes from './routes/recommendationRoutes';
+import deliveryAddressRoutes from './routes/deliveryAddressRoutes';
+import locationRoutes from './routes/locationRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -75,6 +80,11 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api', viewTrackingRoutes);
+app.use('/api', productCollectionRoutes);
+app.use('/api', recommendationRoutes);
+app.use('/api/addresses', deliveryAddressRoutes);
+app.use('/api/locations', locationRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

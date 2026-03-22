@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
@@ -24,6 +23,7 @@ import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
 import { Button } from '../../../components/admin/Button';
 import { mobileToastManager } from '../../../utils/toast';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { Header } from '../../../components/Header';
 
 interface StatCardProps {
   label: string;
@@ -127,14 +127,6 @@ export default function FinanceScreen() {
   
   const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.surface },
-    header: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: spacing.base, paddingVertical: spacing.md,
-      borderBottomWidth: 1, borderBottomColor: colors.borderLight,
-      backgroundColor: colors.background,
-    },
-    headerTitle: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.bold as any, color: colors.text },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     exportBtn: {
       padding: 6, borderRadius: borderRadius.base,
       borderWidth: 1, borderColor: colors.primary,
@@ -411,28 +403,31 @@ export default function FinanceScreen() {
   }, [periodOrders, refunds, period]);
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Finance</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.exportBtn}
-            onPress={handleExport}
-            accessibilityRole="button"
-            accessibilityLabel="Export financial report"
-          >
-            <Ionicons name="download-outline" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.periodBtn}
-            onPress={() => setPeriodMenuVisible(true)}
-            accessibilityRole="button"
-          >
-            <Text style={styles.periodBtnText}>{periodLabel}</Text>
-            <Ionicons name="chevron-down" size={14} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-      </View>
+    <View style={styles.screen}>
+      <Header 
+        title="Finance"
+        subtitle="Revenue and analytics"
+        rightAction={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <TouchableOpacity
+              style={styles.exportBtn}
+              onPress={handleExport}
+              accessibilityRole="button"
+              accessibilityLabel="Export financial report"
+            >
+              <Ionicons name="download-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.periodBtn}
+              onPress={() => setPeriodMenuVisible(true)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.periodBtnText}>{periodLabel}</Text>
+              <Ionicons name="chevron-down" size={14} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Stats */}
@@ -513,7 +508,7 @@ export default function FinanceScreen() {
         onClose={() => setRefundModalOrder(null)}
         onSubmit={handleRefundSubmit}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

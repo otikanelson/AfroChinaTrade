@@ -41,7 +41,7 @@ export const searchProducts = async (req: Request, res: Response) => {
       filter.stock = { $gt: 0 };
     }
 
-    let query = Product.find(filter).skip(skip).limit(limitNum);
+    let query = Product.find(filter).skip(skip).limit(limitNum).populate('supplierId', 'name email verified rating location responseTime');
 
     // Search result ranking based on relevance score
     if (q) {

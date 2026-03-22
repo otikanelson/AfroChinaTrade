@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.base,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.input,
     paddingHorizontal: theme.spacing.md,
     minHeight: 44,
     paddingVertical: theme.spacing.sm,

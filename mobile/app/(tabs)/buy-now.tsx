@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { Header } from '../../components/Header';
 import { ProductCard } from '../../components/ProductCard';
 import { productService } from '../../services/ProductService';
 import { Product } from '../../types/product';
@@ -22,7 +23,7 @@ export default function BuyNowTab() {
     try {
       setLoading(true);
       const response = await productService.getFeaturedProducts(20);
-      
+
       if (response.success && response.data) {
         setFeaturedProducts(response.data);
       }
@@ -48,38 +49,7 @@ export default function BuyNowTab() {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.lg,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
       backgroundColor: colors.surface,
-    },
-    headerContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    headerTitleContainer: {
-      flex: 1,
-    },
-    headerTitle: {
-      fontSize: fontSizes['2xl'],
-      fontWeight: fontWeights.bold,
-      color: colors.text,
-      marginBottom: 2,
-    },
-    headerSubtitle: {
-      fontSize: fontSizes.sm,
-      color: colors.textSecondary,
-    },
-    refreshButton: {
-      padding: spacing.sm,
-      borderRadius: borderRadius.base,
-      backgroundColor: colors.primary,
-      marginLeft: spacing.md,
     },
     content: {
       flex: 1,
@@ -101,11 +71,11 @@ export default function BuyNowTab() {
       paddingHorizontal: spacing.base,
       paddingVertical: spacing.lg,
       gap: spacing.sm,
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
     },
     quickActionCard: {
       flex: 1,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.background,
       borderRadius: borderRadius.md,
       padding: spacing.md,
       alignItems: 'center',
@@ -127,7 +97,7 @@ export default function BuyNowTab() {
     section: {
       paddingHorizontal: spacing.base,
       paddingBottom: spacing.lg,
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
     },
     sectionHeader: {
       marginBottom: spacing.lg,
@@ -192,12 +162,12 @@ export default function BuyNowTab() {
   if (loading && featuredProducts.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Buy Now</Text>
-            <Text style={styles.headerSubtitle}>Quick purchase deals</Text>
-          </View>
-        </View>
+        <Header
+          title="Buy Now"
+          subtitle="Quick purchase deals"
+          showRefresh={true}
+          onRefreshPress={handleRefresh}
+        />
         <View style={styles.loadingContainer}>
           <Ionicons name="storefront-outline" size={48} color={colors.textSecondary} />
           <Text style={styles.loadingText}>Loading featured deals...</Text>
@@ -209,36 +179,31 @@ export default function BuyNowTab() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Buy Now</Text>
-            <Text style={styles.headerSubtitle}>Featured deals & quick purchases</Text>
-          </View>
-          <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
-            <Ionicons name="refresh" size={20} color={colors.textInverse} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Header
+        title="Buy Now"
+        subtitle="Featured deals & quick purchases"
+        showRefresh={true}
+        onRefreshPress={handleRefresh}
+      />
 
       {/* Content */}
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
       >
         {/* Quick Actions */}
         <View style={styles.quickActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.quickActionCard}
-            onPress={() => router.push('/(tabs)/home')}
+            onPress={() => router.push('/search')}
           >
             <View style={styles.quickActionIcon}>
               <Ionicons name="search" size={24} color={colors.primary} />
             </View>
             <Text style={styles.quickActionText}>Browse All</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.quickActionCard}
             onPress={() => router.push('/wishlist')}
           >
@@ -247,13 +212,13 @@ export default function BuyNowTab() {
             </View>
             <Text style={styles.quickActionText}>Wishlist</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.quickActionCard}
             onPress={() => router.push('/orders')}
           >
             <View style={styles.quickActionIcon}>
-              <Ionicons name="receipt" size={24} color={colors.primary}/>
+              <Ionicons name="receipt" size={24} color={colors.primary} />
             </View>
             <Text style={styles.quickActionText}>Orders</Text>
           </TouchableOpacity>
@@ -276,7 +241,7 @@ export default function BuyNowTab() {
               <Text style={styles.emptyText}>
                 No featured products available at the moment. Check back later for exciting deals!
               </Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.browseButton}
                 onPress={() => router.push('/(tabs)/home')}
               >
@@ -290,7 +255,6 @@ export default function BuyNowTab() {
                   <ProductCard
                     product={product}
                     onPress={() => handleProductPress(product)}
-                    badge={product.discount && product.discount > 0 ? `${product.discount}% OFF` : undefined}
                   />
                 </View>
               ))}
