@@ -65,6 +65,23 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+// Root endpoint
+app.get('/', (_req, res) => {
+  res.json({
+    success: true,
+    message: 'AfroChinaTrade API Server',
+    status: 'running',
+    version: '1.0.0',
+    database: getDatabaseStatus(),
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      products: '/api/products',
+      orders: '/api/orders',
+    }
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
