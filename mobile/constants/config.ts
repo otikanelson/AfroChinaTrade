@@ -14,8 +14,10 @@ const PRODUCTION_URL = 'https://afro-china-trade.vercel.app/api';
 // Demo mode configuration
 export const DEMO_MODE = false; // Set to true for client demo build
 
-// Current configuration - using Vercel cloud backend for production
-export const API_BASE_URL = PRODUCTION_URL;
+// Determine API URL based on environment
+// Local development by default, Vercel only for EAS builds
+const isEASBuild = process.env.EAS_BUILD === 'true';
+export const API_BASE_URL = isEASBuild ? PRODUCTION_URL : DEV_URLS.WIFI;
 
 export const APP_CONFIG = {
   name: 'AfroChinaTrade',
