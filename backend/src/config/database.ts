@@ -25,7 +25,13 @@ export const connectDatabase = async (
 
   while (retries < maxRetries) {
     try {
-      await mongoose.connect(mongoUri);
+      await mongoose.connect(mongoUri, {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        connectTimeoutMS: 10000,
+        retryWrites: true,
+        w: 'majority',
+      });
       console.log('✓ MongoDB connected successfully');
       console.log(`✓ Database: ${mongoose.connection.name}`);
       console.log(`✓ Host: ${mongoose.connection.host}`);
