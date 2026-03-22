@@ -30,8 +30,11 @@ import recommendationRoutes from '../src/routes/recommendationRoutes';
 import deliveryAddressRoutes from '../src/routes/deliveryAddressRoutes';
 import locationRoutes from '../src/routes/locationRoutes';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables (only for local development)
+// On Vercel, environment variables are injected directly
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config();
+}
 
 // Validate environment variables
 validateEnvironment();
