@@ -16,7 +16,9 @@ export const connectDatabase = async (
   const mongoUri = process.env.MONGODB_URI;
 
   if (!mongoUri) {
-    throw new Error('MONGODB_URI environment variable is not defined');
+    console.warn('⚠️  MONGODB_URI environment variable is not defined');
+    console.warn('⚠️  Database connection skipped - running in demo mode');
+    return;
   }
 
   let retries = 0;
@@ -33,8 +35,9 @@ export const connectDatabase = async (
       console.error(`✗ MongoDB connection attempt ${retries} failed:`, error instanceof Error ? error.message : error);
 
       if (retries >= maxRetries) {
-        console.error(`✗ Failed to connect to MongoDB after ${maxRetries} attempts`);
-        throw new Error('Database connection failed');
+        console.warn(`⚠️  Failed to connect to MongoDB after ${maxRetries} attempts`);
+        console.warn('⚠️  Running in demo mode without database');
+        return;
       }
 
       console.log(`⟳ Retrying in ${retryDelay / 1000} seconds...`);

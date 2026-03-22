@@ -100,6 +100,7 @@ const ensureDbConnection = async () => {
       dbConnected = true;
     } catch (error) {
       console.error('Database connection failed:', error);
+      // Don't throw - allow API to work in demo mode
     }
   }
 };
