@@ -85,6 +85,11 @@ export const validateContentType = (req: Request, res: Response, next: NextFunct
     return next();
   }
 
+  // Skip validation for auth endpoints (login, register, etc.)
+  if (req.path.includes('/auth')) {
+    return next();
+  }
+
   // Skip validation for logout endpoint (no body required)
   if (req.path.includes('/logout')) {
     return next();
