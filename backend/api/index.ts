@@ -91,18 +91,29 @@ app.use(notFoundHandler);
 // Error handling middleware
 app.use(errorHandler);
 
-// Ensure database is connected
-let dbConnected = false;
+// Ensure database is connected - reuse connection across requests
+let dbConnectionPromise: Promise<void> | null = null;
+
 const ensureDbConnection = async () => {
-  if (!dbConnected) {
+  // If connection is already established, return immediately
+  if (dbConnectionPromise) {
+    return dbConnectionPromise;
+  }
+
+  // Create a new connection promise
+  dbConnectionPromise = (async () => {
     try {
       await connectDatabase();
-      dbConnected = true;
+      console.log('Database connection established for Vercel');
     } catch (error) {
       console.error('Database connection failed:', error);
+      // Reset the promise so next request can retry
+      dbConnectionPromise = null;
       // Don't throw - allow API to work in demo mode
     }
-  }
+  })();
+
+  return dbConnectionPromise;
 };
 
 // Export for Vercel
