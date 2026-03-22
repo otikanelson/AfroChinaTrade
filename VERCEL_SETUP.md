@@ -14,6 +14,7 @@ Add these variables (get actual values from your local `.env.local`):
 
 ### Database
 - **MONGODB_URI**: Your MongoDB Atlas connection string
+  - Get from: MongoDB Atlas → Connect → Connect your application
   - Format: `mongodb+srv://username:password@cluster.mongodb.net/afrochinatrade?retryWrites=true&w=majority`
 
 ### JWT
@@ -22,9 +23,9 @@ Add these variables (get actual values from your local `.env.local`):
 - **JWT_EXPIRES_IN**: `7d`
 
 ### Cloudinary (for image uploads)
-- **CLOUDINARY_CLOUD_NAME**: `dqwa8w9wb`
-- **CLOUDINARY_API_KEY**: `549813351582393`
-- **CLOUDINARY_API_SECRET**: `fJ7vajUs2OXUuguNpX3U69F2f34`
+- **CLOUDINARY_CLOUD_NAME**: Get from your Cloudinary dashboard
+- **CLOUDINARY_API_KEY**: Get from your Cloudinary dashboard
+- **CLOUDINARY_API_SECRET**: Get from your Cloudinary dashboard
 
 ### CORS
 - **ALLOWED_ORIGINS**: `https://afro-china-trade.vercel.app,http://localhost:3000,http://localhost:8081,http://localhost:19000`
