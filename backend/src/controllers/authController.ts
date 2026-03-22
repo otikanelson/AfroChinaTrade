@@ -163,7 +163,20 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Try to find user by email (include password for comparison)
-    const user = await User.findOne({ email }).select('+password');
+    let user;
+    try {
+      user = await User.findOne({ email }).select('+password');
+    } catch (dbError) {
+      console.error(`Database query failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+      // If database fails, reject the login
+      res.status(500).json({
+        status: 'error',
+        message: 'Database connection failed',
+        errorCode: 'DATABASE_ERROR',
+      });
+      return;
+    }
+
     if (!user) {
       console.log(`[${new Date().toISOString()}] Authentication failed - User not found - Email: ${email}, IP: ${clientIP}`);
       res.status(401).json({
