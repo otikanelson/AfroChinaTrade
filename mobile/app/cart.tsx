@@ -14,13 +14,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCart } from '../contexts/CartContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../hooks/useToast';
+import { Toast } from '../components/ui/Toast';
 import { Header } from '../components/Header';
 
 export default function CartScreen() {
   const router = useRouter();
   const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
-  const { cart, loading, updateQuantity, removeFromCart, clearCart, refreshCart } = useCart();
+  const { cart, loading, updateQuantity, removeFromCart, clearCart, refreshCart, isOperationPending } = useCart();
   const [refreshing, setRefreshing] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     refreshCart();
@@ -42,7 +45,7 @@ export default function CartScreen() {
     const success = await updateQuantity(productId, newQuantity, selectedVariant);
     console.log('Cart - Update quantity result:', success);
     if (!success) {
-      Alert.alert('Error', 'Failed to update quantity. Please check your connection and try again.');
+      toast.error('Failed to update quantity. Please check your connection and try again.');
     }
   };
 
@@ -51,13 +54,13 @@ export default function CartScreen() {
     const success = await removeFromCart(productId, selectedVariant);
     console.log('Cart - Remove result:', success);
     if (!success) {
-      Alert.alert('Error', 'Failed to remove item. Please check your connection and try again.');
+      toast.error('Failed to remove item. Please check your connection and try again.');
     }
   };
 
   const handleCheckout = () => {
     if (!cart || cart.items.length === 0) {
-      Alert.alert('Empty Cart', 'Please add items to your cart before checkout');
+      toast.warning('Please add items to your cart before checkout');
       return;
     }
     router.push('/checkout');
@@ -67,7 +70,7 @@ export default function CartScreen() {
     console.log('Attempting to clear cart');
     const success = await clearCart();
     if (!success) {
-      Alert.alert('Error', 'Failed to clear cart. Please check your connection and try again.');
+      toast.error('Failed to clear cart. Please check your connection and try again.');
     }
   };
 
@@ -122,7 +125,7 @@ export default function CartScreen() {
       flex: 1,
     },
     cartItem: {
-      flexDirection: 'row',
+      flexDirection: 'column',
       padding: themeSpacing.base,
       backgroundColor: themeColors.surface,
       marginHorizontal: themeSpacing.base,
@@ -130,15 +133,25 @@ export default function CartScreen() {
       borderRadius: borderRadius.md,
       ...shadows.sm,
     },
+    itemHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: themeSpacing.sm,
+    },
+    itemImageAndDetails: {
+      flexDirection: 'row',
+      flex: 1,
+    },
     itemImage: {
       width: 80,
       height: 80,
       borderRadius: borderRadius.sm,
       backgroundColor: themeColors.background,
+      marginRight: themeSpacing.sm,
     },
     itemDetails: {
       flex: 1,
-      marginLeft: themeSpacing.sm,
     },
     itemName: {
       fontSize: fontSizes.lg,
@@ -160,6 +173,7 @@ export default function CartScreen() {
     quantityContainer: {
       flexDirection: 'row',
       alignItems: 'center',
+      marginTop: themeSpacing.sm,
     },
     quantityButton: {
       width: 32,
@@ -179,9 +193,6 @@ export default function CartScreen() {
       textAlign: 'center',
     },
     removeButton: {
-      position: 'absolute',
-      top: themeSpacing.sm,
-      right: themeSpacing.sm,
       padding: themeSpacing.xs,
     },
     summaryContainer: {
@@ -311,41 +322,50 @@ export default function CartScreen() {
           />
         }
       >
-        {cart.items.map((item, index) => (
-          <View key={`${item.productId._id}-${JSON.stringify(item.selectedVariant || {})}-${index}`} style={styles.cartItem}>
-            <TouchableOpacity
-              style={styles.removeButton}
-              onPress={() => handleRemoveItem(item.productId._id, item.selectedVariant)}
-            >
-              <Ionicons name="trash-outline" size={20} color={themeColors.error} />
-            </TouchableOpacity>
+        {cart.items.map((item, index) => {
+          const isPending = isOperationPending(item.productId._id);
+          return (
+            <View key={`${item.productId._id}-${JSON.stringify(item.selectedVariant || {})}-${index}`} style={[styles.cartItem, isPending && { opacity: 0.7 }]}>
+              <View style={styles.itemHeader}>
+                <View style={styles.itemImageAndDetails}>
+                  {item.productId.images && item.productId.images.length > 0 ? (
+                    <Image
+                      source={{ uri: item.productId.images[0] }}
+                      style={styles.itemImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.itemImage, styles.placeholderImage]}>
+                      <Ionicons name="image-outline" size={32} color={themeColors.textSecondary} />
+                    </View>
+                  )}
 
-            {item.productId.images && item.productId.images.length > 0 ? (
-              <Image
-                source={{ uri: item.productId.images[0] }}
-                style={styles.itemImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={[styles.itemImage, styles.placeholderImage]}>
-                <Ionicons name="image-outline" size={32} color={themeColors.textSecondary} />
+                  <View style={styles.itemDetails}>
+                    <Text style={styles.itemName} numberOfLines={2}>
+                      {item.productId.name}
+                    </Text>
+                    <Text style={styles.itemPrice}>
+                      {formatPrice(item.price)}
+                    </Text>
+                    {item.selectedVariant && (
+                      <Text style={styles.itemVariant}>
+                        {Object.entries(item.selectedVariant)
+                          .map(([key, value]) => `${key}: ${value}`)
+                          .join(', ')}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => handleRemoveItem(item.productId._id, item.selectedVariant)}
+                  disabled={isPending}
+                >
+                  <Ionicons name="trash-outline" size={20} color={themeColors.error} />
+                </TouchableOpacity>
               </View>
-            )}
 
-            <View style={styles.itemDetails}>
-              <Text style={styles.itemName} numberOfLines={2}>
-                {item.productId.name}
-              </Text>
-              <Text style={styles.itemPrice}>
-                {formatPrice(item.price)}
-              </Text>
-              {item.selectedVariant && (
-                <Text style={styles.itemVariant}>
-                  {Object.entries(item.selectedVariant)
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join(', ')}
-                </Text>
-              )}
               <View style={styles.quantityContainer}>
                 <TouchableOpacity
                   style={styles.quantityButton}
@@ -356,6 +376,7 @@ export default function CartScreen() {
                       handleQuantityChange(item.productId._id, item.quantity - 1, item.selectedVariant);
                     }
                   }}
+                  disabled={isPending}
                 >
                   <Ionicons 
                     name={item.quantity <= 1 ? "trash-outline" : "remove"} 
@@ -363,17 +384,22 @@ export default function CartScreen() {
                     color={item.quantity <= 1 ? themeColors.error : themeColors.text} 
                   />
                 </TouchableOpacity>
-                <Text style={styles.quantityText}>{item.quantity}</Text>
+                {isPending ? (
+                  <ActivityIndicator size="small" color={themeColors.primary} style={{ marginHorizontal: themeSpacing.sm }} />
+                ) : (
+                  <Text style={styles.quantityText}>{item.quantity}</Text>
+                )}
                 <TouchableOpacity
                   style={styles.quantityButton}
                   onPress={() => handleQuantityChange(item.productId._id, item.quantity + 1, item.selectedVariant)}
+                  disabled={isPending}
                 >
                   <Ionicons name="add" size={16} color={themeColors.text} />
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
 
       <View style={styles.summaryContainer}>
@@ -389,6 +415,14 @@ export default function CartScreen() {
           <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
         </TouchableOpacity>
       </View>
+
+      <Toast
+        visible={toast.visible}
+        type={toast.type}
+        message={toast.message}
+        autoClose={toast.autoClose}
+        onClose={toast.hideToast}
+      />
     </View>
   );
 }

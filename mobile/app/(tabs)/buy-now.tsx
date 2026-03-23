@@ -69,7 +69,7 @@ export default function BuyNowTab() {
     quickActions: {
       flexDirection: 'row',
       paddingHorizontal: spacing.base,
-      paddingVertical: spacing.lg,
+      paddingVertical: spacing.xs,
       gap: spacing.sm,
       backgroundColor: colors.surface,
     },
@@ -82,21 +82,21 @@ export default function BuyNowTab() {
       gap: spacing.xs,
       borderWidth: 1,
       borderColor: colors.border,
-      minHeight: 80,
+      minHeight: 70,
       justifyContent: 'center',
     },
     quickActionIcon: {
-      marginBottom: spacing.xs,
+      marginBottom: 0,
     },
     quickActionText: {
-      fontSize: fontSizes.sm,
-      fontWeight: fontWeights.medium,
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.semibold,
       color: colors.text,
       textAlign: 'center',
     },
     section: {
       paddingHorizontal: spacing.base,
-      paddingBottom: spacing.lg,
+      paddingBottom: spacing.sm,
       backgroundColor: colors.surface,
     },
     sectionHeader: {
@@ -147,12 +147,14 @@ export default function BuyNowTab() {
     productsGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: spacing.sm,
+      gap: spacing.xs,
       justifyContent: 'space-between',
-      marginTop: spacing.md,
+      marginTop: spacing.sm,
+      marginHorizontal: spacing.xs,
     },
     productCardContainer: {
-      width: '48%',
+      width: 85,
+      alignItems: 'center',
     },
     bottomSpacing: {
       height: spacing.xl,

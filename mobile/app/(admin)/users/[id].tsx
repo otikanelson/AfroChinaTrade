@@ -3,8 +3,7 @@ import {
   Alert, Modal, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Order } from '../../../types/product';
@@ -13,6 +12,7 @@ import { orderService } from '../../../services/OrderService';
 import { Card } from '../../../components/admin/Card';
 import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
 import { Button } from '../../../components/admin/Button';
+import { Header } from '../../../components/Header';
 import { mobileToastManager } from '../../../utils/toast';
 import { theme } from '../../../theme';
 
@@ -97,6 +97,7 @@ function userStatusToBadge(status: UserProfile['status']): StatusType {
 
 export default function UserDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
 
   const [user, setUser] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -195,26 +196,44 @@ export default function UserDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.screen}>
+      <View style={styles.screen}>
+        <Header 
+          title="User Details"
+          subtitle="Loading..."
+          showBack
+          onBackPress={() => router.back()}
+        />
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading…</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.screen}>
+      <View style={styles.screen}>
+        <Header 
+          title="User Details"
+          subtitle="Not found"
+          showBack
+          onBackPress={() => router.back()}
+        />
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>User not found.</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={styles.screen}>
+      <Header 
+        title={user.name}
+        subtitle={user.email}
+        showBack
+        onBackPress={() => router.back()}
+      />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Profile card */}
         <Card style={styles.profileCard}>
@@ -304,7 +323,7 @@ export default function UserDetailScreen() {
         onClose={() => setSuspendVisible(false)}
         onConfirm={handleSuspend}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

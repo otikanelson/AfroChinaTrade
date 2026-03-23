@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
@@ -84,7 +83,7 @@ export default function MessageThreadScreen() {
         
         // Mark messages as read
         const unreadMessages = response.data.messages.filter(
-          msg => !msg.isRead && msg.senderRole === 'customer'
+          (msg: Message) => !msg.isRead && msg.senderRole === 'customer'
         );
         
         for (const message of unreadMessages) {
@@ -156,11 +155,7 @@ export default function MessageThreadScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
+    <View style={styles.screen}>
       <FlatList
         ref={listRef}
         data={messages}
@@ -203,7 +198,7 @@ export default function MessageThreadScreen() {
           <Ionicons name="send" size={20} color={theme.colors.background} />
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

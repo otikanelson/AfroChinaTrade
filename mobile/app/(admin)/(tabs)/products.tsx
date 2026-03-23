@@ -19,6 +19,7 @@ import { SearchBar } from '../../../components/admin/SearchBar';
 import { StatusBadge } from '../../../components/admin/StatusBadge';
 import { CategoryFilterModal } from '../../../components/admin/CategoryFilterModal';
 import { Header } from '../../../components/Header';
+import { CustomModal } from '../../../components/ui/CustomModal';
 import { useTheme } from '../../../contexts/ThemeContext';
 
 // ─── Filter chips ─────────────────────────────────────────────────────────────
@@ -259,6 +260,10 @@ export default function ProductsScreen() {
   const [featuredOnly, setFeaturedOnly] = useState(false);
   const [sellerFavoriteOnly, setSellerFavoriteOnly] = useState(false);
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
+  
+  // Status toggle modal state
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [productToToggle, setProductToToggle] = useState<{ product: Product; newStatus: boolean } | null>(null);
 
   const styles = StyleSheet.create({
     screen: {
@@ -287,7 +292,7 @@ export default function ProductsScreen() {
     filterSectionLabel: {
       fontSize: fontSizes.sm,
       fontWeight: fontWeights.medium as any,
-      color: themeColors.textSecondary,
+      color: themeColors.text,
       marginBottom: themeSpacing.xs,
       marginTop: themeSpacing.sm,
     },
@@ -442,6 +447,49 @@ export default function ProductsScreen() {
       fontWeight: fontWeights.semibold as any,
       color: themeColors.background,
     },
+    
+    // Status Modal
+    statusModalText: {
+      fontSize: fontSizes.base,
+      color: themeColors.text,
+      marginBottom: themeSpacing.xl,
+      textAlign: 'center',
+      lineHeight: 22,
+    },
+    statusModalButtons: {
+      flexDirection: 'row',
+      gap: themeSpacing.sm,
+      width: '100%',
+    },
+    statusModalButton: {
+      flex: 1,
+      paddingVertical: themeSpacing.md,
+      borderRadius: borderRadius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 48,
+    },
+    statusModalCancelButton: {
+      backgroundColor: themeColors.surface,
+      borderWidth: 1,
+      borderColor: themeColors.border,
+    },
+    statusModalConfirmButton: {
+      backgroundColor: themeColors.primary,
+    },
+    statusModalDeactivateButton: {
+      backgroundColor: themeColors.error || '#EF4444',
+    },
+    statusModalButtonText: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold as any,
+    },
+    statusModalCancelText: {
+      color: themeColors.text,
+    },
+    statusModalConfirmText: {
+      color: '#FFFFFF',
+    },
   });
 
   // ── Data fetching ──────────────────────────────────────────────────────────
@@ -576,43 +624,40 @@ export default function ProductsScreen() {
 
   const handleStatusToggle = useCallback(
     async (product: Product, newStatus: boolean) => {
-      const productId = (product as any)._id || product.id;
-      const statusText = newStatus ? 'activate' : 'deactivate';
-
-      Alert.alert(
-        `${newStatus ? 'Activate' : 'Deactivate'} Product`,
-        `Are you sure you want to ${statusText} "${product.name}"?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: newStatus ? 'Activate' : 'Deactivate',
-            style: newStatus ? 'default' : 'destructive',
-            onPress: async () => {
-              try {
-                const response = await productService.toggleProductStatus(productId, newStatus);
-                if (response.success) {
-                  // Update the product in the local state
-                  setProducts(prevProducts =>
-                    prevProducts.map(p =>
-                      ((p as any)._id || p.id) === productId
-                        ? { ...p, isActive: newStatus }
-                        : p
-                    )
-                  );
-                } else {
-                  throw new Error(response.error?.message || 'Failed to update status');
-                }
-              } catch (error) {
-                console.error('Error toggling product status:', error);
-                Alert.alert('Error', 'Failed to update product status. Please try again.');
-              }
-            }
-          }
-        ]
-      );
+      setProductToToggle({ product, newStatus });
+      setStatusModalVisible(true);
     },
     [],
   );
+  
+  const confirmStatusToggle = async () => {
+    if (!productToToggle) return;
+    
+    const { product, newStatus } = productToToggle;
+    const productId = (product as any)._id || product.id;
+    
+    try {
+      const response = await productService.toggleProductStatus(productId, newStatus);
+      if (response.success) {
+        // Update the product in the local state
+        setProducts(prevProducts =>
+          prevProducts.map(p =>
+            ((p as any)._id || p.id) === productId
+              ? { ...p, isActive: newStatus }
+              : p
+          )
+        );
+      } else {
+        throw new Error(response.error?.message || 'Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error toggling product status:', error);
+      Alert.alert('Error', 'Failed to update product status. Please try again.');
+    } finally {
+      setStatusModalVisible(false);
+      setProductToToggle(null);
+    }
+  };
 
   // ── Render helpers ─────────────────────────────────────────────────────────
 
@@ -784,6 +829,51 @@ export default function ProductsScreen() {
         selectedCategory={categoryFilter}
         onSelectCategory={setCategoryFilter}
       />
+      
+      {/* Status Toggle Modal */}
+      <CustomModal
+        visible={statusModalVisible}
+        onClose={() => {
+          setStatusModalVisible(false);
+          setProductToToggle(null);
+        }}
+        title={productToToggle?.newStatus ? 'Activate Product' : 'Deactivate Product'}
+        size="small"
+        position="center"
+        scrollable={false}
+      >
+        <>
+          <Text style={styles.statusModalText}>
+            Are you sure you want to {productToToggle?.newStatus ? 'activate' : 'deactivate'} "{productToToggle?.product.name}"?
+          </Text>
+          <View style={styles.statusModalButtons}>
+            <TouchableOpacity
+              style={[styles.statusModalButton, styles.statusModalCancelButton]}
+              onPress={() => {
+                setStatusModalVisible(false);
+                setProductToToggle(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.statusModalButtonText, styles.statusModalCancelText]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.statusModalButton,
+                productToToggle?.newStatus ? styles.statusModalConfirmButton : styles.statusModalDeactivateButton
+              ]}
+              onPress={confirmStatusToggle}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.statusModalButtonText, styles.statusModalConfirmText]}>
+                {productToToggle?.newStatus ? 'Activate' : 'Deactivate'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      </CustomModal>
     </View>
   );
 }

@@ -44,7 +44,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
     <View style={[styles.container, { 
       paddingHorizontal: spacing.base, 
       marginBottom: spacing.lg, 
-      marginTop: spacing.xl 
+      marginTop: spacing.md 
     }]}>
       <View style={styles.textContainer}>
         <Text style={[styles.title, { 

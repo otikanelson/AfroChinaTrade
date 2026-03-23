@@ -36,6 +36,7 @@ interface CartContextType {
   updateQuantity: (productId: string, quantity: number, selectedVariant?: any) => Promise<boolean>;
   clearCart: () => Promise<boolean>;
   refreshCart: () => Promise<void>;
+  isOperationPending: (productId: string) => boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -56,6 +57,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const { user } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
 
   const cartCount = cart?.totalItems || 0;
 
@@ -66,6 +68,22 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       setCart(null);
     }
   }, [user]);
+
+  const isOperationPending = (productId: string): boolean => {
+    return pendingOperations.has(productId);
+  };
+
+  const addPendingOperation = (productId: string) => {
+    setPendingOperations(prev => new Set(prev).add(productId));
+  };
+
+  const removePendingOperation = (productId: string) => {
+    setPendingOperations(prev => {
+      const next = new Set(prev);
+      next.delete(productId);
+      return next;
+    });
+  };
 
   const refreshCart = async () => {
     const token = await tokenManager.getAccessToken();
@@ -97,20 +115,59 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     selectedVariant?: any
   ): Promise<boolean> => {
     try {
-      // Initialize token manager if needed
-      await tokenManager.initialize();
+      // Optimistic update - update UI immediately
+      const previousCart = cart;
       
+      if (cart) {
+        // Check if item already exists
+        const existingItemIndex = cart.items.findIndex(item => 
+          item.productId._id === productId && 
+          JSON.stringify(item.selectedVariant) === JSON.stringify(selectedVariant)
+        );
+
+        const updatedCart = { ...cart };
+        
+        if (existingItemIndex >= 0) {
+          // Update existing item
+          updatedCart.items[existingItemIndex] = {
+            ...updatedCart.items[existingItemIndex],
+            quantity: updatedCart.items[existingItemIndex].quantity + quantity
+          };
+        } else {
+          // Add new item (we'll get full details from server)
+          updatedCart.items.push({
+            _id: `temp-${Date.now()}`,
+            productId: {
+              _id: productId,
+              name: 'Loading...',
+              price: 0,
+              images: []
+            },
+            quantity,
+            price: 0,
+            selectedVariant
+          });
+        }
+        
+        updatedCart.totalItems = updatedCart.items.reduce((sum, item) => sum + item.quantity, 0);
+        updatedCart.totalAmount = updatedCart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        setCart(updatedCart);
+      }
+
+      addPendingOperation(productId);
+
+      // Send request in background
+      await tokenManager.initialize();
       const token = await tokenManager.getAccessToken();
+      
       if (!token) {
         console.error('No access token available for cart operation');
-        console.log('User authentication status:', !!user);
+        setCart(previousCart);
+        removePendingOperation(productId);
         return false;
       }
 
-      console.log('Adding to cart:', { productId, quantity, selectedVariant });
-      console.log('Using token:', token ? 'Token available' : 'No token');
-      console.log('API URL:', `${API_BASE_URL}/cart`);
-      
       const response = await fetch(`${API_BASE_URL}/cart`, {
         method: 'POST',
         headers: {
@@ -124,19 +181,23 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         }),
       });
 
-      console.log('Cart API response status:', response.status);
       const data = await response.json();
-      console.log('Cart API response data:', data);
       
       if (data.success) {
+        // Update with server response to get accurate data
         setCart(data.data);
+        removePendingOperation(productId);
         return true;
       } else {
         console.error('Add to cart error:', data.message);
+        // Rollback on error
+        setCart(previousCart);
+        removePendingOperation(productId);
         return false;
       }
     } catch (error) {
       console.error('Error adding to cart:', error);
+      removePendingOperation(productId);
       return false;
     }
   };
@@ -146,17 +207,33 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     selectedVariant?: any
   ): Promise<boolean> => {
     try {
-      // Initialize token manager if needed
-      await tokenManager.initialize();
+      // Optimistic update - remove immediately
+      const previousCart = cart;
       
-      const token = await tokenManager.getAccessToken();
-      if (!token) {
-        console.error('No access token available for remove from cart operation');
-        return false;
+      if (cart) {
+        const updatedCart = { ...cart };
+        updatedCart.items = updatedCart.items.filter(item => 
+          !(item.productId._id === productId && 
+            JSON.stringify(item.selectedVariant) === JSON.stringify(selectedVariant))
+        );
+        updatedCart.totalItems = updatedCart.items.reduce((sum, item) => sum + item.quantity, 0);
+        updatedCart.totalAmount = updatedCart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        setCart(updatedCart);
       }
 
-      console.log('Removing from cart:', { productId, selectedVariant });
-      console.log('API URL:', `${API_BASE_URL}/cart/${productId}`);
+      addPendingOperation(productId);
+
+      // Send request in background
+      await tokenManager.initialize();
+      const token = await tokenManager.getAccessToken();
+      
+      if (!token) {
+        console.error('No access token available for remove from cart operation');
+        setCart(previousCart);
+        removePendingOperation(productId);
+        return false;
+      }
 
       const response = await fetch(`${API_BASE_URL}/cart/${productId}`, {
         method: 'DELETE',
@@ -167,19 +244,22 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         body: JSON.stringify({ selectedVariant }),
       });
 
-      console.log('Remove from cart response status:', response.status);
       const data = await response.json();
-      console.log('Remove from cart response data:', data);
 
       if (data.success) {
         setCart(data.data);
+        removePendingOperation(productId);
         return true;
       } else {
         console.error('Remove from cart error:', data.message);
+        // Rollback on error
+        setCart(previousCart);
+        removePendingOperation(productId);
         return false;
       }
     } catch (error) {
       console.error('Error removing from cart:', error);
+      removePendingOperation(productId);
       return false;
     }
   };
@@ -190,17 +270,42 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     selectedVariant?: any
   ): Promise<boolean> => {
     try {
-      // Initialize token manager if needed
-      await tokenManager.initialize();
+      if (quantity < 1) return false;
+
+      // Optimistic update - update immediately
+      const previousCart = cart;
       
-      const token = await tokenManager.getAccessToken();
-      if (!token || quantity < 1) {
-        console.error('No access token or invalid quantity for update cart operation');
-        return false;
+      if (cart) {
+        const updatedCart = { ...cart };
+        const itemIndex = updatedCart.items.findIndex(item => 
+          item.productId._id === productId && 
+          JSON.stringify(item.selectedVariant) === JSON.stringify(selectedVariant)
+        );
+
+        if (itemIndex >= 0) {
+          updatedCart.items[itemIndex] = {
+            ...updatedCart.items[itemIndex],
+            quantity
+          };
+          updatedCart.totalItems = updatedCart.items.reduce((sum, item) => sum + item.quantity, 0);
+          updatedCart.totalAmount = updatedCart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+          
+          setCart(updatedCart);
+        }
       }
 
-      console.log('Updating cart quantity:', { productId, quantity, selectedVariant });
-      console.log('API URL:', `${API_BASE_URL}/cart/${productId}`);
+      addPendingOperation(productId);
+
+      // Send request in background
+      await tokenManager.initialize();
+      const token = await tokenManager.getAccessToken();
+      
+      if (!token || quantity < 1) {
+        console.error('No access token or invalid quantity for update cart operation');
+        setCart(previousCart);
+        removePendingOperation(productId);
+        return false;
+      }
 
       const response = await fetch(`${API_BASE_URL}/cart/${productId}`, {
         method: 'PUT',
@@ -211,36 +316,41 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         body: JSON.stringify({ quantity, selectedVariant }),
       });
 
-      console.log('Update cart response status:', response.status);
       const data = await response.json();
-      console.log('Update cart response data:', data);
 
       if (data.success) {
         setCart(data.data);
+        removePendingOperation(productId);
         return true;
       } else {
         console.error('Update cart error:', data.message);
+        // Rollback on error
+        setCart(previousCart);
+        removePendingOperation(productId);
         return false;
       }
     } catch (error) {
       console.error('Error updating cart:', error);
+      removePendingOperation(productId);
       return false;
     }
   };
 
   const clearCart = async (): Promise<boolean> => {
     try {
-      // Initialize token manager if needed
+      // Optimistic update - clear immediately
+      const previousCart = cart;
+      setCart({ ...cart!, items: [], totalItems: 0, totalAmount: 0 });
+
+      // Send request in background
       await tokenManager.initialize();
-      
       const token = await tokenManager.getAccessToken();
+      
       if (!token) {
         console.error('No access token available for clear cart operation');
+        setCart(previousCart);
         return false;
       }
-
-      console.log('Clearing cart');
-      console.log('API URL:', `${API_BASE_URL}/cart/clear`);
 
       const response = await fetch(`${API_BASE_URL}/cart/clear`, {
         method: 'DELETE',
@@ -250,15 +360,15 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         },
       });
 
-      console.log('Clear cart response status:', response.status);
       const data = await response.json();
-      console.log('Clear cart response data:', data);
 
       if (data.success) {
         setCart(data.data);
         return true;
       } else {
         console.error('Clear cart error:', data.message);
+        // Rollback on error
+        setCart(previousCart);
         return false;
       }
     } catch (error) {
@@ -276,6 +386,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     updateQuantity,
     clearCart,
     refreshCart,
+    isOperationPending,
   };
 
   return (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Text, ActivityIndicator, Alert } from 'react-native';
+import { ScrollView, StyleSheet, View, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Button } from '../../../components/admin/Button';
@@ -9,6 +9,7 @@ import { PickerField, PickerOption } from '../../../components/admin/forms/Picke
 import { TagSelector } from '../../../components/admin/forms/TagSelector';
 import { SpecificationsTable } from '../../../components/admin/forms/SpecificationsTable';
 import { PolicyFields } from '../../../components/admin/forms/PolicyFields';
+import { CustomModal } from '../../../components/ui/CustomModal';
 import { mobileToastManager } from '../../../utils/toast';
 import { productService } from '../../../services/ProductService';
 import { supplierService } from '../../../services/SupplierService';
@@ -118,19 +119,20 @@ export default function EditProductScreen() {
   const styles = StyleSheet.create({
     scroll: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
     },
     content: {
       padding: spacing.base,
-      paddingBottom: spacing['2xl'],
+      paddingBottom: spacing['3xl'],
     },
     errorContainer: {
       backgroundColor: '#fee2e2',
       borderColor: '#fca5a5',
       borderWidth: 1,
-      borderRadius: borderRadius.base,
-      padding: spacing.sm,
+      borderRadius: borderRadius.lg,
+      padding: spacing.base,
       marginBottom: spacing.base,
+      ...shadows.sm,
     },
     errorText: {
       color: '#dc2626',
@@ -145,15 +147,16 @@ export default function EditProductScreen() {
       backgroundColor: colors.background,
     },
     loadingText: {
-      marginTop: spacing.sm,
+      marginTop: spacing.base,
       fontSize: fontSizes.base,
       color: colors.textSecondary,
+      fontFamily: fonts.medium,
     },
     errorTitle: {
-      fontSize: fontSizes.xl,
-      fontFamily: fonts.medium,
+      fontSize: fontSizes['2xl'],
+      fontFamily: fonts.bold,
       color: colors.text,
-      marginBottom: spacing.sm,
+      marginBottom: spacing.base,
       textAlign: 'center',
     },
     notFoundText: {
@@ -161,30 +164,34 @@ export default function EditProductScreen() {
       color: colors.textSecondary,
       textAlign: 'center',
       marginBottom: spacing.xl,
+      lineHeight: 22,
     },
     backButton: {
-      minWidth: 120,
+      minWidth: 140,
     },
     actions: {
-      marginTop: spacing.lg,
-      gap: spacing.sm,
+      marginTop: spacing.xl,
+      gap: spacing.base,
     },
     saveButton: {
       width: '100%',
+      ...shadows.md,
     },
     deleteButton: {
       width: '100%',
+      ...shadows.sm,
     },
     cancelButton: {
       width: '100%',
     },
     discountPreview: {
-      backgroundColor: colors.surface,
-      borderRadius: borderRadius.md,
+      backgroundColor: colors.background,
+      borderRadius: borderRadius.lg,
       padding: spacing.base,
       marginBottom: spacing.base,
       borderWidth: 1,
       borderColor: colors.border,
+      ...shadows.sm,
     },
     discountPreviewLabel: {
       fontSize: fontSizes.sm,
@@ -202,22 +209,64 @@ export default function EditProductScreen() {
       fontSize: fontSizes.base,
       color: colors.textSecondary,
       textDecorationLine: 'line-through',
+      fontFamily: fonts.regular,
     },
     discountedPricePreview: {
-      fontSize: fontSizes.lg,
+      fontSize: fontSizes.xl,
       fontFamily: fonts.bold,
       color: '#FF3B30',
     },
     discountBadgePreview: {
       backgroundColor: '#FF3B30',
-      paddingHorizontal: spacing.sm,
+      paddingHorizontal: spacing.base,
       paddingVertical: spacing.xs,
-      borderRadius: borderRadius.base,
+      borderRadius: borderRadius.full,
+      ...shadows.sm,
     },
     discountBadgeTextPreview: {
       color: 'white',
-      fontSize: fontSizes.xs,
-      fontFamily: fonts.medium,
+      fontSize: fontSizes.sm,
+      fontFamily: fonts.bold,
+    },
+    
+    // Delete Modal
+    deleteModalText: {
+      fontSize: fontSizes.base,
+      color: colors.text,
+      marginBottom: spacing.xl,
+      textAlign: 'center',
+      lineHeight: 22,
+    },
+    deleteModalButtons: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      width: '100%',
+    },
+    deleteModalButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 48,
+    },
+    deleteModalCancelButton: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    deleteModalConfirmButton: {
+      backgroundColor: colors.error || '#EF4444',
+    },
+    deleteModalButtonText: {
+      fontSize: fontSizes.base,
+      fontFamily: fonts.bold,
+    },
+    deleteModalCancelText: {
+      color: colors.text,
+    },
+    deleteModalConfirmText: {
+      color: '#FFFFFF',
     },
   });
 
@@ -230,6 +279,7 @@ export default function EditProductScreen() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [suppliers, setSuppliers] = useState<PickerOption[]>([]);
   const [categories, setCategories] = useState<PickerOption[]>([]);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const [form, setForm] = useState<FormState>({
     name: '',
@@ -482,35 +532,28 @@ export default function EditProductScreen() {
   };
 
   const handleDelete = async () => {
-    Alert.alert(
-      'Delete Product',
-      'Are you sure you want to delete this product? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true);
-            try {
-              const response = await productService.deleteProduct(id);
-              
-              if (response.success) {
-                mobileToastManager.success('Product deleted successfully', 'Success');
-                router.back();
-              } else {
-                throw new Error(response.error?.message || 'Failed to delete product');
-              }
-            } catch (error: any) {
-              console.error('Error deleting product:', error);
-              Alert.alert('Error', error?.message || 'Failed to delete product. Please try again.');
-            } finally {
-              setDeleting(false);
-            }
-          }
-        }
-      ]
-    );
+    setDeleteModalVisible(true);
+  };
+  
+  const confirmDelete = async () => {
+    setDeleting(true);
+    setDeleteModalVisible(false);
+    
+    try {
+      const response = await productService.deleteProduct(id);
+      
+      if (response.success) {
+        mobileToastManager.success('Product deleted successfully', 'Success');
+        router.back();
+      } else {
+        throw new Error(response.error?.message || 'Failed to delete product');
+      }
+    } catch (error: any) {
+      console.error('Error deleting product:', error);
+      Alert.alert('Error', error?.message || 'Failed to delete product. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -553,12 +596,13 @@ export default function EditProductScreen() {
   // ---------------------------------------------------------------------------
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
+    <>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* General Error Display */}
         {errors.general && (
           <View style={styles.errorContainer}>
@@ -769,5 +813,42 @@ export default function EditProductScreen() {
           />
         </View>
       </ScrollView>
+      
+      {/* Delete Confirmation Modal */}
+      <CustomModal
+        visible={deleteModalVisible}
+        onClose={() => setDeleteModalVisible(false)}
+        title="Delete Product"
+        size="small"
+        position="center"
+        scrollable={false}
+      >
+        <>
+          <Text style={styles.deleteModalText}>
+            Are you sure you want to delete this product? This action cannot be undone.
+          </Text>
+          <View style={styles.deleteModalButtons}>
+            <TouchableOpacity
+              style={[styles.deleteModalButton, styles.deleteModalCancelButton]}
+              onPress={() => setDeleteModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.deleteModalButtonText, styles.deleteModalCancelText]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.deleteModalButton, styles.deleteModalConfirmButton]}
+              onPress={confirmDelete}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.deleteModalButtonText, styles.deleteModalConfirmText]}>
+                Delete
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      </CustomModal>
+    </>
   );
 }

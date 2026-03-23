@@ -12,12 +12,16 @@ import { useRouter } from 'expo-router';
 import { useWishlist } from '../contexts/WishlistContext';
 import { useCart } from '../contexts/CartContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 import { Header } from '../components/Header';
 import { ProductCard } from '../components/ProductCard';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
 export default function WishlistScreen() {
+  // Require authentication
+  const { isAuthenticated } = useRequireAuth('Please sign in to view your wishlist');
+  
   const router = useRouter();
   const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius } = useTheme();
   const { wishlist, loading, removeFromWishlist, clearWishlist } = useWishlist();

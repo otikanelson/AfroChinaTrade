@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMessages } from '../../contexts/MessagesContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -13,6 +14,10 @@ function MessagesTabIcon({ color, focused }: { color: string; focused: boolean }
 export default function TabLayout() {
   const { unreadCount } = useMessages();
   const { colors, fontSizes, fontWeights } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  // Calculate proper tab bar height accounting for system navigation bar
+  const tabBarHeight = Platform.OS === 'android' ? 70 + (insets.bottom || 0) : 70;
 
   return (
     <Tabs
@@ -23,15 +28,23 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopWidth: 1,
-          paddingBottom: Platform.OS === 'ios' ? 0 : 5,
           borderTopColor: colors.border,
-          marginBottom: Platform.OS === 'ios' ? 10 : 0,
-          paddingTop: 3,
-          height: 70,
+          paddingBottom: Platform.OS === 'android' ? insets.bottom : 0,
+          paddingTop: 8,
+          height: tabBarHeight,
+          elevation: 8,
+          shadowColor: colors.shadow,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
         },
         tabBarLabelStyle: {
           fontSize: fontSizes.xs,
           fontWeight: fontWeights.medium,
+          marginBottom: Platform.OS === 'android' ? 4 : 0,
+        },
+        sceneStyle: {
+          paddingBottom: Platform.OS === 'android' ? insets.bottom : 0,
         },
       }}
     >

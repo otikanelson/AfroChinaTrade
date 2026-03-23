@@ -12,8 +12,6 @@ export interface IOrderItem {
 
 // Delivery address subdocument interface
 export interface IDeliveryAddress {
-  fullName: string;
-  phone: string;
   street: string;
   city: string;
   state: string;
@@ -71,16 +69,6 @@ const OrderItemSchema = new Schema<IOrderItem>({
 
 // Delivery address subdocument schema
 const DeliveryAddressSchema = new Schema<IDeliveryAddress>({
-  fullName: {
-    type: String,
-    required: [true, 'Full name is required'],
-    trim: true,
-  },
-  phone: {
-    type: String,
-    required: [true, 'Phone number is required'],
-    trim: true,
-  },
   street: {
     type: String,
     required: [true, 'Street address is required'],

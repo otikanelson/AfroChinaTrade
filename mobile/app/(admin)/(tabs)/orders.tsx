@@ -12,10 +12,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Order } from '../../../types/product';
 import { orderService } from '../../../services/OrderService';
-import { Card } from '../../../components/admin/Card';
 import { DataList } from '../../../components/admin/DataList';
 import { SearchBar } from '../../../components/admin/SearchBar';
-import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
+import { OrderCard } from '../../../components/admin/OrderCard';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Header } from '../../../components/Header';
 
@@ -23,35 +22,6 @@ import { Header } from '../../../components/Header';
 
 type OrderStatusFilter = 'all' | 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 type TimePeriod = 'today' | 'week' | 'month' | 'all';
-
-/** Map Order.status → StatusBadge StatusType */
-function orderStatusToBadge(status: Order['status']): StatusType {
-  switch (status) {
-    case 'pending':     return 'pending';
-    case 'processing':  return 'accepted';
-    case 'shipped':     return 'shipped';
-    case 'delivered':   return 'delivered';
-    case 'cancelled':   return 'failed';
-    default:            return 'pending';
-  }
-}
-
-/** Human-readable label for each status */
-function statusLabel(status: Order['status']): string {
-  switch (status) {
-    case 'pending':     return 'Pending';
-    case 'processing':  return 'Accepted';
-    case 'shipped':     return 'Shipped';
-    case 'delivered':   return 'Delivered';
-    case 'cancelled':   return 'Cancelled';
-    default:            return status;
-  }
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 function isWithinPeriod(iso: string, period: TimePeriod): boolean {
   if (period === 'all') return true;
@@ -152,46 +122,7 @@ const StatsCard: React.FC<StatsCardProps> = ({ label, value, icon, color }) => {
 
 // ─── Order card ───────────────────────────────────────────────────────────────
 
-interface OrderCardProps {
-  order: Order;
-  onPress: () => void;
-}
-
-const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
-  const { colors, spacing, fontSizes, fontWeights } = useTheme();
-  
-  return (
-    <Card onPress={onPress} style={{ marginHorizontal: spacing.base, marginVertical: spacing.sm }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <View style={{ flex: 1, gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs }}>
-            <Text style={{ fontSize: fontSizes.lg, fontWeight: fontWeights.bold as any, color: colors.text }} numberOfLines={1}>
-              #{order.id.slice(-8).toUpperCase()}
-            </Text>
-            <StatusBadge
-              status={orderStatusToBadge(order.status)}
-              label={statusLabel(order.status)}
-              size="sm"
-            />
-          </View>
-          <Text style={{ fontSize: fontSizes.base, color: colors.textSecondary, fontWeight: fontWeights.medium as any }} numberOfLines={1}>
-            {order.shippingAddress.street}
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xs }}>
-            <Text style={{ fontSize: fontSizes.sm, color: colors.textLight }}>{formatDate(order.createdAt)}</Text>
-            <Text style={{ fontSize: fontSizes.lg, fontWeight: fontWeights.bold as any, color: colors.primary }}>₦{order.total.toFixed(2)}</Text>
-          </View>
-        </View>
-        <Ionicons
-          name="chevron-forward"
-          size={18}
-          color={colors.textLight}
-          style={{ marginLeft: spacing.md, flexShrink: 0, opacity: 0.6 }}
-        />
-      </View>
-    </Card>
-  );
-};
+// Removed - now using shared OrderCard component
 
 // ─── Period selector modal ────────────────────────────────────────────────────
 
@@ -525,9 +456,9 @@ export default function OrdersScreen() {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (o) =>
-          o.id.toLowerCase().includes(q) ||
-          o.shippingAddress.street.toLowerCase().includes(q) ||
-          o.id.toLowerCase().includes(q),
+          o.orderId.toLowerCase().includes(q) ||
+          (o.deliveryAddress?.street || '').toLowerCase().includes(q) ||
+          (o.deliveryAddress?.city || '').toLowerCase().includes(q),
       );
     }
 
@@ -547,7 +478,7 @@ export default function OrdersScreen() {
     const pending = periodOrders.filter((o) => o.status === 'pending').length;
     const revenue = periodOrders
       .filter((o) => o.status !== 'cancelled')
-      .reduce((sum, o) => sum + o.total, 0);
+      .reduce((sum, o) => sum + o.totalAmount, 0);
     return { total, pending, revenue };
   }, [orders, timePeriod]);
 
@@ -555,7 +486,7 @@ export default function OrdersScreen() {
 
   const handleOrderPress = useCallback(
     (order: Order) => {
-      router.push({ pathname: '/(admin)/order/[id]', params: { id: order.id } });
+      router.push({ pathname: '/(admin)/order/[id]', params: { id: order._id } });
     },
     [router],
   );
@@ -569,7 +500,7 @@ export default function OrdersScreen() {
     [handleOrderPress],
   );
 
-  const keyExtractor = useCallback((item: Order) => item.id, []);
+  const keyExtractor = useCallback((item: Order) => item._id, []);
 
   const periodLabel = PERIODS.find((p) => p.value === timePeriod)?.label ?? 'All Time';
 

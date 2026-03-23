@@ -67,7 +67,7 @@ export const CartSidebar: React.FC = () => {
 const styles = StyleSheet.create({
   floatingButton: {
     position: 'absolute',
-    bottom: 100, // Above the tab bar
+    bottom: 90, // Above the tab bar
     right: 20,
     width: 56,
     height: 56,

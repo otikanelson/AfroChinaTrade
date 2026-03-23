@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import Order from '../models/Order';
 import Product from '../models/Product';
+import DeliveryAddress from '../models/DeliveryAddress';
 
 // Create new order
 export const createOrder = async (req: Request, res: Response): Promise<void> => {
@@ -406,6 +407,131 @@ export const cancelOrder = async (req: Request, res: Response): Promise<void> =>
         status: 'error',
         message: 'Failed to cancel order',
         errorCode: 'CANCEL_ORDER_FAILED',
+      });
+    }
+  }
+};
+
+// Checkout endpoint - validates and creates order from cart
+export const checkout = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { items, deliveryAddressId, paymentMethodId } = req.body;
+
+    if (!req.userId) {
+      res.status(401).json({
+        status: 'error',
+        message: 'Unauthorized',
+        errorCode: 'UNAUTHORIZED',
+      });
+      return;
+    }
+
+    // Validate required fields
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Order must contain at least one item',
+        errorCode: 'MISSING_ITEMS',
+      });
+      return;
+    }
+
+    if (!deliveryAddressId || !paymentMethodId) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Delivery address and payment method are required',
+        errorCode: 'MISSING_FIELDS',
+      });
+      return;
+    }
+
+    // Validate products and calculate total
+    let totalAmount = 0;
+    const validatedItems = [];
+
+    for (const item of items) {
+      const product = await Product.findById(item.productId);
+      
+      if (!product) {
+        res.status(400).json({
+          status: 'error',
+          message: `Product ${item.productId} not found`,
+          errorCode: 'PRODUCT_NOT_FOUND',
+        });
+        return;
+      }
+
+      if (product.stock < item.quantity) {
+        res.status(400).json({
+          status: 'error',
+          message: `Insufficient stock for product ${product.name}`,
+          errorCode: 'INSUFFICIENT_STOCK',
+        });
+        return;
+      }
+
+      const subtotal = product.price * item.quantity;
+      totalAmount += subtotal;
+
+      validatedItems.push({
+        productId: product._id,
+        productName: product.name,
+        productImage: product.images && product.images.length > 0 ? product.images[0] : 'placeholder.jpg',
+        quantity: item.quantity,
+        price: product.price,
+        subtotal,
+      });
+    }
+
+    // Fetch delivery address and payment method
+    const deliveryAddress = await DeliveryAddress.findOne({
+      _id: deliveryAddressId,
+      userId: req.userId,
+      isActive: true
+    });
+
+    if (!deliveryAddress) {
+      res.status(404).json({
+        status: 'error',
+        message: 'Delivery address not found',
+        errorCode: 'ADDRESS_NOT_FOUND',
+      });
+      return;
+    }
+
+    // Create order with full address object
+    const order = await Order.create({
+      userId: req.userId,
+      items: validatedItems,
+      totalAmount,
+      deliveryAddress: {
+        street: deliveryAddress.addressLine1,
+        city: deliveryAddress.city,
+        state: deliveryAddress.state,
+        country: deliveryAddress.country || 'Nigeria',
+        postalCode: deliveryAddress.postalCode || '',
+      },
+      paymentMethod: paymentMethodId,
+      status: 'pending',
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Order created successfully',
+      data: order,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      res.status(500).json({
+        success: false,
+        message: error.message,
+        errorCode: 'CHECKOUT_FAILED',
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to process checkout',
+        errorCode: 'CHECKOUT_FAILED',
       });
     }
   }

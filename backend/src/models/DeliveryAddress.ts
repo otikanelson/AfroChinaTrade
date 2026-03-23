@@ -6,13 +6,10 @@ export interface IDeliveryAddress extends Document {
   isDefault: boolean;
   
   // Address details
-  fullName: string;
-  phoneNumber: string;
   addressLine1: string;
   addressLine2?: string;
-  city: string;
+  city: string; // LGA (Local Government Area)
   state: string;
-  localGovernment?: string;
   country: string;
   postalCode?: string;
   
@@ -25,7 +22,6 @@ export interface IDeliveryAddress extends Document {
   
   // Additional details
   landmark?: string;
-  deliveryInstructions?: string;
   
   isActive: boolean;
   createdAt: Date;
@@ -48,16 +44,6 @@ const deliveryAddressSchema = new Schema<IDeliveryAddress>({
     type: Boolean,
     default: false
   },
-  fullName: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  phoneNumber: {
-    type: String,
-    required: true,
-    trim: true
-  },
   addressLine1: {
     type: String,
     required: true,
@@ -77,15 +63,11 @@ const deliveryAddressSchema = new Schema<IDeliveryAddress>({
     required: true,
     trim: true
   },
-  localGovernment: {
-    type: String,
-    trim: true
-  },
   country: {
     type: String,
     required: true,
     trim: true,
-    default: 'Ghana'
+    default: 'Nigeria'
   },
   postalCode: {
     type: String,
@@ -108,11 +90,6 @@ const deliveryAddressSchema = new Schema<IDeliveryAddress>({
   landmark: {
     type: String,
     trim: true
-  },
-  deliveryInstructions: {
-    type: String,
-    trim: true,
-    maxlength: 500
   },
   isActive: {
     type: Boolean,

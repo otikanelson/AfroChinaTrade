@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation } from 'expo-router';
 
 import { messageService } from '../../../services/MessageService';
 import { MessageThread } from '../../../types/message';
@@ -184,6 +184,7 @@ const ThreadCard: React.FC<ThreadCardProps> = ({ thread, onPress }) => {
 
 export default function MessagesScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
 
   const [threads, setThreads] = useState<MessageThread[]>([]);
@@ -263,6 +264,13 @@ export default function MessagesScreen() {
     },
     [threads],
   );
+
+  // Update tab badge with unread count
+  useEffect(() => {
+    navigation.setOptions({
+      tabBarBadge: totalUnread > 0 ? totalUnread : undefined,
+    });
+  }, [totalUnread, navigation]);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
@@ -480,7 +488,6 @@ export default function MessagesScreen() {
         <Header 
           title="Messages"
           subtitle="Customer communications"
-          badge={{ count: totalUnread }}
         />
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
@@ -500,7 +507,6 @@ export default function MessagesScreen() {
       <Header 
         title="Messages"
         subtitle="Customer communications"
-        badge={{ count: totalUnread }}
       />
 
       <DataList<MessageThread>

@@ -228,7 +228,7 @@ export default function AccountTab() {
     },
     guestTitle: {
       fontSize: fontSizes.xl,
-      fontFamily: fonts.bold,
+      fontWeight: fontWeights.semibold,
       color: colors.text,
       marginBottom: spacing.sm,
       textAlign: 'center',

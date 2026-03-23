@@ -7,11 +7,13 @@ import { tokenManager } from '../services/api/tokenManager';
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_USER_KEY = '@afrochinatrade:auth_user';
+const GUEST_MODE_KEY = '@afrochinatrade:guest_mode';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isGuestMode, setIsGuestMode] = useState(false);
 
   useEffect(() => {
     initializeAuth();
@@ -22,12 +24,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true);
       setAuthError(null);
 
+      // Check if user was in guest mode
+      const guestModeFlag = await AsyncStorage.getItem(GUEST_MODE_KEY);
+      if (guestModeFlag === 'true') {
+        console.log('👤 Continuing in guest mode');
+        setIsGuestMode(true);
+        setIsLoading(false);
+        return;
+      }
+
       // Test connection first
       console.log('🔍 Testing backend connection...');
       const connectionTest = await authService.testConnection();
       if (!connectionTest.success) {
         console.error('❌ Backend connection failed:', connectionTest.error);
         setAuthError(`Cannot connect to server: ${connectionTest.error?.message}`);
+        // Allow guest mode even if backend is down
+        console.log('👤 Allowing guest mode due to connection failure');
+        setIsGuestMode(true);
         setIsLoading(false);
         return;
       }
@@ -38,7 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Check if we have tokens
       if (!tokenManager.isAuthenticated()) {
-        console.log('🔐 No tokens found, user needs to login');
+        console.log('🔐 No tokens found, starting in guest mode');
+        setIsGuestMode(true);
         setIsLoading(false);
         return;
       }
@@ -48,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (storedUser) {
         const userData = JSON.parse(storedUser);
         setUser(userData);
+        setIsGuestMode(false);
         console.log('👤 Loaded user from storage:', userData.name);
       }
 
@@ -55,7 +71,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await loadCurrentUser();
     } catch (error) {
       console.error('Auth initialization failed:', error);
-      await handleAuthError();
+      // Allow guest mode on error
+      setIsGuestMode(true);
     } finally {
       setIsLoading(false);
     }
@@ -91,10 +108,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const handleAuthError = async () => {
-    console.log('🚨 Handling auth error - clearing user data');
+    console.log('🚨 Handling auth error - clearing user data and switching to guest mode');
     setUser(null);
+    setIsGuestMode(true);
     await tokenManager.clearTokens();
     await AsyncStorage.removeItem(AUTH_USER_KEY);
+    await AsyncStorage.setItem(GUEST_MODE_KEY, 'true');
   };
 
   const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
@@ -110,7 +129,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
 
       setUser(authUser);
+      setIsGuestMode(false);
       await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+      await AsyncStorage.removeItem(GUEST_MODE_KEY);
       
       // Load full profile in background
       setTimeout(() => loadCurrentUser(), 100);
@@ -136,7 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
 
       setUser(authUser);
+      setIsGuestMode(false);
       await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+      await AsyncStorage.removeItem(GUEST_MODE_KEY);
       
       // Load full profile in background
       setTimeout(() => loadCurrentUser(), 100);
@@ -156,13 +179,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.warn('Logout service failed, but continuing with local logout');
     } finally {
       setUser(null);
+      setIsGuestMode(true);
       await AsyncStorage.removeItem(AUTH_USER_KEY);
+      await AsyncStorage.setItem(GUEST_MODE_KEY, 'true');
     }
   };
 
   const forceLogout = async (): Promise<void> => {
     console.log('🔒 Force logout triggered');
     await logout();
+  };
+
+  const enableGuestMode = async (): Promise<void> => {
+    console.log('👤 Enabling guest mode');
+    setIsGuestMode(true);
+    await AsyncStorage.setItem(GUEST_MODE_KEY, 'true');
+  };
+
+  const requireAuth = (): boolean => {
+    return !!user && tokenManager.isAuthenticated();
   };
 
   const getCurrentUser = async (): Promise<void> => {
@@ -209,6 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAdmin: user?.role === 'admin' || user?.role === 'super_admin',
     isLoading,
     authError,
+    isGuestMode,
     login,
     register,
     logout,
@@ -216,6 +252,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getCurrentUser,
     updateProfile,
     clearError,
+    enableGuestMode,
+    requireAuth,
   };
 
   return (

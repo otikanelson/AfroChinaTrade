@@ -75,8 +75,8 @@ function generateTimestampInPast(daysAgo: number): Date {
 
 async function seedBrowsingHistory() {
   try {
-    // Use MongoDB URI from environment or default
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/afrochinatrade';
+    // Use MongoDB URI from environment or Atlas as fallback
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://Nelson:NELSON2005@ac-e3a4d1f-shard-00-00.pg9c7ou.mongodb.net:27017,ac-e3a4d1f-shard-00-01.pg9c7ou.mongodb.net:27017,ac-e3a4d1f-shard-00-02.pg9c7ou.mongodb.net:27017/afrochinatrade?ssl=true&authSource=admin&retryWrites=true&w=majority';
     
     // Connect to MongoDB
     await mongoose.connect(mongoUri);

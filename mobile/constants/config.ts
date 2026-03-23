@@ -2,8 +2,8 @@
 const DEV_URLS = {
   // Use this for Android emulator
   EMULATOR: 'http://10.0.2.2:3000/api',
-  // Use this for physical device on same WiFi network (192.168.100.14)
-  WIFI: 'http://192.168.100.14:3000/api',
+  // Use this for physical device on same WiFi network
+  WIFI: 'http://192.168.95.202:3000/api',
   // Use this for iOS simulator
   IOS_SIMULATOR: 'http://localhost:3000/api',
 };
@@ -21,7 +21,7 @@ import Constants from 'expo-constants';
 const appExtra = Constants.expoConfig?.extra as any;
 const configApiUrl = appExtra?.apiUrl;
 
-export const API_BASE_URL = configApiUrl || DEV_URLS.WIFI;
+export const API_BASE_URL = configApiUrl || DEV_URLS.EMULATOR; // Change to EMULATOR if using Android emulator
 
 export const APP_CONFIG = {
   name: 'AfroChinaTrade',

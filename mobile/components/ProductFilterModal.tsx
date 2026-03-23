@@ -2,19 +2,20 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  Modal,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
   TextInput,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../hooks/useToast';
 import { ProductFilters } from '../types/navigation';
 import { colors } from '../theme/colors';
 import { spacing, borderRadius } from '../theme/spacing';
 import { fontSizes, fontWeights } from '../theme/typography';
+import { CustomModal } from './ui/CustomModal';
+import { Toast } from './ui/Toast';
 
 interface ProductFilterModalProps {
   visible: boolean;
@@ -53,6 +54,7 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
   collectionType,
 }) => {
   const { colors: themeColors } = useTheme();
+  const toast = useToast();
   
   const [filters, setFilters] = useState<ProductFilters>(initialFilters);
   const [minPrice, setMinPrice] = useState(initialFilters.minPrice?.toString() || '');
@@ -74,7 +76,7 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
     // Validate price range
     if (updatedFilters.minPrice && updatedFilters.maxPrice) {
       if (updatedFilters.minPrice > updatedFilters.maxPrice) {
-        Alert.alert('Invalid Price Range', 'Minimum price cannot be greater than maximum price');
+        toast.error('Minimum price cannot be greater than maximum price');
         return;
       }
     }
@@ -240,123 +242,110 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
   });
 
   return (
-    <Modal
+    <CustomModal
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      title="Filter & Sort"
+      onClose={onClose}
+      size="large"
+      position="bottom"
+      scrollable={true}
     >
-      <View style={styles.overlay}>
-        <TouchableOpacity 
-          style={{ flex: 1 }} 
-          activeOpacity={1} 
-          onPress={onClose}
-        />
-        
-        <View style={styles.modal}>
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Filter & Sort</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
-          </View>
+      {/* Sort Options */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Sort By</Text>
+        {SORT_OPTIONS.map((option) => (
+          <TouchableOpacity
+            key={option.value}
+            style={[
+              styles.sortOption,
+              filters.sortBy === option.value && styles.sortOptionSelected,
+            ]}
+            onPress={() => updateFilter('sortBy', option.value)}
+          >
+            <Ionicons
+              name={filters.sortBy === option.value ? 'radio-button-on' : 'radio-button-off'}
+              size={20}
+              color={filters.sortBy === option.value ? colors.primary : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.sortOptionText,
+                filters.sortBy === option.value && styles.sortOptionTextSelected,
+              ]}
+            >
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-          <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-            {/* Sort Options */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Sort By</Text>
-              {SORT_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
+      {/* Categories */}
+      {collectionType === 'all' && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Category</Text>
+          <View style={styles.categoriesContainer}>
+            {CATEGORIES.map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={[
+                  styles.categoryOption,
+                  filters.category === category && styles.categoryOptionSelected,
+                ]}
+                onPress={() => 
+                  updateFilter('category', filters.category === category ? undefined : category)
+                }
+              >
+                <Text
                   style={[
-                    styles.sortOption,
-                    filters.sortBy === option.value && styles.sortOptionSelected,
+                    styles.categoryOptionText,
+                    filters.category === category && styles.categoryOptionTextSelected,
                   ]}
-                  onPress={() => updateFilter('sortBy', option.value)}
                 >
-                  <Ionicons
-                    name={filters.sortBy === option.value ? 'radio-button-on' : 'radio-button-off'}
-                    size={20}
-                    color={filters.sortBy === option.value ? colors.primary : colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.sortOptionText,
-                      filters.sortBy === option.value && styles.sortOptionTextSelected,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Categories */}
-            {collectionType === 'all' && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Category</Text>
-                <View style={styles.categoriesContainer}>
-                  {CATEGORIES.map((category) => (
-                    <TouchableOpacity
-                      key={category}
-                      style={[
-                        styles.categoryOption,
-                        filters.category === category && styles.categoryOptionSelected,
-                      ]}
-                      onPress={() => 
-                        updateFilter('category', filters.category === category ? undefined : category)
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.categoryOptionText,
-                          filters.category === category && styles.categoryOptionTextSelected,
-                        ]}
-                      >
-                        {category}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Price Range */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Price Range (₦)</Text>
-              <View style={styles.priceContainer}>
-                <TextInput
-                  style={styles.priceInput}
-                  placeholder="Min"
-                  placeholderTextColor={colors.textLight}
-                  value={minPrice}
-                  onChangeText={setMinPrice}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.priceSeparator}>to</Text>
-                <TextInput
-                  style={styles.priceInput}
-                  placeholder="Max"
-                  placeholderTextColor={colors.textLight}
-                  value={maxPrice}
-                  onChangeText={setMaxPrice}
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-          </ScrollView>
-
-          <View style={styles.footer}>
-            <TouchableOpacity style={[styles.footerButton, styles.clearButton]} onPress={handleClearFilters}>
-              <Text style={[styles.footerButtonText, styles.clearButtonText]}>Clear All</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.footerButton, styles.applyButton]} onPress={handleApplyFilters}>
-              <Text style={[styles.footerButtonText, styles.applyButtonText]}>Apply Filters</Text>
-            </TouchableOpacity>
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
+      )}
+
+      {/* Price Range */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Price Range (₦)</Text>
+        <View style={styles.priceContainer}>
+          <TextInput
+            style={styles.priceInput}
+            placeholder="Min"
+            placeholderTextColor={colors.textLight}
+            value={minPrice}
+            onChangeText={setMinPrice}
+            keyboardType="numeric"
+          />
+          <Text style={styles.priceSeparator}>to</Text>
+          <TextInput
+            style={styles.priceInput}
+            placeholder="Max"
+            placeholderTextColor={colors.textLight}
+            value={maxPrice}
+            onChangeText={setMaxPrice}
+            keyboardType="numeric"
+          />
+        </View>
       </View>
-    </Modal>
+
+      {/* Footer Buttons */}
+      <View style={styles.footer}>
+        <TouchableOpacity style={[styles.footerButton, styles.clearButton]} onPress={handleClearFilters}>
+          <Text style={[styles.footerButtonText, styles.clearButtonText]}>Clear All</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.footerButton, styles.applyButton]} onPress={handleApplyFilters}>
+          <Text style={[styles.footerButtonText, styles.applyButtonText]}>Apply Filters</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Toast Component */}
+      <Toast {...toast} />
+    </CustomModal>
   );
 };
 

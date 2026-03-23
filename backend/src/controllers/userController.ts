@@ -63,13 +63,16 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
     const total = await User.countDocuments(filter);
 
     res.json({
-      users,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum),
-      },
+      status: 'success',
+      data: {
+        users,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum),
+        },
+      }
     });
   } catch (error: any) {
     res.status(500).json({ 
@@ -104,7 +107,7 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
 
     res.json({
       status: 'success',
-      user
+      data: user
     });
   } catch (error: any) {
     res.status(500).json({ 
@@ -201,7 +204,7 @@ export const updateUserStatus = async (req: AuthRequest, res: Response) => {
     res.json({
       status: 'success',
       message: 'User status updated successfully',
-      user,
+      data: user,
     });
   } catch (error: any) {
     res.status(500).json({ 

@@ -6,6 +6,7 @@ import {
   updateOrderStatus,
   updateTrackingNumber,
   cancelOrder,
+  checkout,
 } from '../controllers/orderController';
 import { verifyToken, authorize } from '../middleware/auth';
 
@@ -16,6 +17,7 @@ router.use(verifyToken);
 
 // Customer and admin routes
 router.post('/', createOrder);
+router.post('/checkout', checkout);
 router.get('/', getOrders);
 router.get('/:id', getOrderById);
 router.delete('/:id', cancelOrder);

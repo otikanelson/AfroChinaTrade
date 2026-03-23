@@ -28,6 +28,7 @@ import productCollectionRoutes from './routes/productCollectionRoutes';
 import recommendationRoutes from './routes/recommendationRoutes';
 import deliveryAddressRoutes from './routes/deliveryAddressRoutes';
 import locationRoutes from './routes/locationRoutes';
+import paymentMethodRoutes from './routes/paymentMethodRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -85,6 +86,7 @@ app.use('/api', productCollectionRoutes);
 app.use('/api', recommendationRoutes);
 app.use('/api/addresses', deliveryAddressRoutes);
 app.use('/api/locations', locationRoutes);
+app.use('/api/payment-methods', paymentMethodRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

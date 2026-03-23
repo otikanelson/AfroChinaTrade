@@ -5,10 +5,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../theme';
+import { useToast } from '../../../hooks/useToast';
+import { Toast } from '../../ui/Toast';
 
 interface Specification {
   id: string;
@@ -34,6 +35,7 @@ export const SpecificationsTable: React.FC<SpecificationsTableProps> = ({
   testID,
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const toast = useToast();
 
   const addSpecification = () => {
     const newSpec: Specification = {
@@ -53,24 +55,14 @@ export const SpecificationsTable: React.FC<SpecificationsTableProps> = ({
   };
 
   const removeSpecification = (id: string) => {
-    Alert.alert(
-      'Remove Specification',
-      'Are you sure you want to remove this specification?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            const filtered = specifications.filter(spec => spec.id !== id);
-            onSpecificationsChange(filtered);
-            if (editingId === id) {
-              setEditingId(null);
-            }
-          },
-        },
-      ]
-    );
+    toast.warning('Removing specification...', 2000);
+    setTimeout(() => {
+      const filtered = specifications.filter(spec => spec.id !== id);
+      onSpecificationsChange(filtered);
+      if (editingId === id) {
+        setEditingId(null);
+      }
+    }, 500);
   };
 
   const handleEdit = (id: string) => {
@@ -82,7 +74,7 @@ export const SpecificationsTable: React.FC<SpecificationsTableProps> = ({
     if (editingId) {
       const editingSpec = specifications.find(spec => spec.id === editingId);
       if (editingSpec && (!editingSpec.key.trim() || !editingSpec.value.trim())) {
-        Alert.alert('Invalid Specification', 'Both specification name and value are required.');
+        toast.error('Both specification name and value are required.');
         return;
       }
     }
@@ -170,6 +162,9 @@ export const SpecificationsTable: React.FC<SpecificationsTableProps> = ({
           ))}
         </View>
       )}
+
+      {/* Toast Component */}
+      <Toast {...toast} />
     </View>
   );
 };

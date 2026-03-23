@@ -62,15 +62,25 @@ export interface OrderItem {
 }
 
 export interface Order {
-  id: string;
+  _id: string;
+  orderId: string;
+  userId: string;
   items: OrderItem[];
-  total: number;
   totalAmount: number;
   status: OrderStatus;
-  createdAt: string;
-  shippingAddress: Address;
-  deliveryAddress: DeliveryAddress;
+  deliveryAddress: {
+    street: string;
+    city: string;
+    state: string;
+    country: string;
+    postalCode: string;
+  };
+  paymentMethod: string;
+  paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
   trackingNumber?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';

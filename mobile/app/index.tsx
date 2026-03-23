@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
 
 export default function Index() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, isGuestMode } = useAuth();
 
   if (isLoading) {
     return (
@@ -13,14 +13,14 @@ export default function Index() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <Redirect href="/auth/login" />;
+  // If authenticated, redirect based on role
+  if (isAuthenticated && user) {
+    if (user.role === 'admin' || user.role === 'super_admin') {
+      return <Redirect href="/(admin)/(tabs)/products" />;
+    }
+    return <Redirect href="/(tabs)/home" />;
   }
 
-  // Redirect based on user role
-  if (user?.role === 'admin' || user?.role === 'super_admin') {
-    return <Redirect href="/(admin)/(tabs)/products" />;
-  }
-
+  // If in guest mode or not authenticated, go to home (guest browsing)
   return <Redirect href="/(tabs)/home" />;
 }

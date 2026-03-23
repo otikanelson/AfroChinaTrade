@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SettingsSection, SettingsItem, UserRole } from '../../types/settings';
 import { SettingsSectionComponent } from './SettingsSection';
 import { filterSettingsByRole, createDefaultSettingsSections } from '../../utils/settingsConfig';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useToast } from '../../hooks/useToast';
+import { Toast } from '../ui/Toast';
 import { spacing } from '../../theme/spacing';
 
 interface SettingsProps {
@@ -24,6 +26,7 @@ export const Settings: React.FC<SettingsProps> = ({
   const router = useRouter();
   const { user, logout } = useAuth();
   const { colors } = useTheme();
+  const toast = useToast();
   const [settings, setSettings] = useState<Record<string, any>>({});
 
   // Determine user role
@@ -73,7 +76,7 @@ export const Settings: React.FC<SettingsProps> = ({
       }
     } catch (error) {
       console.error('Failed to save setting:', error);
-      Alert.alert('Error', 'Failed to save setting. Please try again.');
+      toast.error('Failed to save setting. Please try again.');
     }
   };
 
@@ -112,19 +115,19 @@ export const Settings: React.FC<SettingsProps> = ({
         break;
       
       case 'analytics':
-        Alert.alert('Analytics', 'Analytics dashboard coming soon!');
+        toast.info('Analytics dashboard coming soon!');
         break;
       
       case 'help-center':
-        Alert.alert('Help Center', 'Help center coming soon!');
+        toast.info('Help center coming soon!');
         break;
       
       case 'contact-support':
-        Alert.alert('Contact Support', 'Support chat coming soon!');
+        toast.info('Support chat coming soon!');
         break;
       
       case 'report-issue':
-        Alert.alert('Report Issue', 'Issue reporting coming soon!');
+        toast.info('Issue reporting coming soon!');
         break;
       
       case 'customer-view':
@@ -170,25 +173,15 @@ export const Settings: React.FC<SettingsProps> = ({
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/auth/login');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to logout');
-            }
-          },
-        },
-      ]
-    );
+    toast.warning('Logging out...', 2000);
+    setTimeout(async () => {
+      try {
+        await logout();
+        router.replace('/auth/login');
+      } catch (error) {
+        toast.error('Failed to logout');
+      }
+    }, 500);
   };
 
   // Update sections with current setting values
@@ -219,6 +212,9 @@ export const Settings: React.FC<SettingsProps> = ({
           />
         ))}
       </ScrollView>
+      
+      {/* Toast Component */}
+      <Toast {...toast} />
     </View>
   );
 };

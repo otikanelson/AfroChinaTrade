@@ -18,8 +18,7 @@ import { Order, Refund } from '../../../types/product';
 import { analyticsService } from '../../../services/AnalyticsService';
 import { refundService } from '../../../services/RefundService';
 import { orderService } from '../../../services/OrderService';
-import { Card } from '../../../components/admin/Card';
-import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
+import { OrderCard } from '../../../components/admin/OrderCard';
 import { Button } from '../../../components/admin/Button';
 import { mobileToastManager } from '../../../utils/toast';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -91,10 +90,10 @@ function buildCsv(orders: Order[], refunds: Refund[], period: TimePeriod): strin
   lines.push(['Order ID', 'Date', 'Status', 'Amount'].map(escapeCsv).join(','));
   for (const o of orders) {
     lines.push([
-      o.id.slice(-8).toUpperCase(),
+      o.orderId.slice(-8).toUpperCase(),
       formatDate(o.createdAt),
       o.status,
-      o.total.toFixed(2),
+      o.totalAmount.toFixed(2),
     ].map(escapeCsv).join(','));
   }
 
@@ -110,7 +109,7 @@ function buildCsv(orders: Order[], refunds: Refund[], period: TimePeriod): strin
       r.id,
       r.orderId.slice(-8).toUpperCase(),
       r.type,
-      r.amount.toFixed(2),
+      (r.amount || 0).toFixed(2),
       r.reason,
       formatDate(r.createdAt),
     ].map(escapeCsv).join(','));
@@ -224,12 +223,12 @@ export default function FinanceScreen() {
 
     const handleSubmit = () => {
       if (!order) return;
-      const refundAmount = type === 'full' ? order.total : parseFloat(amount);
-      if (type === 'partial' && (isNaN(refundAmount) || refundAmount <= 0 || refundAmount > order.total)) {
-        Alert.alert('Invalid Amount', `Enter an amount between ₦0.01 and ₦${order.total.toFixed(2)}`);
+      const refundAmount = type === 'full' ? order.totalAmount : parseFloat(amount);
+      if (type === 'partial' && (isNaN(refundAmount) || refundAmount <= 0 || refundAmount > order.totalAmount)) {
+        Alert.alert('Invalid Amount', `Enter an amount between ₦0.01 and ₦${order.totalAmount.toFixed(2)}`);
         return;
       }
-      onSubmit(order.id, type, refundAmount, reason.trim() || 'No reason provided');
+      onSubmit(order._id, type, refundAmount, reason.trim() || 'No reason provided');
       reset();
     };
 
@@ -238,7 +237,7 @@ export default function FinanceScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <Text style={styles.modalTitle}>Process Refund</Text>
-            {order && <Text style={styles.modalSub}>Order #{order.id.slice(-8).toUpperCase()} — ₦{order.total.toFixed(2)}</Text>}
+            {order && <Text style={styles.modalSub}>Order #{order.orderId.slice(-8).toUpperCase()} — ₦{order.totalAmount.toFixed(2)}</Text>}
 
             <Text style={styles.fieldLabel}>Refund Type</Text>
             <View style={styles.typeRow}>
@@ -337,16 +336,16 @@ export default function FinanceScreen() {
   const stats = useMemo(() => {
     const revenue = periodOrders
       .filter((o) => o.status !== 'cancelled')
-      .reduce((s, o) => s + o.total, 0);
+      .reduce((s, o) => s + o.totalAmount, 0);
     const pending = periodOrders
       .filter((o) => o.status === 'pending')
-      .reduce((s, o) => s + o.total, 0);
+      .reduce((s, o) => s + o.totalAmount, 0);
     
     // Ensure refunds is an array before filtering
     const refundsArray = Array.isArray(refunds) ? refunds : [];
     const refunded = refundsArray
       .filter((r) => isWithinPeriod(r.createdAt, period))
-      .reduce((s, r) => s + r.amount, 0);
+      .reduce((s, r) => s + (r.amount || 0), 0);
       
     return { revenue, pending, refunded };
   }, [periodOrders, refunds, period]);
@@ -457,28 +456,13 @@ export default function FinanceScreen() {
         ) : (
           <View>
             {recentOrders.map((order) => (
-              <Card key={order.id} style={styles.orderCard}>
-                <View style={styles.orderRow}>
-                  <View style={styles.orderInfo}>
-                    <Text style={styles.orderId}>#{order.id.slice(-8).toUpperCase()}</Text>
-                    <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
-                    <StatusBadge status={paymentStatusToBadge(order.status)} size="sm" />
-                  </View>
-                  <View style={styles.orderRight}>
-                    <Text style={styles.orderAmount}>₦{order.total.toFixed(2)}</Text>
-                    {order.status === 'delivered' && (
-                      <TouchableOpacity
-                        style={styles.refundBtn}
-                        onPress={() => setRefundModalOrder(order)}
-                        accessibilityRole="button"
-                        accessibilityLabel="Process refund"
-                      >
-                        <Text style={styles.refundBtnText}>Refund</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              </Card>
+              <OrderCard 
+                key={order._id} 
+                order={order}
+                onPress={() => router.push({ pathname: '/(admin)/order/[id]', params: { id: order._id } })}
+                showRefundButton={true}
+                onRefundPress={() => setRefundModalOrder(order)}
+              />
             ))}
           </View>
         )}

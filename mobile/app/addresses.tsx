@@ -5,34 +5,47 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { tokenManager } from '../services/api/tokenManager';
 import { API_BASE_URL } from '../constants/config';
 import { useTheme } from '../contexts/ThemeContext';
+import { useRequireAuth } from '../hooks/useRequireAuth';
+import { CustomModal } from '../components/ui/CustomModal';
 
 interface Address {
-  street: string;
+  _id?: string;
+  type?: string;
+  addressLine1: string;
+  addressLine2?: string;
   city: string;
   state: string;
   country: string;
   postalCode: string;
   isDefault: boolean;
   landmark?: string;
-  locationSummary?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+  };
 }
 
 export default function AddressesScreen() {
+  // Require authentication
+  const { isAuthenticated } = useRequireAuth('Please sign in to manage your addresses');
+  
   const router = useRouter();
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [addressToDelete, setAddressToDelete] = useState<string | null>(null);
 
   const styles = StyleSheet.create({
     container: {
@@ -178,10 +191,44 @@ export default function AddressesScreen() {
       color: colors.textSecondary,
       lineHeight: 20,
     },
-    addressPhone: {
-      fontSize: fontSizes.sm,
-      color: colors.primary,
-      fontWeight: fontWeights.medium,
+    deleteModalText: {
+      fontSize: fontSizes.base,
+      color: colors.text,
+      marginBottom: spacing.xl,
+      textAlign: 'center',
+      lineHeight: 22,
+      paddingHorizontal: spacing.sm,
+    },
+    deleteModalButtons: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      width: '100%',
+    },
+    deleteModalButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 44,
+    },
+    deleteModalCancelButton: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    deleteModalConfirmButton: {
+      backgroundColor: colors.error || '#EF4444',
+    },
+    deleteModalButtonText: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold || '600',
+    },
+    deleteModalCancelText: {
+      color: colors.text,
+    },
+    deleteModalConfirmText: {
+      color: '#FFFFFF',
     },
   });
 
@@ -189,18 +236,24 @@ export default function AddressesScreen() {
     fetchAddresses();
   }, []);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchAddresses();
+    }, [])
+  );
+
   const fetchAddresses = async () => {
     const token = await tokenManager.getAccessToken();
     if (!token) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/users/profile`, {
+      const response = await fetch(`${API_BASE_URL}/addresses`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
       const data = await response.json();
       if (data.status === 'success') {
-        setAddresses(data.data.addresses || []);
+        setAddresses(data.data || []);
       }
     } catch (error) {
       console.error('Error fetching addresses:', error);
@@ -215,69 +268,58 @@ export default function AddressesScreen() {
     fetchAddresses();
   };
 
-  const setDefaultAddress = async (addressIndex: number) => {
+  const setDefaultAddress = async (addressId: string) => {
     const token = await tokenManager.getAccessToken();
     if (!token) return;
 
     try {
-      const updatedAddresses = addresses.map((addr, idx) => ({
-        ...addr,
-        isDefault: idx === addressIndex
-      }));
-
-      const response = await fetch(`${API_BASE_URL}/users/profile/addresses`, {
-        method: 'PUT',
+      const response = await fetch(`${API_BASE_URL}/addresses/${addressId}/set-default`, {
+        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ addresses: updatedAddresses }),
       });
 
       const data = await response.json();
       if (data.status === 'success') {
-        setAddresses(updatedAddresses);
+        fetchAddresses();
       }
     } catch (error) {
       console.error('Error setting default address:', error);
     }
   };
 
-  const deleteAddress = async (addressIndex: number) => {
-    Alert.alert(
-      'Delete Address',
-      'Are you sure you want to delete this address?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const token = await tokenManager.getAccessToken();
-            if (!token) return;
+  const deleteAddress = async (addressId: string) => {
+    setAddressToDelete(addressId);
+    setShowDeleteModal(true);
+  };
 
-            try {
-              const updatedAddresses = addresses.filter((_, idx) => idx !== addressIndex);
-              const response = await fetch(`${API_BASE_URL}/users/profile/addresses`, {
-                method: 'PUT',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ addresses: updatedAddresses }),
-              });
+  const confirmDelete = async () => {
+    if (!addressToDelete) return;
 
-              const data = await response.json();
-              if (data.status === 'success') {
-                setAddresses(updatedAddresses);
-              }
-            } catch (error) {
-              console.error('Error deleting address:', error);
-            }
-          },
+    const token = await tokenManager.getAccessToken();
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/addresses/${addressToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-      ]
-    );
+      });
+
+      const data = await response.json();
+      if (data.status === 'success') {
+        fetchAddresses();
+      }
+    } catch (error) {
+      console.error('Error deleting address:', error);
+    } finally {
+      setShowDeleteModal(false);
+      setAddressToDelete(null);
+    }
   };
 
   const getAddressTypeIcon = (type: string) => {
@@ -340,7 +382,7 @@ export default function AddressesScreen() {
           }
         >
           {addresses.map((address, index) => (
-            <View key={index} style={styles.addressCard}>
+            <View key={address._id || index} style={styles.addressCard}>
               <View style={styles.addressHeader}>
                 <View style={styles.addressTypeContainer}>
                   <Ionicons 
@@ -348,6 +390,9 @@ export default function AddressesScreen() {
                     size={20} 
                     color={colors.primary} 
                   />
+                  <Text style={styles.addressType}>
+                    {address.type ? address.type.charAt(0).toUpperCase() + address.type.slice(1) : 'Address'}
+                  </Text>
                   {address.isDefault && (
                     <View style={styles.defaultBadge}>
                       <Text style={styles.defaultBadgeText}>Default</Text>
@@ -359,20 +404,20 @@ export default function AddressesScreen() {
                   {!address.isDefault && (
                     <TouchableOpacity
                       style={styles.actionButton}
-                      onPress={() => setDefaultAddress(index)}
+                      onPress={() => setDefaultAddress(address._id!)}
                     >
                       <Text style={styles.actionButtonText}>Set Default</Text>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => router.push(`/addresses/${index}`)}
+                    onPress={() => router.push(`/addresses/${address._id}`)}
                   >
                     <Text style={styles.actionButtonText}>Edit</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.deleteButton}
-                    onPress={() => deleteAddress(index)}
+                    onPress={() => deleteAddress(address._id!)}
                   >
                     <Ionicons name="trash-outline" size={18} color={colors.error} />
                   </TouchableOpacity>
@@ -381,8 +426,13 @@ export default function AddressesScreen() {
               
               <View style={styles.addressDetails}>
                 <Text style={styles.addressText}>
-                  {address.street}
+                  {address.addressLine1}
                 </Text>
+                {address.addressLine2 && (
+                  <Text style={styles.addressText}>
+                    {address.addressLine2}
+                  </Text>
+                )}
                 <Text style={styles.addressText}>
                   {address.city}, {address.state}
                   {address.postalCode ? ` ${address.postalCode}` : ''}
@@ -391,14 +441,46 @@ export default function AddressesScreen() {
                 {address.landmark && (
                   <Text style={styles.addressText}>📍 {address.landmark}</Text>
                 )}
-                {address.locationSummary && (
-                  <Text style={styles.addressText}>📌 {address.locationSummary}</Text>
-                )}
               </View>
             </View>
           ))}
         </ScrollView>
       )}
+
+      <CustomModal
+        visible={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Address"
+        size="small"
+        position="center"
+        scrollable={false}
+      >
+        <>
+          <Text style={styles.deleteModalText}>
+            Are you sure you want to delete this address?
+          </Text>
+          <View style={styles.deleteModalButtons}>
+            <TouchableOpacity
+              style={[styles.deleteModalButton, styles.deleteModalCancelButton]}
+              onPress={() => setShowDeleteModal(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.deleteModalButtonText, styles.deleteModalCancelText]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.deleteModalButton, styles.deleteModalConfirmButton]}
+              onPress={confirmDelete}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.deleteModalButtonText, styles.deleteModalConfirmText]}>
+                Delete
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      </CustomModal>
     </SafeAreaView>
   );
 }

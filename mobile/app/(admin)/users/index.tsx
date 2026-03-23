@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -12,6 +11,7 @@ import { Card } from '../../../components/admin/Card';
 import { DataList } from '../../../components/admin/DataList';
 import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
 import { SearchBar } from '../../../components/admin/SearchBar';
+import { Header } from '../../../components/Header';
 import { useTheme } from '../../../contexts/ThemeContext';
 
 type StatusFilter = 'all' | 'active' | 'suspended' | 'blocked';
@@ -107,7 +107,12 @@ export default function UserListScreen() {
   }, [users, filter, search]);
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={styles.screen}>
+      <Header 
+        title="User Management"
+        subtitle="Manage customer accounts"
+      />
+      
       <SearchBar value={search} onChangeText={setSearch} placeholder="Search by name or email…" />
 
       <View style={styles.filterRow}>
@@ -151,6 +156,6 @@ export default function UserListScreen() {
         emptyMessage="No users found."
         contentContainerStyle={styles.listContent}
       />
-    </SafeAreaView>
+    </View>
   );
 }

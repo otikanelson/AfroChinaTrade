@@ -7,44 +7,49 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { tokenManager } from '../services/api/tokenManager';
 import { API_BASE_URL } from '../constants/config';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface OrderItem {
-  productId: {
-    _id: string;
-    name: string;
-    images: string[];
-  };
+  productId: string;
+  productName: string;
+  productImage: string;
   quantity: number;
   price: number;
+  subtotal: number;
 }
 
 interface Order {
   _id: string;
-  orderNumber: string;
+  orderId: string;
   items: OrderItem[];
   totalAmount: number;
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   createdAt: string;
   deliveryAddress: {
-    fullName: string;
-    addressLine1: string;
+    street: string;
     city: string;
     state: string;
+    country: string;
+    postalCode: string;
   };
 }
 
 export default function OrdersScreen() {
+  // Require authentication
+  const { isAuthenticated } = useRequireAuth('Please sign in to view your orders');
+  
   const router = useRouter();
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const styles = StyleSheet.create({
     container: {
@@ -222,24 +227,48 @@ export default function OrdersScreen() {
     fetchOrders();
   }, []);
 
+  // Refresh orders when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchOrders();
+    }, [])
+  );
+
   const fetchOrders = async () => {
     const token = await tokenManager.getAccessToken();
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/orders/my-orders`, {
+      console.log('Fetching orders from:', `${API_BASE_URL}/orders`);
+      const response = await fetch(`${API_BASE_URL}/orders`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
+      console.log('Orders response status:', response.status);
       const data = await response.json();
-      if (data.success) {
-        setOrders(data.data);
+      console.log('Orders response data:', JSON.stringify(data, null, 2));
+      
+      if (data.status === 'success') {
+        setOrders(data.data || []);
+        console.log('Orders loaded:', data.data?.length || 0);
+      } else {
+        console.error('Failed to fetch orders:', data.message);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchOrders();
   };
 
   const getStatusColor = (status: string) => {
@@ -321,7 +350,17 @@ export default function OrdersScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView style={styles.ordersList} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.ordersList} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        >
           {orders.map((order) => (
             <TouchableOpacity
               key={order._id}
@@ -330,7 +369,7 @@ export default function OrdersScreen() {
             >
               <View style={styles.orderHeader}>
                 <View style={styles.orderInfo}>
-                  <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
+                  <Text style={styles.orderNumber}>#{order.orderId}</Text>
                   <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
@@ -349,16 +388,16 @@ export default function OrdersScreen() {
                 {order.items.slice(0, 2).map((item, index) => (
                   <View key={index} style={styles.orderItem}>
                     <Image
-                      source={{ uri: item.productId.images[0] || 'https://via.placeholder.com/50' }}
+                      source={{ uri: item.productImage || 'https://via.placeholder.com/50' }}
                       style={styles.itemImage}
                       resizeMode="cover"
                     />
                     <View style={styles.itemInfo}>
                       <Text style={styles.itemName} numberOfLines={1}>
-                        {item.productId.name}
+                        {item.productName}
                       </Text>
                       <Text style={styles.itemDetails}>
-                        Qty: {item.quantity} × ₦{item.price.toFixed(2)}
+                        Qty: {item.quantity} × ₦{item.price.toLocaleString()}
                       </Text>
                     </View>
                   </View>
@@ -377,7 +416,7 @@ export default function OrdersScreen() {
                     {order.deliveryAddress.city}, {order.deliveryAddress.state}
                   </Text>
                 </View>
-                <Text style={styles.orderTotal}>₦{order.totalAmount.toFixed(2)}</Text>
+                <Text style={styles.orderTotal}>₦{order.totalAmount.toLocaleString()}</Text>
               </View>
             </TouchableOpacity>
           ))}

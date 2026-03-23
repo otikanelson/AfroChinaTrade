@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import DeliveryAddress, { IDeliveryAddress } from '../models/DeliveryAddress';
 import { AuthRequest } from '../middleware/auth';
 
@@ -60,53 +60,56 @@ export const getAddressById = async (req: AuthRequest, res: Response): Promise<v
 // Create new delivery address
 export const createAddress = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('📥 [createAddress] Request received');
+    console.log('📥 [createAddress] User ID:', req.userId);
+    console.log('📥 [createAddress] Body:', JSON.stringify(req.body, null, 2));
+
     const {
       type,
-      fullName,
-      phoneNumber,
       addressLine1,
       addressLine2,
       city,
       state,
-      localGovernment,
       postalCode,
       landmark,
-      deliveryInstructions,
       location,
       isDefault
     } = req.body;
 
     // Validate required fields
-    if (!fullName || !phoneNumber || !addressLine1 || !city || !state) {
+    console.log('🔍 [createAddress] Validating fields:');
+    console.log('  - addressLine1:', addressLine1 ? '✓' : '✗');
+    console.log('  - city:', city ? '✓' : '✗');
+    console.log('  - state:', state ? '✓' : '✗');
+
+    const missingFields: Record<string, string> = {};
+    if (!addressLine1) missingFields['addressLine1'] = 'Address line 1 is required';
+    if (!city) missingFields['city'] = 'City is required';
+    if (!state) missingFields['state'] = 'State is required';
+
+    if (Object.keys(missingFields).length > 0) {
+      console.log('✗ [createAddress] Validation failed - missing required fields:', missingFields);
       res.status(400).json({
         status: 'error',
         message: 'Missing required fields',
         errorCode: 'MISSING_FIELDS',
-        fields: {
-          fullName: !fullName ? 'Full name is required' : undefined,
-          phoneNumber: !phoneNumber ? 'Phone number is required' : undefined,
-          addressLine1: !addressLine1 ? 'Address line 1 is required' : undefined,
-          city: !city ? 'City is required' : undefined,
-          state: !state ? 'State is required' : undefined
-        }
+        fields: missingFields
       });
       return;
     }
 
+    console.log('✓ [createAddress] Validation passed');
+
     const newAddress = new DeliveryAddress({
       userId: req.userId,
       type: type || 'home',
-      fullName: fullName.trim(),
-      phoneNumber: phoneNumber.trim(),
       addressLine1: addressLine1.trim(),
       addressLine2: addressLine2?.trim(),
       city: city.trim(),
       state: state.trim(),
-      localGovernment: localGovernment?.trim(),
       country: 'Nigeria',
       postalCode: postalCode?.trim(),
       landmark: landmark?.trim(),
-      deliveryInstructions: deliveryInstructions?.trim(),
       location: location ? {
         latitude: location.latitude,
         longitude: location.longitude,
@@ -116,7 +119,9 @@ export const createAddress = async (req: AuthRequest, res: Response): Promise<vo
       isActive: true
     });
 
+    console.log('💾 [createAddress] Saving address to database...');
     await newAddress.save();
+    console.log('✓ [createAddress] Address saved successfully');
 
     res.status(201).json({
       status: 'success',
@@ -124,7 +129,7 @@ export const createAddress = async (req: AuthRequest, res: Response): Promise<vo
       data: newAddress
     });
   } catch (error) {
-    console.error('Error creating address:', error);
+    console.error('✗ [createAddress] Error:', error);
     res.status(500).json({
       status: 'error',
       message: 'Failed to create address',
@@ -139,16 +144,12 @@ export const updateAddress = async (req: AuthRequest, res: Response): Promise<vo
     const { id } = req.params;
     const {
       type,
-      fullName,
-      phoneNumber,
       addressLine1,
       addressLine2,
       city,
       state,
-      localGovernment,
       postalCode,
       landmark,
-      deliveryInstructions,
       location,
       isDefault
     } = req.body;
@@ -169,16 +170,12 @@ export const updateAddress = async (req: AuthRequest, res: Response): Promise<vo
     }
 
     // Update fields
-    if (fullName) address.fullName = fullName.trim();
-    if (phoneNumber) address.phoneNumber = phoneNumber.trim();
     if (addressLine1) address.addressLine1 = addressLine1.trim();
     if (addressLine2 !== undefined) address.addressLine2 = addressLine2?.trim();
     if (city) address.city = city.trim();
     if (state) address.state = state.trim();
-    if (localGovernment !== undefined) address.localGovernment = localGovernment?.trim();
     if (postalCode !== undefined) address.postalCode = postalCode?.trim();
     if (landmark !== undefined) address.landmark = landmark?.trim();
-    if (deliveryInstructions !== undefined) address.deliveryInstructions = deliveryInstructions?.trim();
     if (type) address.type = type;
     if (location) {
       address.location = {

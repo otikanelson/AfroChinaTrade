@@ -49,6 +49,7 @@ export interface AuthContextType {
   isAdmin: boolean;
   isLoading: boolean;
   authError: string | null;
+  isGuestMode: boolean;
   login: (credentials: LoginCredentials) => Promise<AuthResponse>;
   register: (data: RegisterData) => Promise<AuthResponse>;
   logout: () => Promise<void>;
@@ -56,4 +57,6 @@ export interface AuthContextType {
   getCurrentUser: () => Promise<void>;
   updateProfile: (data: Partial<AuthUser>) => Promise<void>;
   clearError: () => void;
+  enableGuestMode: () => Promise<void>;
+  requireAuth: () => boolean;
 }

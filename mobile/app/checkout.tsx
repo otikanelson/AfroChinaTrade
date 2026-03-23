@@ -9,11 +9,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Header } from '../components/Header';
 import { useCart } from '../contexts/CartContext';
-import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 import { tokenManager } from '../services/api/tokenManager';
 import { API_BASE_URL } from '../constants/config';
 
@@ -34,22 +34,28 @@ interface PaymentMethod {
 }
 
 interface DeliveryAddress {
-  _id: string;
-  type: 'home' | 'work' | 'other';
+  _id?: string;
+  id?: string;
+  type?: 'home' | 'work' | 'other';
   isDefault: boolean;
-  fullName: string;
-  phoneNumber: string;
   addressLine1: string;
   addressLine2?: string;
   city: string;
   state: string;
   country: string;
+  postalCode?: string;
+  street?: string;
+  landmark?: string;
 }
 
 export default function CheckoutScreen() {
+  // Require authentication for checkout
+  const { isAuthenticated, isLoading: authLoading } = useRequireAuth(
+    'Please sign in to complete your purchase'
+  );
+  
   const { cart, clearCart } = useCart();
-  const { user } = useAuth();
-  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
+  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [addresses, setAddresses] = useState<DeliveryAddress[]>([]);
   const [selectedPayment, setSelectedPayment] = useState<string>('');
@@ -58,8 +64,19 @@ export default function CheckoutScreen() {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    fetchCheckoutData();
-  }, []);
+    if (isAuthenticated) {
+      fetchCheckoutData();
+    }
+  }, [isAuthenticated]);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (isAuthenticated) {
+        fetchCheckoutData();
+      }
+    }, [isAuthenticated])
+  );
 
   const fetchCheckoutData = async () => {
     const token = await tokenManager.getAccessToken();
@@ -84,10 +101,10 @@ export default function CheckoutScreen() {
         if (defaultPayment) setSelectedPayment(defaultPayment._id);
       }
 
-      if (addressData.success) {
+      if (addressData.status === 'success' && addressData.data) {
         setAddresses(addressData.data);
         const defaultAddress = addressData.data.find((a: DeliveryAddress) => a.isDefault);
-        if (defaultAddress) setSelectedAddress(defaultAddress._id);
+        if (defaultAddress) setSelectedAddress(defaultAddress._id || defaultAddress.id || '');
       }
     } catch (error) {
       console.error('Error fetching checkout data:', error);
@@ -97,7 +114,7 @@ export default function CheckoutScreen() {
   };
 
   const processOrder = async () => {
-    if (!selectedPayment || !selectedAddress) {
+    if (!selectedPayment || !selectedAddress || !cart) {
       Alert.alert('Error', 'Please select payment method and delivery address');
       return;
     }
@@ -114,8 +131,13 @@ export default function CheckoutScreen() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          paymentMethodId: selectedPayment,
+          items: cart.items.map(item => ({
+            productId: item.productId._id,
+            quantity: item.quantity,
+            price: item.price,
+          })),
           deliveryAddressId: selectedAddress,
+          paymentMethodId: selectedPayment,
         }),
       });
 
@@ -397,29 +419,39 @@ export default function CheckoutScreen() {
               <Text style={styles.addButtonText}>Add Delivery Address</Text>
             </TouchableOpacity>
           ) : (
-            addresses.map((address) => (
-              <TouchableOpacity
-                key={address._id}
-                style={[
-                  styles.optionCard,
-                  selectedAddress === address._id && styles.selectedCard,
-                ]}
-                onPress={() => setSelectedAddress(address._id)}
-              >
-                <View style={styles.optionHeader}>
-                  <Text style={styles.optionTitle}>{address.fullName}</Text>
-                  <View style={styles.radioButton}>
-                    {selectedAddress === address._id && (
-                      <View style={styles.radioSelected} />
-                    )}
+            <>
+              {addresses.map((address) => (
+                <TouchableOpacity
+                  key={address._id || address.id}
+                  style={[
+                    styles.optionCard,
+                    (selectedAddress === address._id || selectedAddress === address.id) && styles.selectedCard,
+                  ]}
+                  onPress={() => setSelectedAddress(address._id || address.id || '')}
+                >
+                  <View style={styles.optionHeader}>
+                    <Text style={styles.optionTitle}>
+                      {address.type ? address.type.charAt(0).toUpperCase() + address.type.slice(1) : 'Address'}
+                    </Text>
+                    <View style={styles.radioButton}>
+                      {(selectedAddress === address._id || selectedAddress === address.id) && (
+                        <View style={styles.radioSelected} />
+                      )}
+                    </View>
                   </View>
-                </View>
-                <Text style={styles.optionSubtitle}>
-                  {address.addressLine1}, {address.city}, {address.state}
-                </Text>
-                <Text style={styles.optionSubtitle}>{address.phoneNumber}</Text>
+                  <Text style={styles.optionSubtitle}>
+                    {address.addressLine1 || address.street}, {address.city}, {address.state}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => router.push('/addresses/new-address')}
+              >
+                <Ionicons name="add" size={20} color={colors.primary} />
+                <Text style={styles.addButtonText}>Add Another Address</Text>
               </TouchableOpacity>
-            ))
+            </>
           )}
         </View>
 

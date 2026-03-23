@@ -8,7 +8,6 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
-  Modal,
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,39 +17,49 @@ import * as Location from 'expo-location';
 import { tokenManager } from '../../services/api/tokenManager';
 import { API_BASE_URL } from '../../constants/config';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { CustomModal } from '../../components/ui/CustomModal';
+import { useAlertContext } from '../../contexts/AlertContext';
 
 interface Address {
-  street: string;
+  type?: string;
+  addressLine1: string;
+  addressLine2?: string;
   city: string;
   state: string;
   country: string;
   postalCode: string;
   isDefault: boolean;
   landmark?: string;
-  locationSummary?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+  };
 }
 
 export default function NewAddressScreen() {
   const router = useRouter();
-  const { user } = useAuth();
-  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
+  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
+  const alert = useAlertContext();
   
   const [formData, setFormData] = useState<Address>({
-    street: '',
+    type: 'home',
+    addressLine1: '',
+    addressLine2: '',
     city: '',
     state: '',
     country: 'Nigeria',
     postalCode: '',
     isDefault: false,
     landmark: '',
-    locationSummary: '',
+    location: undefined,
   });
 
   const [states, setStates] = useState<string[]>([]);
   const [lgas, setLgas] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<string>('');
   const [showStateModal, setShowStateModal] = useState(false);
   const [showLgaModal, setShowLgaModal] = useState(false);
   const [stateSearch, setStateSearch] = useState('');
@@ -89,8 +98,8 @@ export default function NewAddressScreen() {
       marginBottom: spacing.lg,
     },
     sectionTitle: {
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.semibold,
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.bold,
       color: colors.text,
       marginBottom: spacing.sm,
     },
@@ -102,6 +111,7 @@ export default function NewAddressScreen() {
       fontWeight: fontWeights.medium,
       color: colors.text,
       marginBottom: spacing.xs,
+      marginStart: spacing.xs,
     },
     input: {
       backgroundColor: colors.background,
@@ -112,10 +122,6 @@ export default function NewAddressScreen() {
       paddingVertical: spacing.sm,
       fontSize: fontSizes.base,
       color: colors.text,
-    },
-    inputMultiline: {
-      minHeight: 60,
-      textAlignVertical: 'top',
     },
     pickerButton: {
       backgroundColor: colors.background,
@@ -150,6 +156,22 @@ export default function NewAddressScreen() {
       fontSize: fontSizes.base,
       fontWeight: fontWeights.semibold,
     },
+    locationStatusContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.md,
+      padding: spacing.sm,
+      marginTop: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
+    locationStatusText: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+      flex: 1,
+    },
     locationInfo: {
       backgroundColor: colors.background,
       borderRadius: borderRadius.md,
@@ -166,6 +188,8 @@ export default function NewAddressScreen() {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
+      marginBottom: spacing.md,
+      marginLeft: spacing.xs
     },
     checkbox: {
       width: 24,
@@ -241,17 +265,20 @@ export default function NewAddressScreen() {
       color: colors.text,
     },
     modalSearchInput: {
-      marginHorizontal: spacing.base,
-      marginVertical: spacing.sm,
-      paddingHorizontal: spacing.base,
+      marginTop: spacing.sm,
+      marginBottom: spacing.base,
       paddingVertical: spacing.sm,
       backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
       borderRadius: borderRadius.md,
       fontSize: fontSizes.base,
       color: colors.text,
     },
     modalItem: {
-      paddingHorizontal: spacing.base,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       paddingVertical: spacing.md,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
@@ -259,6 +286,7 @@ export default function NewAddressScreen() {
     modalItemText: {
       fontSize: fontSizes.base,
       color: colors.text,
+      flex: 1,
     },
   });
 
@@ -306,111 +334,238 @@ export default function NewAddressScreen() {
   const getDeviceLocation = async () => {
     try {
       setGettingLocation(true);
+      setLocationStatus('Requesting location permission...');
+
       const { status } = await Location.requestForegroundPermissionsAsync();
-      
+
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required');
+        setLocationStatus('Location permission denied');
+        setTimeout(() => setLocationStatus(''), 3000);
+        setGettingLocation(false);
         return;
       }
 
+      setLocationStatus('Getting your location...');
+      
+      // Use lower accuracy for faster results (3-5 seconds instead of 10-15)
       const currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.Low, // Changed from Balanced to Low for speed
+        timeInterval: 5000, // Maximum 5 seconds wait
+        distanceInterval: 0,
       });
 
-      const { latitude, longitude } = currentLocation.coords;
-      
-      try {
-        const reverseGeocode = await Location.reverseGeocodeAsync({
+      const { latitude, longitude, accuracy } = currentLocation.coords;
+      console.log('Got GPS coordinates:', { latitude, longitude, accuracy });
+
+      // Save coordinates immediately - don't wait for reverse geocoding
+      setFormData(prev => ({
+        ...prev,
+        location: {
           latitude,
           longitude,
-        });
-
-        if (reverseGeocode.length > 0) {
-          const location = reverseGeocode[0];
-          const summary = [
-            location.street,
-            location.district,
-            location.city,
-            location.region,
-          ]
-            .filter(Boolean)
-            .join(', ');
-          
-          // Autofill fields from location data
-          setFormData({
-            ...formData,
-            street: location.street || formData.street,
-            city: location.city || location.district || formData.city,
-            state: location.region || formData.state,
-            postalCode: location.postalCode || formData.postalCode,
-            locationSummary: summary,
-          });
+          accuracy: accuracy || undefined,
         }
-      } catch (error) {
-        console.error('Error getting location summary:', error);
-        setFormData({ ...formData, locationSummary: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` });
-      }
+      }));
+
+      setLocationStatus('✓ GPS captured! You can now enter address details.');
+      
+      // Try reverse geocoding in background (non-blocking)
+      // If it fails or takes too long, user can still proceed with manual entry
+      setTimeout(async () => {
+        try {
+          const reverseGeocode = await Location.reverseGeocodeAsync({
+            latitude,
+            longitude,
+          });
+
+          if (reverseGeocode.length > 0) {
+            const location = reverseGeocode[0];
+            console.log('Reverse geocode result:', reverseGeocode);
+
+            // Only update if fields are still empty
+            setFormData(prev => ({
+              ...prev,
+              addressLine1: prev.addressLine1 || location.street?.trim() || '',
+              city: prev.city || (location.city || location.district)?.trim() || '',
+              state: prev.state || location.region?.trim() || '',
+              postalCode: prev.postalCode || location.postalCode?.trim() || '',
+              location: {
+                latitude,
+                longitude,
+                accuracy: accuracy || undefined,
+              }
+            }));
+            
+            setLocationStatus('✓ Location and address captured!');
+          }
+        } catch (error) {
+          console.log('Reverse geocoding failed (non-critical):', error);
+          // Don't show error - GPS coordinates are already saved
+        }
+      }, 100); // Start reverse geocoding after a brief delay
+
+      setTimeout(() => setLocationStatus(''), 5000);
     } catch (error) {
       console.error('Error getting location:', error);
-      Alert.alert('Error', 'Failed to get device location');
+      setLocationStatus('Failed to get location. Please enter address manually.');
+      setTimeout(() => setLocationStatus(''), 3000);
     } finally {
       setGettingLocation(false);
     }
   };
 
   const handleSubmit = async () => {
-    // All fields except landmark are required
-    if (!formData.street || !formData.city || !formData.state || !formData.postalCode) {
-      Alert.alert('Validation Error', 'Please fill in all required fields or capture device location');
-      return;
-    }
+    const trimmedStreet = formData.addressLine1?.trim();
+    const trimmedCity = formData.city?.trim();
+    const trimmedState = formData.state?.trim();
+    const trimmedPostal = formData.postalCode?.trim();
 
-    setLoading(true);
-    const token = await tokenManager.getAccessToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    console.log('Form validation:', {
+      street: `"${trimmedStreet}"`,
+      city: `"${trimmedCity}"`,
+      state: `"${trimmedState}"`,
+      postal: `"${trimmedPostal}"`,
+      hasLocation: !!formData.location,
+    });
 
-    try {
-      const currentAddresses = user?.addresses || [];
-      const newAddress: Address = {
-        street: formData.street.trim() || 'Device Location',
-        city: formData.city.trim() || (formData.locationSummary ? 'Current Location' : ''),
-        state: formData.state.trim() || '',
+    // Check if all manual fields are filled
+    const hasAllManualFields = trimmedStreet && trimmedCity && trimmedState && trimmedPostal;
+
+    // If all manual fields are filled, allow submission (GPS is optional)
+    if (hasAllManualFields) {
+      console.log('✓ Submitting with all manual fields filled');
+      setLoading(true);
+      const token = await tokenManager.getAccessToken();
+      console.log('Token:', token ? '✓ obtained' : '✗ missing');
+      
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      const payload = {
+        type: formData.type || 'home',
+        addressLine1: trimmedStreet,
+        addressLine2: formData.addressLine2?.trim() || undefined,
+        city: trimmedCity,
+        state: trimmedState,
         country: formData.country,
-        postalCode: formData.postalCode.trim() || '',
+        postalCode: trimmedPostal,
+        landmark: formData.landmark?.trim() || undefined,
+        location: formData.location,
         isDefault: formData.isDefault,
-        landmark: formData.landmark?.trim(),
-        locationSummary: formData.locationSummary?.trim(),
       };
 
-      const updatedAddresses = [...currentAddresses, newAddress];
+      console.log('📤 Sending payload:', JSON.stringify(payload, null, 2));
+      console.log('📤 API URL:', `${API_BASE_URL}/addresses`);
+      console.log('📤 Token present:', !!token);
 
-      const response = await fetch(`${API_BASE_URL}/users/profile/addresses`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ addresses: updatedAddresses }),
-      });
+      try {
+        console.log('🌐 Fetching:', `${API_BASE_URL}/addresses`);
+        const response = await fetch(`${API_BASE_URL}/addresses`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
 
-      const data = await response.json();
-      
-      if (data.status === 'success') {
-        Alert.alert('Success', 'Address added successfully', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
-      } else {
-        Alert.alert('Error', data.message || 'Failed to add address');
+        console.log('📥 Response status:', response.status);
+        console.log('📥 Response ok:', response.ok);
+        
+        const responseText = await response.text();
+        console.log('📥 Response text:', responseText);
+        
+        let data;
+        try {
+          data = JSON.parse(responseText);
+          console.log('📥 Parsed response:', JSON.stringify(data, null, 2));
+        } catch (parseError) {
+          console.error('✗ Failed to parse response:', parseError);
+          Alert.alert('Error', 'Invalid response from server');
+          return;
+        }
+        
+        if (data.status === 'success') {
+          console.log('✓ Success! Address created:', data.data);
+          alert.showSuccess('Success', 'Address added successfully', 2000);
+          setTimeout(() => router.back(), 2000);
+        } else {
+          console.log('✗ Error from server:', data.message);
+          console.log('✗ Error code:', data.errorCode);
+          console.log('✗ Error fields:', data.fields);
+          Alert.alert('Error', data.message || 'Failed to add address');
+        }
+      } catch (error) {
+        console.error('✗ Fetch error:', error);
+        console.error('✗ Error details:', JSON.stringify(error, null, 2));
+        Alert.alert('Error', 'Failed to create address. Check console for details.');
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error creating address:', error);
-      Alert.alert('Error', 'Failed to create address');
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    // If not all manual fields, check if we have GPS + street
+    if (formData.location && trimmedStreet) {
+      console.log('Submitting with GPS location');
+      setLoading(true);
+      const token = await tokenManager.getAccessToken();
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/addresses`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: formData.type || 'home',
+            addressLine1: trimmedStreet,
+            addressLine2: formData.addressLine2?.trim() || undefined,
+            city: trimmedCity || 'Current Location',
+            state: trimmedState || 'GPS Location',
+            country: formData.country,
+            postalCode: trimmedPostal || 'GPS',
+            landmark: formData.landmark?.trim() || undefined,
+            location: formData.location,
+            isDefault: formData.isDefault,
+          }),
+        });
+
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+          Alert.alert('Success', 'Address added successfully', [
+            { text: 'OK', onPress: () => router.back() }
+          ]);
+        } else {
+          Alert.alert('Error', data.message || 'Failed to add address');
+        }
+      } catch (error) {
+        console.error('Error creating address:', error);
+        Alert.alert('Error', 'Failed to create address');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Missing required fields
+    const missingFields = [];
+    if (!trimmedStreet) missingFields.push('Street Address');
+    if (!trimmedCity) missingFields.push('LGA');
+    if (!trimmedState) missingFields.push('State');
+    if (!trimmedPostal) missingFields.push('Postal Code');
+
+    console.log('Missing fields:', missingFields);
+
+    Alert.alert('Missing Fields', `Please fill in:\n• ${missingFields.join('\n• ')}`);
   };
 
   const filteredStates = states.filter(state =>
@@ -440,8 +595,8 @@ export default function NewAddressScreen() {
               style={styles.input}
               placeholder="Enter street address"
               placeholderTextColor={colors.textSecondary}
-              value={formData.street}
-              onChangeText={(text) => setFormData({ ...formData, street: text })}
+              value={formData.addressLine1}
+              onChangeText={(text) => setFormData({ ...formData, addressLine1: text })}
             />
           </View>
 
@@ -489,45 +644,15 @@ export default function NewAddressScreen() {
               onChangeText={(text) => setFormData({ ...formData, postalCode: text })}
             />
           </View>
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location</Text>
-          <TouchableOpacity
-            style={styles.locationButton}
-            onPress={getDeviceLocation}
-            disabled={gettingLocation}
-          >
-            <Ionicons 
-              name={gettingLocation ? "hourglass" : "location"} 
-              size={20} 
-              color={colors.background} 
-            />
-            <Text style={styles.locationButtonText}>
-              {gettingLocation ? 'Getting location...' : 'Capture Device Location'}
-            </Text>
-          </TouchableOpacity>
-          
-          {formData.locationSummary && (
-            <View style={styles.locationInfo}>
-              <Text style={styles.locationInfoText}>
-                📍 {formData.locationSummary}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Additional Information</Text>
-          
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Landmark</Text>
+            <Text style={styles.label}>Address Line 2</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g., Near the market, opposite the school"
+              placeholder="Apartment, suite, etc. (optional)"
               placeholderTextColor={colors.textSecondary}
-              value={formData.landmark}
-              onChangeText={(text) => setFormData({ ...formData, landmark: text })}
+              value={formData.addressLine2}
+              onChangeText={(text) => setFormData({ ...formData, addressLine2: text })}
             />
           </View>
 
@@ -544,6 +669,74 @@ export default function NewAddressScreen() {
               )}
             </TouchableOpacity>
             <Text style={styles.checkboxLabel}>Set as default address</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Location</Text>
+          <TouchableOpacity
+            style={styles.locationButton}
+            onPress={getDeviceLocation}
+            disabled={gettingLocation}
+          >
+            <Ionicons 
+              name={gettingLocation ? "hourglass" : "location"} 
+              size={20} 
+              color={colors.background} 
+            />
+            <Text style={styles.locationButtonText}>
+              {gettingLocation ? 'Capturing...' : 'Quick Capture GPS'}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.label, { marginTop: spacing.sm, fontSize: fontSizes.xs, color: colors.textSecondary }]}>
+            GPS capture is optional. You can enter address manually.
+          </Text>
+
+          {gettingLocation && (
+            <View style={styles.locationStatusContainer}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.locationStatusText}>{locationStatus}</Text>
+            </View>
+          )}
+
+          {locationStatus && !gettingLocation && (
+            <View style={styles.locationStatusContainer}>
+              <Ionicons 
+                name={locationStatus.includes('✓') ? "checkmark-circle" : "information-circle"} 
+                size={20} 
+                color={locationStatus.includes('✓') ? colors.success : colors.primary} 
+              />
+              <Text style={styles.locationStatusText}>{locationStatus}</Text>
+            </View>
+          )}
+
+          {formData.location && (
+            <View style={styles.locationInfo}>
+              <Text style={styles.locationInfoText}>
+                📍 GPS: {formData.location.latitude.toFixed(6)}, {formData.location.longitude.toFixed(6)}
+              </Text>
+              <Text style={[styles.locationInfoText, { fontSize: fontSizes.xs, marginTop: 4 }]}>
+                Accuracy: ±{Math.round(formData.location.accuracy || 0)}m
+              </Text>
+            </View>
+          )}
+
+
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Additional Information</Text>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Landmark</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Near the market, opposite the school (optional)"
+              placeholderTextColor={colors.textSecondary}
+              value={formData.landmark}
+              onChangeText={(text) => setFormData({ ...formData, landmark: text })}
+            />
           </View>
         </View>
       </ScrollView>
@@ -569,79 +762,101 @@ export default function NewAddressScreen() {
         </TouchableOpacity>
       </View>
 
-      <Modal
+      <CustomModal
         visible={showStateModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowStateModal(false)}
+        onClose={() => {
+          setShowStateModal(false);
+          setStateSearch('');
+        }}
+        title="Select State"
+        size="large"
+        position="bottom"
+        scrollable={false}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select State</Text>
-              <TouchableOpacity onPress={() => setShowStateModal(false)}>
-                <Ionicons name="close" size={24} color={colors.text} />
+        <View style={{ height: 500 }}>
+          <TextInput
+            style={styles.modalSearchInput}
+            placeholder="Search states..."
+            placeholderTextColor={colors.textSecondary}
+            value={stateSearch}
+            onChangeText={setStateSearch}
+            autoFocus
+          />
+          <FlatList
+            data={filteredStates}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.modalItem}
+                onPress={() => handleStateSelect(item)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalItemText}>{item}</Text>
+                {formData.state === item && (
+                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                )}
               </TouchableOpacity>
-            </View>
-            <TextInput
-              style={styles.modalSearchInput}
-              placeholder="Search states..."
-              placeholderTextColor={colors.textSecondary}
-              value={stateSearch}
-              onChangeText={setStateSearch}
-            />
-            <FlatList
-              data={filteredStates}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.modalItem}
-                  onPress={() => handleStateSelect(item)}
-                >
-                  <Text style={styles.modalItemText}>{item}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
+            )}
+            showsVerticalScrollIndicator={true}
+            contentContainerStyle={{ paddingBottom: spacing.base }}
+            ListEmptyComponent={
+              <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: fontSizes.base }}>
+                  No states found
+                </Text>
+              </View>
+            }
+          />
         </View>
-      </Modal>
+      </CustomModal>
 
-      <Modal
+      <CustomModal
         visible={showLgaModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowLgaModal(false)}
+        onClose={() => {
+          setShowLgaModal(false);
+          setLgaSearch('');
+        }}
+        title="Select Local Government"
+        size="large"
+        position="bottom"
+        scrollable={false}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Local Government</Text>
-              <TouchableOpacity onPress={() => setShowLgaModal(false)}>
-                <Ionicons name="close" size={24} color={colors.text} />
+        <View style={{ height: 500 }}>
+          <TextInput
+            style={styles.modalSearchInput}
+            placeholder="Search LGAs..."
+            placeholderTextColor={colors.textSecondary}
+            value={lgaSearch}
+            onChangeText={setLgaSearch}
+            autoFocus
+          />
+          <FlatList
+            data={filteredLgas}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.modalItem}
+                onPress={() => handleLgaSelect(item)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalItemText}>{item}</Text>
+                {formData.city === item && (
+                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                )}
               </TouchableOpacity>
-            </View>
-            <TextInput
-              style={styles.modalSearchInput}
-              placeholder="Search LGAs..."
-              placeholderTextColor={colors.textSecondary}
-              value={lgaSearch}
-              onChangeText={setLgaSearch}
-            />
-            <FlatList
-              data={filteredLgas}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.modalItem}
-                  onPress={() => handleLgaSelect(item)}
-                >
-                  <Text style={styles.modalItemText}>{item}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
+            )}
+            showsVerticalScrollIndicator={true}
+            contentContainerStyle={{ paddingBottom: spacing.base }}
+            ListEmptyComponent={
+              <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: fontSizes.base }}>
+                  {formData.state ? 'No LGAs found' : 'Please select a state first'}
+                </Text>
+              </View>
+            }
+          />
         </View>
-      </Modal>
+      </CustomModal>
     </SafeAreaView>
   );
 }

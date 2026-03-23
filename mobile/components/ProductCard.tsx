@@ -5,6 +5,8 @@ import { Product } from '../types/product';
 import { useCart } from '../contexts/CartContext';
 import { useWishlist } from '../contexts/WishlistContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../hooks/useToast';
+import { Toast } from './ui/Toast';
 import { colors } from '../theme/colors';
 import { spacing, borderRadius, shadows } from '../theme/spacing';
 import { typography, fontSizes, fontWeights } from '../theme/typography';
@@ -26,15 +28,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   variant = 'grid',
   showViewCount = true
 }) => {
-  const { addToCart } = useCart();
+  const { addToCart, isOperationPending } = useCart();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
   const { user } = useAuth();
-  const [addingToCart, setAddingToCart] = useState(false);
   const [togglingWishlist, setTogglingWishlist] = useState(false);
+  const toast = useToast();
 
   const isAdmin = user?.role === 'admin';
   const getProductId = () => (product as any)._id || product.id;
   const inWishlist = isInWishlist(getProductId());
+  const addingToCart = isOperationPending(getProductId());
 
   const formatPrice = (price: number) => {
     try {
@@ -73,34 +76,31 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     e.stopPropagation();
     
     if (isAdmin) {
-      Alert.alert('Admin Mode', 'Admins cannot add items to cart. This is for viewing purposes only.');
+      toast.warning('Admins cannot add items to cart. This is for viewing purposes only.');
       return;
     }
     
     if (product.stock === 0) {
-      Alert.alert('Out of Stock', 'This product is currently out of stock');
+      toast.warning('This product is currently out of stock');
       return;
     }
 
-    setAddingToCart(true);
     // Handle both _id and id fields from backend
     const productId = (product as any)._id || product.id;
     const success = await addToCart(productId, 1);
     
     if (success) {
-      Alert.alert('Added to Cart', `${product.name} has been added to your cart`);
+      toast.success(`${product.name} has been added to your cart`);
     } else {
-      Alert.alert('Error', 'Failed to add product to cart');
+      toast.error('Failed to add product to cart');
     }
-    
-    setAddingToCart(false);
   };
 
   const handleToggleWishlist = async (e: any) => {
     e.stopPropagation();
     
     if (isAdmin) {
-      Alert.alert('Admin Mode', 'Admins cannot manage wishlists. This is for viewing purposes only.');
+      toast.warning('Admins cannot manage wishlists. This is for viewing purposes only.');
       return;
     }
     
@@ -116,7 +116,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     }
     
     if (!success) {
-      Alert.alert('Error', `Failed to ${inWishlist ? 'remove from' : 'add to'} wishlist`);
+      toast.error(`Failed to ${inWishlist ? 'remove from' : 'add to'} wishlist`);
     }
     
     setTogglingWishlist(false);
@@ -125,11 +125,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   // List variant layout
   if (variant === 'list') {
     return (
-      <TouchableOpacity 
-        style={[styles.listContainer, { backgroundColor: colors.background, borderRadius: borderRadius.md, ...shadows.sm }]} 
-        onPress={onPress} 
-        activeOpacity={0.85}
-      >
+      <>
+        <TouchableOpacity 
+          style={[styles.listContainer, { backgroundColor: colors.background, borderRadius: borderRadius.md, ...shadows.sm }]} 
+          onPress={onPress} 
+          activeOpacity={0.85}
+        >
         {/* Image */}
         <View style={styles.listImageContainer}>
           {product.images && product.images.length > 0 ? (
@@ -255,10 +256,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </View>
         </View>
       </TouchableOpacity>
+      <Toast
+        visible={toast.visible}
+        type={toast.type}
+        message={toast.message}
+        autoClose={toast.autoClose}
+        onClose={toast.hideToast}
+      />
+      </>
     );
   }
 
   return (
+    <>
     <TouchableOpacity style={[styles.container, { backgroundColor: colors.background, borderRadius: borderRadius.md, ...shadows.sm }]} onPress={onPress} activeOpacity={0.85}>
       {/* Image */}
       <View style={styles.imageContainer}>
@@ -289,30 +299,30 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Custom Badge (like "Seller Pick") - positioned on the left */}
         {badge && (
-          <View style={[styles.badge, { backgroundColor: colors.primary, paddingHorizontal: spacing.sm, borderTopRightRadius: borderRadius.base, borderBottomRightRadius: borderRadius.base }]}>
-            <Text style={[styles.badgeText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold }]}>{String(badge)}</Text>
+          <View style={[styles.badge, { backgroundColor: colors.primary, paddingHorizontal: 4, paddingVertical: 2, borderTopRightRadius: borderRadius.sm, borderBottomRightRadius: borderRadius.sm }]}>
+            <Text style={[styles.badgeText, { color: colors.textInverse, fontSize: 10, fontWeight: fontWeights.semibold }]}>{String(badge)}</Text>
           </View>
         )}
 
         {/* Discount Badge - always positioned at top-left */}
         {hasDiscount && (
-          <View style={[styles.discountBadge, { backgroundColor: colors.error, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: borderRadius.sm }]}>
-            <Text style={[styles.discountText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold }]}>{product.discount}% OFF</Text>
+          <View style={[styles.discountBadge, { backgroundColor: colors.error, paddingHorizontal: 4, paddingVertical: 2, borderRadius: borderRadius.sm }]}>
+            <Text style={[styles.discountText, { color: colors.textInverse, fontSize: 10, fontWeight: fontWeights.semibold }]}>{product.discount}% OFF</Text>
           </View>
         )}
 
         {product.stock === 0 && (
-          <View style={[styles.outOfStockBadge, { backgroundColor: 'rgba(220, 53, 69, 0.9)', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: borderRadius.sm }]}>
-            <Text style={[styles.outOfStockText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold }]}>Out of Stock</Text>
+          <View style={[styles.outOfStockBadge, { backgroundColor: 'rgba(220, 53, 69, 0.9)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: borderRadius.sm }]}>
+            <Text style={[styles.outOfStockText, { color: colors.textInverse, fontSize: 10, fontWeight: fontWeights.semibold }]}>Out of Stock</Text>
           </View>
         )}
 
         {/* View Count Badge */}
         {showViewCount && (
-          <View style={[styles.viewCountBadge, { backgroundColor: 'rgba(0, 0, 0, 0.7)', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: borderRadius.sm }]}>
+          <View style={[styles.viewCountBadge, { backgroundColor: 'rgba(0, 0, 0, 0.7)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: borderRadius.sm }]}>
             <View style={styles.viewCountContent}>
-              <Ionicons name="eye" size={12} color={colors.textInverse} style={styles.viewCountIcon} />
-              <Text style={[styles.viewCountText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.medium, marginLeft: 2 }]}>
+              <Ionicons name="eye" size={10} color={colors.textInverse} style={styles.viewCountIcon} />
+              <Text style={[styles.viewCountText, { color: colors.textInverse, fontSize: 10, fontWeight: fontWeights.medium, marginLeft: 2 }]}>
                 {formatViewCount(product.viewCount || 0)}
               </Text>
             </View>
@@ -321,9 +331,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </View>
 
       {/* Content */}
-      <View style={[styles.content, { padding: spacing.sm, gap: spacing.xs }]}>
+      <View style={[styles.content, { paddingHorizontal: spacing.xs, paddingVertical: spacing.xs, gap: spacing.xs }]}>
         {/* Name — fixed 2-line height so price always aligns */}
-        <Text style={[styles.name, { ...typography.body, fontSize: fontSizes.sm, color: colors.text, lineHeight: 20 }]} numberOfLines={2}>
+        <Text style={[styles.name, { ...typography.body, fontSize: fontSizes.xs, color: colors.text, lineHeight: 18 }]} numberOfLines={2}>
           {product.name || 'Unnamed Product'}
         </Text>
 
@@ -335,12 +345,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <Text style={[styles.originalPrice, { fontSize: fontSizes.xs, color: colors.textSecondary, textDecorationLine: 'line-through' }]} numberOfLines={1}>
                   {formatPrice(product.price || 0)}
                 </Text>
-                <Text style={[styles.discountedPrice, { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.error }]} numberOfLines={1}>
+                <Text style={[styles.discountedPrice, { fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.error }]} numberOfLines={1}>
                   {formatPrice(getDiscountedPrice())}
                 </Text>
               </>
             ) : (
-              <Text style={[styles.price, { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.text }]} numberOfLines={1}>
+              <Text style={[styles.price, { fontSize: fontSizes.md, fontWeight: fontWeights.bold, color: colors.text }]} numberOfLines={1}>
                 {formatPrice(product.price || 0)}
               </Text>
             )}
@@ -376,8 +386,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Supplier / stats row */}
         <View style={[styles.footer, { marginTop: spacing.xs }]}>
           {supplier && supplier.name && (
-            <Text style={[styles.supplier, { fontSize: fontSizes.xs, color: colors.primary }]} numberOfLines={1}>
-              {supplier.verified ? 'Verified ' : ''}{supplier.name}
+            <Text style={[styles.supplier, { fontSize: 10, color: colors.primary }]} numberOfLines={1}>
+              {supplier.verified ? <Ionicons name='shield-checkmark-outline' style={{ marginRight: 5}}/> : ''}{supplier.name}
             </Text>
           )}
           {product.reviewCount > 0 && (
@@ -390,13 +400,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </View>
       </View>
     </TouchableOpacity>
+    <Toast
+      visible={toast.visible}
+      type={toast.type}
+      message={toast.message}
+      autoClose={toast.autoClose}
+      onClose={toast.hideToast}
+    />
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
+    width: 112,
     overflow: 'hidden',
+    marginBottom: 5,
   },
   // List variant styles
   listContainer: {
@@ -531,6 +550,9 @@ const styles = StyleSheet.create({
   },
   content: {
     // Styles applied inline
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    gap: 4,
   },
   name: {
     // Styles applied inline

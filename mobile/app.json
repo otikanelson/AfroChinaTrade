@@ -25,14 +25,20 @@
         "foregroundImage": "./assets/images/Logo_bg.png",
         "backgroundColor": "#C41E3A"
       },
-      "package": "com.afrochinatrade.app"
+      "package": "com.afrochinatrade.app",
+      "softwareKeyboardLayoutMode": "pan",
+      "navigationBar": {
+        "barStyle": "light-content",
+        "backgroundColor": "#ffffff"
+      },
+      "windowSoftInputMode": "adjustPan"
     },
     "web": {
       "favicon": "./assets/images/Logo_bg.png",
       "bundler": "metro"
     },
     "extra": {
-      "apiUrl": "https://afro-china-trade.vercel.app/api",
+      "apiUrl": "http://192.168.1.5:3000/api",
       "router": {},
       "eas": {
         "projectId": "bf9457ce-f002-4315-9de5-c6be1affecb6"

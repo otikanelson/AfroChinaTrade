@@ -8,7 +8,6 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
-  Modal,
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,31 +17,49 @@ import * as Location from 'expo-location';
 import { tokenManager } from '../../services/api/tokenManager';
 import { API_BASE_URL } from '../../constants/config';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { CustomModal } from '../../components/ui/CustomModal';
 
 interface Address {
-  street: string;
+  type?: string;
+  addressLine1: string;
+  addressLine2?: string;
   city: string;
   state: string;
   country: string;
   postalCode: string;
   isDefault: boolean;
   landmark?: string;
-  locationSummary?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+  };
 }
 
 export default function EditAddressScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { user, setUser } = useAuth();
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
   
-  const [formData, setFormData] = useState<Address | null>(null);
+  const [formData, setFormData] = useState<Address>({
+    type: 'home',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    country: 'Nigeria',
+    postalCode: '',
+    isDefault: false,
+    landmark: '',
+    location: undefined,
+  });
+
   const [states, setStates] = useState<string[]>([]);
   const [lgas, setLgas] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<string>('');
   const [showStateModal, setShowStateModal] = useState(false);
   const [showLgaModal, setShowLgaModal] = useState(false);
   const [stateSearch, setStateSearch] = useState('');
@@ -81,8 +98,8 @@ export default function EditAddressScreen() {
       marginBottom: spacing.lg,
     },
     sectionTitle: {
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.semibold,
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.bold,
       color: colors.text,
       marginBottom: spacing.sm,
     },
@@ -94,6 +111,7 @@ export default function EditAddressScreen() {
       fontWeight: fontWeights.medium,
       color: colors.text,
       marginBottom: spacing.xs,
+      marginStart: spacing.xs,
     },
     input: {
       backgroundColor: colors.background,
@@ -123,37 +141,12 @@ export default function EditAddressScreen() {
     pickerButtonPlaceholder: {
       color: colors.textSecondary,
     },
-    locationButton: {
-      backgroundColor: colors.primary,
-      borderRadius: borderRadius.md,
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.sm,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacing.sm,
-    },
-    locationButtonText: {
-      color: colors.background,
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.semibold,
-    },
-    locationInfo: {
-      backgroundColor: colors.background,
-      borderRadius: borderRadius.md,
-      padding: spacing.base,
-      marginTop: spacing.sm,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.primary,
-    },
-    locationInfoText: {
-      fontSize: fontSizes.sm,
-      color: colors.textSecondary,
-    },
     checkboxContainer: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
+      marginBottom: spacing.md,
+      marginLeft: spacing.xs
     },
     checkbox: {
       width: 24,
@@ -203,36 +196,6 @@ export default function EditAddressScreen() {
       fontSize: fontSizes.base,
       fontWeight: fontWeights.bold,
     },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'flex-end',
-    },
-    modalContent: {
-      backgroundColor: colors.background,
-      borderTopLeftRadius: borderRadius.lg,
-      borderTopRightRadius: borderRadius.lg,
-      maxHeight: '80%',
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    modalTitle: {
-      fontSize: fontSizes.lg,
-      fontWeight: fontWeights.bold,
-      color: colors.text,
-    },
     modalSearchInput: {
       marginHorizontal: spacing.base,
       marginVertical: spacing.sm,
@@ -253,27 +216,40 @@ export default function EditAddressScreen() {
       fontSize: fontSizes.base,
       color: colors.text,
     },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
   });
 
   useEffect(() => {
     fetchStates();
-    loadAddress();
+    fetchAddress();
   }, []);
 
-  useEffect(() => {
-    if (formData?.state) {
-      fetchLGAs(formData.state);
-    }
-  }, [formData?.state]);
+  const fetchAddress = async () => {
+    const token = await tokenManager.getAccessToken();
+    if (!token) return;
 
-  const loadAddress = () => {
-    if (user?.addresses && id) {
-      const addressIndex = parseInt(id as string);
-      if (addressIndex >= 0 && addressIndex < user.addresses.length) {
-        setFormData(user.addresses[addressIndex]);
+    try {
+      const response = await fetch(`${API_BASE_URL}/addresses/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (data.status === 'success') {
+        setFormData(data.data);
+        if (data.data.state) {
+          fetchLGAs(data.data.state);
+        }
       }
+    } catch (error) {
+      console.error('Error fetching address:', error);
+      Alert.alert('Error', 'Failed to load address');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchStates = async () => {
@@ -301,86 +277,31 @@ export default function EditAddressScreen() {
   };
 
   const handleStateSelect = (state: string) => {
-    if (formData) {
-      setFormData({ ...formData, state, city: '' });
-    }
+    setFormData({ ...formData, state, city: '' });
+    fetchLGAs(state);
     setShowStateModal(false);
     setStateSearch('');
   };
 
   const handleLgaSelect = (lga: string) => {
-    if (formData) {
-      setFormData({ ...formData, city: lga });
-    }
+    setFormData({ ...formData, city: lga });
     setShowLgaModal(false);
     setLgaSearch('');
   };
 
-  const getDeviceLocation = async () => {
-    try {
-      setGettingLocation(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required');
-        return;
-      }
-
-      const currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const { latitude, longitude } = currentLocation.coords;
-      
-      try {
-        const reverseGeocode = await Location.reverseGeocodeAsync({
-          latitude,
-          longitude,
-        });
-
-        if (reverseGeocode.length > 0) {
-          const location = reverseGeocode[0];
-          const summary = [
-            location.street,
-            location.district,
-            location.city,
-            location.region,
-          ]
-            .filter(Boolean)
-            .join(', ');
-          
-          // Autofill fields from location data
-          if (formData) {
-            setFormData({
-              ...formData,
-              street: location.street || formData.street,
-              city: location.city || location.district || formData.city,
-              state: location.region || formData.state,
-              postalCode: location.postalCode || formData.postalCode,
-              locationSummary: summary,
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error getting location summary:', error);
-        if (formData) {
-          setFormData({ ...formData, locationSummary: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` });
-        }
-      }
-    } catch (error) {
-      console.error('Error getting location:', error);
-      Alert.alert('Error', 'Failed to get device location');
-    } finally {
-      setGettingLocation(false);
-    }
-  };
-
   const handleSubmit = async () => {
-    if (!formData) return;
+    const trimmedStreet = formData.addressLine1?.trim();
+    const trimmedCity = formData.city?.trim();
+    const trimmedState = formData.state?.trim();
+    const trimmedPostal = formData.postalCode?.trim();
 
-    // All fields except landmark are required
-    if (!formData.street || !formData.city || !formData.state || !formData.postalCode) {
-      Alert.alert('Validation Error', 'Please fill in all required fields or capture device location');
+    if (!trimmedStreet || !trimmedCity || !trimmedState || !trimmedPostal) {
+      const missingFields = [];
+      if (!trimmedStreet) missingFields.push('Street Address');
+      if (!trimmedCity) missingFields.push('LGA');
+      if (!trimmedState) missingFields.push('State');
+      if (!trimmedPostal) missingFields.push('Postal Code');
+      Alert.alert('Missing Fields', `Please fill in:\n• ${missingFields.join('\n• ')}`);
       return;
     }
 
@@ -392,34 +313,29 @@ export default function EditAddressScreen() {
     }
 
     try {
-      const addressIndex = parseInt(id as string);
-      const updatedAddresses = user?.addresses ? [...user.addresses] : [];
-      updatedAddresses[addressIndex] = {
-        street: formData.street.trim() || 'Device Location',
-        city: formData.city.trim() || (formData.locationSummary ? 'Current Location' : ''),
-        state: formData.state.trim() || '',
-        country: formData.country,
-        postalCode: formData.postalCode.trim() || '',
-        isDefault: formData.isDefault,
-        landmark: formData.landmark?.trim(),
-        locationSummary: formData.locationSummary?.trim(),
-      };
-
-      const response = await fetch(`${API_BASE_URL}/users/profile/addresses`, {
+      const response = await fetch(`${API_BASE_URL}/addresses/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ addresses: updatedAddresses }),
+        body: JSON.stringify({
+          type: formData.type || 'home',
+          addressLine1: trimmedStreet,
+          addressLine2: formData.addressLine2?.trim() || undefined,
+          city: trimmedCity,
+          state: trimmedState,
+          country: formData.country,
+          postalCode: trimmedPostal,
+          landmark: formData.landmark?.trim() || undefined,
+          location: formData.location,
+          isDefault: formData.isDefault,
+        }),
       });
 
       const data = await response.json();
       
       if (data.status === 'success') {
-        if (setUser) {
-          setUser(data.data);
-        }
         Alert.alert('Success', 'Address updated successfully', [
           { text: 'OK', onPress: () => router.back() }
         ]);
@@ -434,16 +350,6 @@ export default function EditAddressScreen() {
     }
   };
 
-  if (loading || !formData) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   const filteredStates = states.filter(state =>
     state.toLowerCase().includes(stateSearch.toLowerCase())
   );
@@ -451,6 +357,22 @@ export default function EditAddressScreen() {
   const filteredLgas = lgas.filter(lga =>
     lga.toLowerCase().includes(lgaSearch.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Address</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -471,8 +393,8 @@ export default function EditAddressScreen() {
               style={styles.input}
               placeholder="Enter street address"
               placeholderTextColor={colors.textSecondary}
-              value={formData.street}
-              onChangeText={(text) => setFormData({ ...formData, street: text })}
+              value={formData.addressLine1}
+              onChangeText={(text) => setFormData({ ...formData, addressLine1: text })}
             />
           </View>
 
@@ -520,44 +442,25 @@ export default function EditAddressScreen() {
               onChangeText={(text) => setFormData({ ...formData, postalCode: text })}
             />
           </View>
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location</Text>
-          <TouchableOpacity
-            style={styles.locationButton}
-            onPress={getDeviceLocation}
-            disabled={gettingLocation}
-          >
-            <Ionicons 
-              name={gettingLocation ? "hourglass" : "location"} 
-              size={20} 
-              color={colors.background} 
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Address Line 2</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Apartment, suite, etc. (optional)"
+              placeholderTextColor={colors.textSecondary}
+              value={formData.addressLine2}
+              onChangeText={(text) => setFormData({ ...formData, addressLine2: text })}
             />
-            <Text style={styles.locationButtonText}>
-              {gettingLocation ? 'Getting location...' : 'Update Location'}
-            </Text>
-          </TouchableOpacity>
-          
-          {formData.locationSummary && (
-            <View style={styles.locationInfo}>
-              <Text style={styles.locationInfoText}>
-                📍 {formData.locationSummary}
-              </Text>
-            </View>
-          )}
-        </View>
+          </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Additional Information</Text>
-          
           <View style={styles.formGroup}>
             <Text style={styles.label}>Landmark</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g., Near the market, opposite the school"
+              placeholder="e.g., Near the market (optional)"
               placeholderTextColor={colors.textSecondary}
-              value={formData.landmark || ''}
+              value={formData.landmark}
               onChangeText={(text) => setFormData({ ...formData, landmark: text })}
             />
           </View>
@@ -588,7 +491,7 @@ export default function EditAddressScreen() {
           {saving ? (
             <ActivityIndicator color={colors.background} />
           ) : (
-            <Text style={styles.submitButtonText}>Save Changes</Text>
+            <Text style={styles.submitButtonText}>Update Address</Text>
           )}
         </TouchableOpacity>
         <TouchableOpacity
@@ -600,79 +503,65 @@ export default function EditAddressScreen() {
         </TouchableOpacity>
       </View>
 
-      <Modal
+      <CustomModal
         visible={showStateModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowStateModal(false)}
+        onClose={() => setShowStateModal(false)}
+        title="Select State"
+        size="large"
+        position="bottom"
+        scrollable={true}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select State</Text>
-              <TouchableOpacity onPress={() => setShowStateModal(false)}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              style={styles.modalSearchInput}
-              placeholder="Search states..."
-              placeholderTextColor={colors.textSecondary}
-              value={stateSearch}
-              onChangeText={setStateSearch}
-            />
-            <FlatList
-              data={filteredStates}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.modalItem}
-                  onPress={() => handleStateSelect(item)}
-                >
-                  <Text style={styles.modalItemText}>{item}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
+        <TextInput
+          style={styles.modalSearchInput}
+          placeholder="Search states..."
+          placeholderTextColor={colors.textSecondary}
+          value={stateSearch}
+          onChangeText={setStateSearch}
+        />
+        <FlatList
+          data={filteredStates}
+          keyExtractor={(item) => item}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => handleStateSelect(item)}
+            >
+              <Text style={styles.modalItemText}>{item}</Text>
+            </TouchableOpacity>
+          )}
+          style={{ maxHeight: 400 }}
+        />
+      </CustomModal>
 
-      <Modal
+      <CustomModal
         visible={showLgaModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowLgaModal(false)}
+        onClose={() => setShowLgaModal(false)}
+        title="Select Local Government"
+        size="large"
+        position="bottom"
+        scrollable={true}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Local Government</Text>
-              <TouchableOpacity onPress={() => setShowLgaModal(false)}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              style={styles.modalSearchInput}
-              placeholder="Search LGAs..."
-              placeholderTextColor={colors.textSecondary}
-              value={lgaSearch}
-              onChangeText={setLgaSearch}
-            />
-            <FlatList
-              data={filteredLgas}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.modalItem}
-                  onPress={() => handleLgaSelect(item)}
-                >
-                  <Text style={styles.modalItemText}>{item}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
+        <TextInput
+          style={styles.modalSearchInput}
+          placeholder="Search LGAs..."
+          placeholderTextColor={colors.textSecondary}
+          value={lgaSearch}
+          onChangeText={setLgaSearch}
+        />
+        <FlatList
+          data={filteredLgas}
+          keyExtractor={(item) => item}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => handleLgaSelect(item)}
+            >
+              <Text style={styles.modalItemText}>{item}</Text>
+            </TouchableOpacity>
+          )}
+          style={{ maxHeight: 400 }}
+        />
+      </CustomModal>
     </SafeAreaView>
   );
 }

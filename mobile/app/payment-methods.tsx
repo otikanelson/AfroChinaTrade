@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,14 +14,17 @@ import { useRouter } from 'expo-router';
 import { tokenManager } from '../services/api/tokenManager';
 import { API_BASE_URL } from '../constants/config';
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../hooks/useToast';
+import { Toast } from '../components/ui/Toast';
 
 interface PaymentMethod {
-  _id: string;
+  _id?: string;
   type: 'card' | 'mobile_money' | 'bank_transfer' | 'paypal';
-  isDefault: boolean;
   cardDetails?: {
     last4: string;
     brand: string;
+    expiryMonth: number;
+    expiryYear: number;
     holderName: string;
   };
   mobileMoneyDetails?: {
@@ -29,13 +32,29 @@ interface PaymentMethod {
     phoneNumber: string;
     accountName: string;
   };
+  bankDetails?: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    routingNumber?: string;
+  };
+  paypalDetails?: {
+    email: string;
+  };
+  isDefault: boolean;
+  isActive?: boolean;
 }
 
 export default function PaymentMethodsScreen() {
+  // Require authentication
+  const { isAuthenticated } = useRequireAuth('Please sign in to manage your payment methods');
+  
   const router = useRouter();
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const toast = useToast();
+  const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const styles = StyleSheet.create({
     container: {
@@ -96,13 +115,13 @@ export default function PaymentMethodsScreen() {
       textAlign: 'center',
       marginBottom: spacing.xl,
     },
-    addPaymentButton: {
+    addMethodButton: {
       backgroundColor: colors.primary,
       paddingHorizontal: spacing.xl,
       paddingVertical: spacing.md,
       borderRadius: borderRadius.md,
     },
-    addPaymentButtonText: {
+    addMethodButtonText: {
       color: colors.background,
       fontSize: fontSizes.base,
       fontWeight: fontWeights.semibold,
@@ -116,59 +135,73 @@ export default function PaymentMethodsScreen() {
       backgroundColor: colors.background,
       borderRadius: borderRadius.md,
       padding: spacing.base,
-      marginBottom: spacing.sm,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      marginBottom: spacing.base,
       ...shadows.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    methodInfo: {
+    methodTypeContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      flex: 1,
+      marginBottom: spacing.sm,
     },
-    methodIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.surface,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacing.md,
-    },
-    methodDetails: {
-      flex: 1,
-    },
-    methodTitle: {
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.medium,
+    methodType: {
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.bold,
       color: colors.text,
-      marginBottom: spacing.xs,
     },
     defaultBadge: {
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.base,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      marginLeft: spacing.sm,
+    },
+    defaultBadgeText: {
       fontSize: fontSizes.xs,
-      color: colors.primary,
+      color: colors.background,
       fontWeight: fontWeights.bold,
     },
     methodActions: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
+      marginTop: spacing.sm,
+      paddingTop: spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
     },
     actionButton: {
-      paddingHorizontal: spacing.sm,
+      paddingHorizontal: spacing.base,
       paddingVertical: spacing.xs,
       borderRadius: borderRadius.base,
       borderWidth: 1,
       borderColor: colors.primary,
+      backgroundColor: colors.background,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 32,
     },
     actionButtonText: {
-      fontSize: fontSizes.xs,
+      fontSize: fontSizes.sm,
       color: colors.primary,
       fontWeight: fontWeights.medium,
     },
-    deleteButton: {
-      padding: spacing.sm,
+    methodDetails: {
+      gap: spacing.xs,
+      marginTop: spacing.xs,
+    },
+    methodPrimaryText: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold,
+      color: colors.text,
+      lineHeight: 22,
+    },
+    methodText: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+      lineHeight: 20,
     },
   });
 
@@ -187,91 +220,73 @@ export default function PaymentMethodsScreen() {
 
       const data = await response.json();
       if (data.success) {
-        setPaymentMethods(data.data);
+        setMethods(data.data || []);
       }
     } catch (error) {
       console.error('Error fetching payment methods:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const setDefaultPaymentMethod = async (methodId: string) => {
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchPaymentMethods();
+  };
+
+  const setDefaultMethod = async (methodId: string) => {
     const token = await tokenManager.getAccessToken();
     if (!token) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/payment-methods/${methodId}/default`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` },
+      const response = await fetch(`${API_BASE_URL}/payment-methods/${methodId}/set-default`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
       const data = await response.json();
       if (data.success) {
-        setPaymentMethods(prev => 
-          prev.map(method => ({
-            ...method,
-            isDefault: method._id === methodId
-          }))
-        );
+        fetchPaymentMethods();
       }
     } catch (error) {
       console.error('Error setting default payment method:', error);
     }
   };
 
-  const deletePaymentMethod = async (methodId: string) => {
-    Alert.alert(
-      'Delete Payment Method',
-      'Are you sure you want to delete this payment method?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const token = await tokenManager.getAccessToken();
-            if (!token) return;
+  const deleteMethod = async (methodId: string) => {
+    // Show confirmation using toast
+    toast.warning('Delete this payment method?', 3000);
+    
+    const token = await tokenManager.getAccessToken();
+    if (!token) return;
 
-            try {
-              const response = await fetch(`${API_BASE_URL}/payment-methods/${methodId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` },
-              });
-
-              const data = await response.json();
-              if (data.success) {
-                setPaymentMethods(prev => prev.filter(method => method._id !== methodId));
-              }
-            } catch (error) {
-              console.error('Error deleting payment method:', error);
-            }
-          },
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment-methods/${methodId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-      ]
-    );
-  };
+      });
 
-  const getPaymentMethodDisplay = (method: PaymentMethod) => {
-    switch (method.type) {
-      case 'card':
-        return method.cardDetails
-          ? `${method.cardDetails.brand} •••• ${method.cardDetails.last4}`
-          : 'Credit/Debit Card';
-      case 'mobile_money':
-        return method.mobileMoneyDetails
-          ? `${method.mobileMoneyDetails.provider} - ${method.mobileMoneyDetails.phoneNumber}`
-          : 'Mobile Money';
-      case 'bank_transfer':
-        return 'Bank Transfer';
-      case 'paypal':
-        return 'PayPal';
-      default:
-        return (method.type as string).replace('_', ' ').toUpperCase();
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Payment method deleted');
+        fetchPaymentMethods();
+      } else {
+        toast.error('Failed to delete payment method');
+      }
+    } catch (error) {
+      console.error('Error deleting payment method:', error);
+      toast.error('Error deleting payment method');
     }
   };
 
-  const getPaymentMethodIcon = (type: string) => {
+  const getMethodIcon = (type: string) => {
     switch (type) {
       case 'card':
         return 'card-outline';
@@ -283,6 +298,71 @@ export default function PaymentMethodsScreen() {
         return 'logo-paypal';
       default:
         return 'wallet-outline';
+    }
+  };
+
+  const getMethodLabel = (type: string) => {
+    switch (type) {
+      case 'card':
+        return 'Credit/Debit Card';
+      case 'mobile_money':
+        return 'Mobile Money';
+      case 'bank_transfer':
+        return 'Bank Transfer';
+      case 'paypal':
+        return 'PayPal';
+      default:
+        return 'Payment Method';
+    }
+  };
+
+  const getMethodDetails = (method: PaymentMethod) => {
+    switch (method.type) {
+      case 'card':
+        if (method.cardDetails) {
+          const { last4, brand, holderName, expiryMonth, expiryYear } = method.cardDetails;
+          return {
+            primary: `${brand?.toUpperCase() || 'Card'} •••• ${last4 || '****'}`,
+            secondary: holderName || 'Cardholder',
+            tertiary: expiryMonth && expiryYear ? `Expires ${expiryMonth}/${expiryYear}` : null,
+          };
+        }
+        return { primary: 'Credit/Debit Card', secondary: null, tertiary: null };
+      
+      case 'mobile_money':
+        if (method.mobileMoneyDetails) {
+          const { provider, phoneNumber, accountName } = method.mobileMoneyDetails;
+          return {
+            primary: provider || 'Mobile Money',
+            secondary: phoneNumber || 'Phone number',
+            tertiary: accountName || null,
+          };
+        }
+        return { primary: 'Mobile Money', secondary: null, tertiary: null };
+      
+      case 'bank_transfer':
+        if (method.bankDetails) {
+          const { bankName, accountNumber, accountName } = method.bankDetails;
+          return {
+            primary: bankName || 'Bank Transfer',
+            secondary: accountNumber ? `Account •••• ${accountNumber.slice(-4)}` : 'Account number',
+            tertiary: accountName || null,
+          };
+        }
+        return { primary: 'Bank Transfer', secondary: null, tertiary: null };
+      
+      case 'paypal':
+        if (method.paypalDetails) {
+          return {
+            primary: 'PayPal',
+            secondary: method.paypalDetails.email || 'Email address',
+            tertiary: null,
+          };
+        }
+        return { primary: 'PayPal', secondary: null, tertiary: null };
+      
+      default:
+        return { primary: 'Payment Method', secondary: null, tertiary: null };
     }
   };
 
@@ -308,62 +388,97 @@ export default function PaymentMethodsScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading payment methods...</Text>
         </View>
-      ) : paymentMethods.length === 0 ? (
+      ) : methods.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="card-outline" size={64} color={colors.textLight} />
+          <Ionicons name="wallet-outline" size={64} color={colors.textLight} />
           <Text style={styles.emptyTitle}>No payment methods</Text>
           <Text style={styles.emptySubtitle}>
-            Add a payment method to make purchases easier
+            Add a payment method to complete your purchases
           </Text>
           <TouchableOpacity
-            style={styles.addPaymentButton}
+            style={styles.addMethodButton}
             onPress={() => router.push('/payment-methods/new')}
           >
-            <Text style={styles.addPaymentButtonText}>Add Payment Method</Text>
+            <Text style={styles.addMethodButtonText}>Add Payment Method</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView style={styles.methodsList} showsVerticalScrollIndicator={false}>
-          {paymentMethods.map((method) => (
-            <View key={method._id} style={styles.methodCard}>
-              <View style={styles.methodInfo}>
-                <View style={styles.methodIcon}>
+        <ScrollView 
+          style={styles.methodsList} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {methods.map((method) => {
+            const details = getMethodDetails(method);
+            return (
+              <View key={method._id} style={styles.methodCard}>
+                <View style={styles.methodTypeContainer}>
                   <Ionicons 
-                    name={getPaymentMethodIcon(method.type) as any} 
-                    size={24} 
+                    name={getMethodIcon(method.type) as any}
+                    size={28} 
                     color={colors.primary} 
                   />
+                  <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Text style={styles.methodType}>{getMethodLabel(method.type)}</Text>
+                      {method.isDefault && (
+                        <View style={styles.defaultBadge}>
+                          <Text style={styles.defaultBadgeText}>Default</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
                 </View>
+                
                 <View style={styles.methodDetails}>
-                  <Text style={styles.methodTitle}>
-                    {getPaymentMethodDisplay(method)}
-                  </Text>
-                  {method.isDefault && (
-                    <Text style={styles.defaultBadge}>Default</Text>
+                  <Text style={styles.methodPrimaryText}>{details.primary}</Text>
+                  {details.secondary && (
+                    <Text style={styles.methodText}>{details.secondary}</Text>
+                  )}
+                  {details.tertiary && (
+                    <Text style={styles.methodText}>{details.tertiary}</Text>
                   )}
                 </View>
-              </View>
-              
-              <View style={styles.methodActions}>
-                {!method.isDefault && (
+
+                <View style={styles.methodActions}>
+                  {!method.isDefault && (
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => setDefaultMethod(method._id!)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.actionButtonText}>Set Default</Text>
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => setDefaultPaymentMethod(method._id)}
+                    onPress={() => router.push(`/payment-methods/${method._id}`)}
+                    activeOpacity={0.7}
                   >
-                    <Text style={styles.actionButtonText}>Set Default</Text>
+                    <Text style={styles.actionButtonText}>Edit</Text>
                   </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => deletePaymentMethod(method._id)}
-                >
-                  <Ionicons name="trash-outline" size={18} color={colors.error} />
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: colors.error }]}
+                    onPress={() => deleteMethod(method._id!)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </ScrollView>
       )}
+
+      {/* Toast Component */}
+      <Toast {...toast} />
     </SafeAreaView>
   );
 }

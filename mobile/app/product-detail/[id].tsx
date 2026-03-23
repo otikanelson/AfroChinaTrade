@@ -20,9 +20,12 @@ import { useWishlist } from '../../contexts/WishlistContext';
 import { useCart } from '../../contexts/CartContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../hooks/useToast';
+import { useModal } from '../../hooks/useModal';
 import { Header } from '../../components/Header';
 import { ViewTracker } from '../../components/ViewTracker';
 import { ChatOptionsModal } from '../../components/ChatOptionsModal';
+import { Toast } from '../../components/ui/Toast';
 import { tokenManager } from '../../services/api/tokenManager';
 import { spacing } from '../../theme/spacing';
 
@@ -33,14 +36,16 @@ export default function ProductDetailScreen() {
   const router = useRouter();
   const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
-  const { addToCart } = useCart();
+  const { addToCart, isOperationPending } = useCart();
   const { user } = useAuth();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [showChatModal, setShowChatModal] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const toast = useToast();
+  const chatModal = useModal();
 
   const isAdmin = user?.role === 'admin';
 
@@ -59,8 +64,9 @@ export default function ProductDetailScreen() {
       flex: 1,
     },
     imageContainer: {
-      height: screenWidth,
+      height: screenWidth * 1.1,
       backgroundColor: themeColors.surface,
+      position: 'relative',
     },
     productImage: {
       width: '100%',
@@ -68,7 +74,7 @@ export default function ProductDetailScreen() {
     },
     imageNavigation: {
       position: 'absolute',
-      bottom: themeSpacing.base,
+      bottom: themeSpacing.lg,
       left: 0,
       right: 0,
       flexDirection: 'row',
@@ -76,50 +82,56 @@ export default function ProductDetailScreen() {
       gap: themeSpacing.xs,
     },
     imageDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: 'rgba(255, 255, 255, 0.5)',
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: 'rgba(255, 255, 255, 0.4)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.6)',
     },
     activeDot: {
       backgroundColor: 'white',
+      width: 24,
+      borderRadius: 5,
     },
     contentContainer: {
       padding: spacing.base,
     },
     productName: {
-      fontSize: fontSizes.xl,
+      fontSize: fontSizes['2xl'],
       fontWeight: fontWeights.bold,
       color: themeColors.text,
-      marginBottom: themeSpacing.xs,
+      marginBottom: themeSpacing.sm,
+      lineHeight: 32,
     },
     priceContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: themeSpacing.sm,
+      marginBottom: themeSpacing.base,
+      flexWrap: 'wrap',
     },
     price: {
-      fontSize: fontSizes.lg,
+      fontSize: fontSizes['2xl'],
       fontWeight: fontWeights.bold,
       color: themeColors.primary,
     },
     originalPrice: {
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.lg,
       color: themeColors.textSecondary,
       textDecorationLine: 'line-through',
-      marginLeft: themeSpacing.sm,
+      marginRight: themeSpacing.sm,
     },
     discountBadge: {
       backgroundColor: themeColors.error,
-      paddingHorizontal: themeSpacing.sm,
+      paddingHorizontal: themeSpacing.base,
       paddingVertical: themeSpacing.xs,
-      borderRadius: borderRadius.sm,
+      borderRadius: borderRadius.full,
       marginLeft: themeSpacing.sm,
     },
     discountText: {
       color: themeColors.textInverse,
-      fontSize: fontSizes.xs,
-      fontWeight: fontWeights.medium,
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.bold,
     },
     supplierContainer: {
       flexDirection: 'row',
@@ -134,8 +146,9 @@ export default function ProductDetailScreen() {
     },
     supplierName: {
       fontSize: fontSizes.base,
-      fontWeight: fontWeights.medium,
+      fontWeight: fontWeights.semibold,
       color: themeColors.text,
+      marginBottom: 4,
     },
     supplierLocation: {
       fontSize: fontSizes.sm,
@@ -143,18 +156,21 @@ export default function ProductDetailScreen() {
       marginTop: 2,
     },
     section: {
-      marginBottom: themeSpacing.lg,
+      marginBottom: themeSpacing.base,
+      backgroundColor: themeColors.surface,
+      borderRadius: borderRadius.lg,
+      padding: themeSpacing.base,
+      ...shadows.sm,
     },
     sectionTitle: {
       fontSize: fontSizes.lg,
-      fontWeight: fontWeights.semibold,
+      fontWeight: fontWeights.bold,
       color: themeColors.text,
-      marginTop: themeSpacing['3xl'],
-      marginBottom: themeSpacing.md,
+      marginBottom: themeSpacing.sm,
     },
     description: {
       fontSize: fontSizes.base,
-      color: themeColors.text,
+      color: themeColors.textSecondary,
       lineHeight: 24,
     },
     specRow: {
@@ -162,7 +178,7 @@ export default function ProductDetailScreen() {
       justifyContent: 'space-between',
       paddingVertical: themeSpacing.sm,
       borderBottomWidth: 1,
-      borderBottomColor: themeColors.border,
+      borderBottomColor: themeColors.borderLight,
     },
     specLabel: {
       fontSize: fontSizes.base,
@@ -172,7 +188,7 @@ export default function ProductDetailScreen() {
     specValue: {
       fontSize: fontSizes.base,
       color: themeColors.text,
-      fontWeight: fontWeights.medium,
+      fontWeight: fontWeights.semibold,
       flex: 1,
       textAlign: 'right',
     },
@@ -194,31 +210,34 @@ export default function ProductDetailScreen() {
     quantityContainer: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'flex-start',
       backgroundColor: themeColors.surface,
-      borderRadius: borderRadius.base,
-      paddingHorizontal: themeSpacing.sm,
-      paddingVertical: themeSpacing.xs,
+      borderRadius: borderRadius.lg,
+      paddingHorizontal: themeSpacing['2xl'],
+      paddingVertical: themeSpacing.sm,
+      alignSelf: 'flex-start',
+      ...shadows.sm,
     },
     quantityLabel: {
       fontSize: fontSizes.sm,
       color: themeColors.text,
+      fontWeight: fontWeights.semibold,
       marginRight: themeSpacing.sm,
-      fontWeight: fontWeights.medium,
     },
     quantityControls: {
       flexDirection: 'row',
       alignItems: 'center',
-      borderWidth: 1,
-      borderColor: themeColors.border,
-      borderRadius: borderRadius.base,
+      gap: themeSpacing.xs,
     },
     quantityButton: {
       width: 32,
       height: 32,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: themeColors.surface,
-      borderRadius: borderRadius.sm,
+      backgroundColor: themeColors.background,
+      borderRadius: borderRadius.base,
+      borderWidth: 1,
+      borderColor: themeColors.border,
     },
     quantityButtonText: {
       fontSize: fontSizes.lg,
@@ -246,32 +265,33 @@ export default function ProductDetailScreen() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: themeSpacing.sm,
-      backgroundColor: themeColors.surface,
-      borderRadius: borderRadius.base,
-      borderWidth: 1,
+      paddingVertical: themeSpacing.xs,
+      backgroundColor: themeColors.background,
+      borderRadius: borderRadius.lg,
+      borderWidth: 2,
       borderColor: themeColors.primary,
       gap: themeSpacing.xs,
+      ...shadows.sm,
     },
     addToCartText: {
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.sm,
       color: themeColors.primary,
-      fontWeight: fontWeights.medium,
+      fontWeight: fontWeights.bold,
     },
     buyNowButton: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: themeSpacing.sm,
+      paddingVertical: themeSpacing.xs,
       backgroundColor: themeColors.primary,
-      borderRadius: borderRadius.base,
+      borderRadius: borderRadius.lg,
+      ...shadows.md,
     },
     buyNowText: {
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.sm,
       color: themeColors.textInverse,
-      fontWeight: fontWeights.medium,
+      fontWeight: fontWeights.bold,
     },
-    // Additional missing styles
     loadingText: {
       marginTop: themeSpacing.sm,
       fontSize: fontSizes.base,
@@ -292,14 +312,16 @@ export default function ProductDetailScreen() {
       position: 'absolute',
       top: themeSpacing.base,
       right: themeSpacing.base,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
-      paddingHorizontal: themeSpacing.sm,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      paddingHorizontal: themeSpacing.base,
       paddingVertical: themeSpacing.xs,
-      borderRadius: borderRadius.base,
+      borderRadius: borderRadius.full,
+      ...shadows.md,
     },
     imageIndicatorText: {
       color: 'white',
-      fontSize: fontSizes.xs,
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.semibold,
     },
     placeholderImage: {
       justifyContent: 'center',
@@ -309,75 +331,87 @@ export default function ProductDetailScreen() {
     placeholderText: {
       fontSize: fontSizes.base,
       color: themeColors.textSecondary,
+      marginTop: themeSpacing.sm,
     },
     productInfo: {
-      padding: themeSpacing.base,
+      padding: themeSpacing.lg,
     },
     discountedPrice: {
-      fontSize: fontSizes.lg,
+      fontSize: fontSizes['2xl'],
       fontWeight: fontWeights.bold,
       color: themeColors.error,
     },
     discountBadgeText: {
       color: themeColors.textInverse,
-      fontSize: fontSizes.xs,
-      fontWeight: fontWeights.medium,
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.bold,
     },
     productPrice: {
-      fontSize: fontSizes.lg,
+      fontSize: fontSizes['2xl'],
       fontWeight: fontWeights.bold,
       color: themeColors.primary,
     },
     metaInfo: {
       flexDirection: 'row',
-      marginTop: themeSpacing.sm,
-      gap: themeSpacing.base,
+      marginTop: themeSpacing.base,
+      marginBottom: themeSpacing.lg,
+      gap: themeSpacing.lg,
+      flexWrap: 'wrap',
     },
     metaItem: {
+      flexDirection: 'row',
       alignItems: 'center',
+      backgroundColor: themeColors.surface,
+      paddingHorizontal: themeSpacing.base,
+      paddingVertical: themeSpacing.sm,
+      borderRadius: borderRadius.full,
+      gap: themeSpacing.xs,
     },
     metaText: {
-      fontSize: fontSizes.xs,
-      color: themeColors.textSecondary,
-      marginTop: 2,
+      fontSize: fontSizes.sm,
+      color: themeColors.text,
+      fontWeight: fontWeights.medium,
     },
     supplierDetails: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       padding: themeSpacing.base,
-      backgroundColor: themeColors.surface,
-      borderRadius: borderRadius.base,
-      marginVertical: themeSpacing.base,
     },
     supplierMeta: {
-      flex: 1,
-      marginLeft: themeSpacing.sm,
-      alignItems: 'flex-end',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: themeSpacing.xs,
     },
     supplierRating: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 2,
+      backgroundColor: themeColors.background,
+      paddingHorizontal: themeSpacing.sm,
+      paddingVertical: 4,
+      borderRadius: borderRadius.full,
+      gap: 4,
     },
     specKey: {
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.base,
       color: themeColors.textSecondary,
       flex: 1,
     },
     bottomActions: {
       flexDirection: 'column',
       padding: themeSpacing.base,
+      paddingBottom: themeSpacing.lg,
       backgroundColor: themeColors.background,
       borderTopWidth: 1,
-      borderTopColor: themeColors.border,
-      gap: themeSpacing.sm,
+      borderTopColor: themeColors.borderLight,
+      gap: themeSpacing.base,
+      ...shadows.lg,
     },
     quantityText: {
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.lg,
       color: themeColors.text,
-      marginHorizontal: themeSpacing.sm,
-      fontWeight: fontWeights.medium,
-      minWidth: 30,
+      fontWeight: fontWeights.bold,
+      minWidth: 40,
       textAlign: 'center',
     },
     actionButtons: {
@@ -385,20 +419,46 @@ export default function ProductDetailScreen() {
       gap: themeSpacing.sm,
     },
     chatButton: {
-      width: 48,
-      height: 48,
+      width: 52,
+      height: 52,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: themeColors.surface,
-      borderRadius: borderRadius.base,
-      borderWidth: 1,
+      backgroundColor: themeColors.background,
+      borderRadius: borderRadius.lg,
+      borderWidth: 2,
       borderColor: themeColors.primary,
+      ...shadows.sm,
     },
     adminModeIndicator: {
-      // Styles applied inline
+      backgroundColor: themeColors.surface,
+      padding: themeSpacing.base,
+      borderRadius: borderRadius.lg,
+      flex: 1,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: themeColors.border,
     },
     adminModeText: {
-      // Styles applied inline
+      color: themeColors.textSecondary,
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium,
+    },
+    wishlistButton: {
+      position: 'absolute',
+      top: themeSpacing.base,
+      left: themeSpacing.base,
+      width: 44,
+      height: 44,
+      borderRadius: borderRadius.full,
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...shadows.md,
+    },
+    ratingText: {
+      fontSize: fontSizes.sm,
+      color: themeColors.text,
+      fontWeight: fontWeights.semibold,
     },
   });
 
@@ -453,29 +513,29 @@ export default function ProductDetailScreen() {
     }
     
     try {
-      console.log('Adding to cart:', { productId: product.id, quantity });
-      
       // Check if user is authenticated
       const token = await tokenManager.getAccessToken();
       if (!token) {
-        Alert.alert(
-          'Login Required', 
-          'Please log in to add items to your cart.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Login', onPress: () => router.push('/auth/login') }
-          ]
-        );
+        toast.warning('Please log in to add items to your cart.');
         return;
       }
       
+      // Show immediate feedback
+      setAddingToCart(true);
+      
+      // Call add to cart - it will update UI immediately with optimistic update
       const success = await addToCart(product.id, quantity);
-      if (!success) {
-        Alert.alert('Error', 'Failed to add item to cart. Please try again.');
+      
+      if (success) {
+        toast.success(`${product.name} has been added to your cart`);
+      } else {
+        toast.error('Failed to add item to cart. Please try again.');
       }
     } catch (error) {
       console.error('Add to cart error:', error);
-      Alert.alert('Error', 'Failed to add item to cart. Please check your connection and try again.');
+      toast.error('Failed to add item to cart. Please check your connection and try again.');
+    } finally {
+      setAddingToCart(false);
     }
   };
 
@@ -521,18 +581,13 @@ export default function ProductDetailScreen() {
     const checkAuthAndShowModal = async () => {
       const token = await tokenManager.getAccessToken();
       if (!token) {
-        Alert.alert(
-          'Login Required', 
-          'Please log in to contact support.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Login', onPress: () => router.push('/auth/login') }
-          ]
-        );
+        toast.warning('Please log in to contact support.');
         return;
       }
       
-      setShowChatModal(true);
+      chatModal.openModal({
+        title: 'Contact Supplier',
+      });
     };
     
     checkAuthAndShowModal();
@@ -545,36 +600,21 @@ export default function ProductDetailScreen() {
       ? `I'm interested in getting a quote for ${product.name}. Please provide pricing details and availability information.`
       : `I have a question about ${product.name}. Can you help me with more information?`;
     
-    try {
-      console.log('Creating product thread:', { productId: product.id, threadType });
-      
-      const response = await messageService.createProductThread(
-        product.id,
-        prefilledMessage,
-        threadType
-      );
-      
-      console.log('Product thread response:', response);
-      
-      if (response.success && response.data) {
-        // Navigate to the thread with the pre-filled message
-        router.push({
-          pathname: `/message-thread/${response.data.thread.threadId}`,
-          params: {
-            prefilledMessage: prefilledMessage,
-            isNewThread: response.data.isExisting ? 'false' : 'true',
-            productImage: product.images?.[0] || '',
-            productName: product.name
-          }
-        });
-      } else {
-        console.error('Failed to create thread:', response.error);
-        Alert.alert('Error', response.error?.message || 'Failed to start conversation. Please try again.');
+    // Navigate to message thread with product info and a temporary thread ID
+    // The thread will be created when the user sends the first message
+    const tempThreadId = `temp_${product.id}_${Date.now()}`;
+    
+    router.push({
+      pathname: `/message-thread/${tempThreadId}`,
+      params: {
+        prefilledMessage: prefilledMessage,
+        productImage: product.images?.[0] || '',
+        productName: product.name,
+        productId: product.id,
+        threadType: threadType,
+        isNewProductThread: 'true'
       }
-    } catch (error) {
-      console.error('Error creating product thread:', error);
-      Alert.alert('Error', 'Failed to start conversation. Please try again.');
-    }
+    });
   };
 
   if (loading) {
@@ -668,6 +708,20 @@ export default function ProductDetailScreen() {
                   );
                 })}
               </ScrollView>
+              
+              {!isAdmin && (
+                <TouchableOpacity 
+                  style={styles.wishlistButton}
+                  onPress={handleToggleWishlist}
+                >
+                  <Ionicons 
+                    name={isInWishlist(product.id) ? "heart" : "heart-outline"} 
+                    size={24} 
+                    color={isInWishlist(product.id) ? themeColors.error : themeColors.text}
+                  />
+                </TouchableOpacity>
+              )}
+              
               {product.images.length > 1 && (
                 <>
                   <View style={styles.imageIndicator}>
@@ -702,11 +756,11 @@ export default function ProductDetailScreen() {
           
           {product.discount && product.discount > 0 ? (
             <View style={styles.priceContainer}>
-              <Text style={styles.originalPrice}>
-                ₦{product.price.toLocaleString()}
-              </Text>
               <Text style={styles.discountedPrice}>
                 ₦{Math.round(product.price * (1 - product.discount / 100)).toLocaleString()}
+              </Text>
+              <Text style={styles.originalPrice}>
+                ₦{product.price.toLocaleString()}
               </Text>
               <View style={styles.discountBadge}>
                 <Text style={styles.discountBadgeText}>{product.discount}% OFF</Text>
@@ -720,17 +774,22 @@ export default function ProductDetailScreen() {
 
           <View style={styles.metaInfo}>
             <View style={styles.metaItem}>
-              <Ionicons name="star" size={16} color="#FFD700" />
+              <Ionicons name="star" size={18} color="#FFD700" />
               <Text style={styles.metaText}>
-                {product.rating.toFixed(1)} ({product.reviewCount} reviews)
+                {product.rating.toFixed(1)}
+              </Text>
+              <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
+                ({product.reviewCount})
               </Text>
             </View>
             <View style={styles.metaItem}>
-              <Ionicons name="cube-outline" size={16} color={themeColors.textSecondary} />
-              <Text style={styles.metaText}>{product.stock} in stock</Text>
+              <Ionicons name="cube-outline" size={18} color={product.stock > 10 ? themeColors.success : themeColors.warning} />
+              <Text style={[styles.metaText, { color: product.stock > 10 ? themeColors.success : themeColors.warning }]}>
+                {product.stock} in stock
+              </Text>
             </View>
             <View style={styles.metaItem}>
-              <Ionicons name="pricetag-outline" size={16} color={themeColors.textSecondary} />
+              <Ionicons name="pricetag-outline" size={18} color={themeColors.primary} />
               <Text style={styles.metaText}>{product.category}</Text>
             </View>
           </View>
@@ -742,21 +801,22 @@ export default function ProductDetailScreen() {
 
           {(product.supplier || product.supplierId) && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Supplier</Text>
-              <View style={styles.supplierInfo}>
-                <View style={styles.supplierDetails}>
+              <Text style={styles.sectionTitle}>Supplier Information</Text>
+              <View style={styles.supplierDetails}>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.supplierName}>
                     {(product.supplier?.name || (product.supplierId as any)?.name) || 'Unknown Supplier'}
                   </Text>
-                  <View style={styles.supplierMeta}>
-                    <Ionicons name="star" size={14} color="#FFD700" />
-                    <Text style={styles.supplierRating}>
-                      {(product.supplier?.rating || (product.supplierId as any)?.rating)?.toFixed(1) || '0.0'}
-                    </Text>
-                    <Text style={styles.supplierLocation}>
-                      {(product.supplier?.location || (product.supplierId as any)?.location) || 'Location not specified'}
-                    </Text>
-                  </View>
+                  <Text style={styles.supplierLocation}>
+                    <Ionicons name="location-outline" size={14} color={themeColors.textSecondary} />
+                    {' '}{(product.supplier?.location || (product.supplierId as any)?.location) || 'Location not specified'}
+                  </Text>
+                </View>
+                <View style={styles.supplierRating}>
+                  <Ionicons name="star" size={14} color="#FFD700" />
+                  <Text style={styles.ratingText}>
+                    {(product.supplier?.rating || (product.supplierId as any)?.rating)?.toFixed(1) || '0.0'}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -765,9 +825,15 @@ export default function ProductDetailScreen() {
           {product.specifications && Object.keys(product.specifications).length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Specifications</Text>
-              {Object.entries(product.specifications).map(([key, value]) => (
-                <View key={key} style={styles.specRow}>
-                  <Text style={styles.specKey}>{key}:</Text>
+              {Object.entries(product.specifications).map(([key, value], index, array) => (
+                <View 
+                  key={key} 
+                  style={[
+                    styles.specRow,
+                    index === array.length - 1 && { borderBottomWidth: 0 }
+                  ]}
+                >
+                  <Text style={styles.specKey}>{key}</Text>
                   <Text style={styles.specValue}>{String(value)}</Text>
                 </View>
               ))}
@@ -779,53 +845,68 @@ export default function ProductDetailScreen() {
       <View style={styles.bottomActions}>
         {!isAdmin && (
           <View style={styles.quantityContainer}>
-            <Text style={styles.quantityLabel}>Qty:</Text>
-            <TouchableOpacity
-              style={styles.quantityButton}
-              onPress={() => handleQuantityChange(-1)}
-              disabled={quantity <= 1}
-            >
-              <Ionicons 
-                name="remove" 
-                size={20} 
-                color={quantity <= 1 ? themeColors.textSecondary : themeColors.text}
-              />
-            </TouchableOpacity>
-            <Text style={styles.quantityText}>{quantity}</Text>
-            <TouchableOpacity
-              style={styles.quantityButton}
-              onPress={() => handleQuantityChange(1)}
-              disabled={quantity >= (product.stock || 1)}
-            >
-              <Ionicons 
-                name="add" 
-                size={20} 
-                color={quantity >= (product.stock || 1) ? themeColors.textSecondary : themeColors.text}
-              />
-            </TouchableOpacity>
+            <Text style={styles.quantityLabel}>Quantity</Text>
+            <View style={styles.quantityControls}>
+              <TouchableOpacity
+                style={styles.quantityButton}
+                onPress={() => handleQuantityChange(-1)}
+                disabled={quantity <= 1}
+              >
+                <Ionicons 
+                  name="remove" 
+                  size={20} 
+                  color={quantity <= 1 ? themeColors.textSecondary : themeColors.primary}
+                />
+              </TouchableOpacity>
+              <Text style={styles.quantityText}>{quantity}</Text>
+              <TouchableOpacity
+                style={styles.quantityButton}
+                onPress={() => handleQuantityChange(1)}
+                disabled={quantity >= (product.stock || 1)}
+              >
+                <Ionicons 
+                  name="add" 
+                  size={20} 
+                  color={quantity >= (product.stock || 1) ? themeColors.textSecondary : themeColors.primary}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
         <View style={styles.actionButtons}>
           {!isAdmin && (
-            <TouchableOpacity style={styles.chatButton} onPress={handleContactSupplier}>
-              <Ionicons name="chatbubble-outline" size={20} color={themeColors.primary} />
-            </TouchableOpacity>
-          )}
-          {!isAdmin && (
             <>
-              <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
-                <Ionicons name="cart-outline" size={20} color={themeColors.primary} />
-                <Text style={styles.addToCartText}>Add to Cart</Text>
+              <TouchableOpacity style={styles.chatButton} onPress={handleContactSupplier}>
+                <Ionicons name="chatbubble-outline" size={22} color={themeColors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.buyNowButton} onPress={handleBuyNow}>
+              <TouchableOpacity 
+                style={[styles.addToCartButton, addingToCart && { opacity: 0.6 }]} 
+                onPress={handleAddToCart}
+                disabled={addingToCart}
+              >
+                <Ionicons 
+                  name={addingToCart ? "checkmark-circle" : "cart-outline"} 
+                  size={22} 
+                  color={themeColors.primary} 
+                />
+                <Text style={styles.addToCartText}>
+                  {addingToCart ? 'Adding...' : 'Add to Cart'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.buyNowButton} 
+                onPress={handleBuyNow} 
+                disabled={addingToCart}
+              >
                 <Text style={styles.buyNowText}>Buy Now</Text>
               </TouchableOpacity>
             </>
           )}
           {isAdmin && (
-            <View style={[styles.adminModeIndicator, { backgroundColor: themeColors.surface, padding: themeSpacing.sm, borderRadius: borderRadius.base, flex: 1, alignItems: 'center' }]}>
-              <Text style={[styles.adminModeText, { color: themeColors.textSecondary, fontSize: fontSizes.sm }]}>
+            <View style={styles.adminModeIndicator}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={themeColors.textSecondary} />
+              <Text style={styles.adminModeText}>
                 Admin View Mode - Shopping Disabled
               </Text>
             </View>
@@ -834,11 +915,19 @@ export default function ProductDetailScreen() {
       </View>
 
       <ChatOptionsModal
-        visible={showChatModal}
-        onClose={() => setShowChatModal(false)}
+        visible={chatModal.visible}
+        onClose={chatModal.closeModal}
         onAskQuestion={() => createProductThread('product_inquiry')}
         onRequestQuote={() => createProductThread('quote_request')}
         productName={product?.name}
+      />
+
+      <Toast
+        visible={toast.visible}
+        type={toast.type}
+        message={toast.message}
+        autoClose={toast.autoClose}
+        onClose={toast.hideToast}
       />
     </View>
   );

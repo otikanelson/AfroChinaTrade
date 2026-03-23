@@ -14,10 +14,10 @@ const getJWTSecret = () => {
   return secret;
 };
 
-// Generate JWT token with shorter expiry for better security
+// Generate JWT token with 30 minute expiry
 const generateToken = (userId: string, role: string): string => {
   const secret = getJWTSecret();
-  const token = jwt.sign({ userId, role }, secret, { expiresIn: '15m' }); // Reduced to 15 minutes
+  const token = jwt.sign({ userId, role }, secret, { expiresIn: '30m' }); // 30 minutes as designed
   return token;
 };
 

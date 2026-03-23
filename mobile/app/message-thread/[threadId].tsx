@@ -7,31 +7,38 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
   Platform,
   RefreshControl,
   Image,
+  Keyboard,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../hooks/useToast';
 import { Header } from '../../components/Header';
+import { Toast } from '../../components/ui/Toast';
 import { messageService } from '../../services/MessageService';
 import { Message, MessageThread } from '../../types/message';
 
 export default function MessageThreadScreen() {
-  const { threadId, prefilledMessage, productImage, productName } = useLocalSearchParams<{ 
+  const { threadId, prefilledMessage, productImage, productName, productId, threadType, isNewProductThread } = useLocalSearchParams<{ 
     threadId: string
     prefilledMessage?: string
     productImage?: string
     productName?: string
+    productId?: string
+    threadType?: 'product_inquiry' | 'quote_request';
+    isNewProductThread?: string;
   }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius } = useTheme();
   const { user } = useAuth();
+  const toast = useToast();
 
   const [thread, setThread] = useState<MessageThread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -42,6 +49,7 @@ export default function MessageThreadScreen() {
   const [displayProductImage, setDisplayProductImage] = useState(productImage);
   const [displayProductName, setDisplayProductName] = useState(productName);
   const flatListRef = useRef<FlatList>(null);
+  const isNewThread = isNewProductThread === 'true';
 
   const styles = StyleSheet.create({
     container: {
@@ -179,6 +187,7 @@ export default function MessageThreadScreen() {
     inputContainer: {
       flexDirection: 'row',
       padding: themeSpacing.base,
+      paddingBottom: Platform.OS === 'android' ? themeSpacing.base : themeSpacing.base,
       backgroundColor: themeColors.surface,
       borderTopWidth: 1,
       borderTopColor: themeColors.border,
@@ -222,10 +231,12 @@ export default function MessageThreadScreen() {
   });
 
   useEffect(() => {
-    if (threadId) {
+    if (threadId && !isNewThread) {
       loadThread();
+    } else if (isNewThread) {
+      setLoading(false);
     }
-  }, [threadId]);
+  }, [threadId, isNewThread]);
 
   const loadThread = async (showRefreshIndicator = false) => {
     try {
@@ -243,14 +254,14 @@ export default function MessageThreadScreen() {
         markMessagesAsRead(response.data.messages);
       } else {
         if (!showRefreshIndicator) {
-          Alert.alert('Error', 'Failed to load messages');
+          toast.error('Failed to load messages');
           router.back();
         }
       }
     } catch (error) {
       console.error('Error loading thread:', error);
       if (!showRefreshIndicator) {
-        Alert.alert('Error', 'Failed to load messages');
+        toast.error('Failed to load messages');
         router.back();
       }
     } finally {
@@ -284,6 +295,35 @@ export default function MessageThreadScreen() {
       setSending(true);
       console.log('Sending message to thread:', threadId, 'Message:', newMessage.trim());
       
+      // If this is a new product thread, create it first
+      if (isNewThread && productId) {
+        const createResponse = await messageService.createProductThread(
+          productId,
+          newMessage.trim(),
+          (threadType as 'product_inquiry' | 'quote_request') || 'product_inquiry'
+        );
+        
+        console.log('Create product thread response:', createResponse);
+        
+        if (createResponse.success && createResponse.data) {
+          // Thread created successfully, navigate to the real thread
+          router.replace({
+            pathname: `/message-thread/${createResponse.data.thread.threadId}`,
+            params: {
+              productImage: displayProductImage || '',
+              productName: displayProductName || ''
+            }
+          });
+          return;
+        } else {
+          console.error('Failed to create thread:', createResponse.error);
+          toast.error(createResponse.error?.message || 'Failed to start conversation');
+          setSending(false);
+          return;
+        }
+      }
+      
+      // Send message to existing thread
       const response = await messageService.sendMessage({
         threadId,
         text: newMessage.trim(),
@@ -305,11 +345,11 @@ export default function MessageThreadScreen() {
         }, 100);
       } else {
         console.error('Failed to send message:', response.error);
-        Alert.alert('Error', response.error?.message || 'Failed to send message');
+        toast.error(response.error?.message || 'Failed to send message');
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message');
+      toast.error('Failed to send message');
     } finally {
       setSending(false);
     }
@@ -392,7 +432,7 @@ export default function MessageThreadScreen() {
     );
   }
 
-  if (!thread) {
+  if (!thread && !isNewThread) {
     return (
       <View style={styles.container}>
         <Header title="Messages" showBack={true} />
@@ -404,19 +444,16 @@ export default function MessageThreadScreen() {
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <View style={styles.container}>
       <Header 
-        title={user?.role === 'admin' ? thread.customerName : 'Support'} 
+        title={isNewThread ? 'New Message' : (user?.role === 'admin' ? thread?.customerName : 'Support')} 
         showBack={true} 
       />
       
       {messages.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>
-            No messages yet.{'\n'}Start the conversation!
+            {isNewThread ? 'Start the conversation!' : 'No messages yet.\nStart the conversation!'}
           </Text>
         </View>
       ) : (
@@ -480,6 +517,9 @@ export default function MessageThreadScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+
+      {/* Toast Component */}
+      <Toast {...toast} />
+    </View>
   );
 }

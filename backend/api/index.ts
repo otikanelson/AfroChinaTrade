@@ -29,6 +29,7 @@ import productCollectionRoutes from '../src/routes/productCollectionRoutes';
 import recommendationRoutes from '../src/routes/recommendationRoutes';
 import deliveryAddressRoutes from '../src/routes/deliveryAddressRoutes';
 import locationRoutes from '../src/routes/locationRoutes';
+import paymentMethodRoutes from '../src/routes/paymentMethodRoutes';
 
 // Load environment variables (only for local development)
 // On Vercel, environment variables are injected directly
@@ -104,6 +105,7 @@ app.use('/api', productCollectionRoutes);
 app.use('/api', recommendationRoutes);
 app.use('/api/addresses', deliveryAddressRoutes);
 app.use('/api/locations', locationRoutes);
+app.use('/api/payment-methods', paymentMethodRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

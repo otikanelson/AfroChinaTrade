@@ -54,35 +54,44 @@ class ProductService {
    * Get paginated list of products with filtering and sorting
    */
   async getProducts(params: ProductListParams = {}): Promise<ApiResponse<Product[]>> {
-    const queryParams = new URLSearchParams();
-    
-    // Add pagination
-    if (params.page) queryParams.append('page', params.page.toString());
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-    
-    // Add filters
-    if (params.category) queryParams.append('category', params.category);
-    if (params.minPrice !== undefined) queryParams.append('minPrice', params.minPrice.toString());
-    if (params.maxPrice !== undefined) queryParams.append('maxPrice', params.maxPrice.toString());
-    if (params.minRating !== undefined) queryParams.append('minRating', params.minRating.toString());
-    if (params.inStock !== undefined) queryParams.append('inStock', params.inStock.toString());
-    if (params.search) queryParams.append('search', params.search);
-    if (params.isFeatured !== undefined) queryParams.append('isFeatured', params.isFeatured.toString());
-    if (params.isSellerFavorite !== undefined) queryParams.append('isSellerFavorite', params.isSellerFavorite.toString());
-    
-    // Add tags
-    if (params.tags && params.tags.length > 0) {
-      params.tags.forEach(tag => queryParams.append('tags', tag));
-    }
-    
-    // Add sorting
-    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
-    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    try {
+      const queryParams = new URLSearchParams();
+      
+      // Add pagination
+      if (params.page) queryParams.append('page', params.page.toString());
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+      
+      // Add filters
+      if (params.category) queryParams.append('category', params.category);
+      if (params.minPrice !== undefined) queryParams.append('minPrice', params.minPrice.toString());
+      if (params.maxPrice !== undefined) queryParams.append('maxPrice', params.maxPrice.toString());
+      if (params.minRating !== undefined) queryParams.append('minRating', params.minRating.toString());
+      if (params.inStock !== undefined) queryParams.append('inStock', params.inStock.toString());
+      if (params.search) queryParams.append('search', params.search);
+      if (params.isFeatured !== undefined) queryParams.append('isFeatured', params.isFeatured.toString());
+      if (params.isSellerFavorite !== undefined) queryParams.append('isSellerFavorite', params.isSellerFavorite.toString());
+      
+      // Add tags
+      if (params.tags && params.tags.length > 0) {
+        params.tags.forEach(tag => queryParams.append('tags', tag));
+      }
+      
+      // Add sorting
+      if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+      if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
 
-    const queryString = queryParams.toString();
-    const url = queryString ? `${this.basePath}?${queryString}` : this.basePath;
-    
-    return apiClient.get<Product[]>(url);
+      const queryString = queryParams.toString();
+      const url = queryString ? `${this.basePath}?${queryString}` : this.basePath;
+      
+      console.log('📦 Fetching products from:', url);
+      const response = await apiClient.get<Product[]>(url);
+      console.log('📦 Products response:', response.success ? `${response.data?.length || 0} products` : response.error?.message);
+      
+      return response;
+    } catch (error) {
+      console.error('❌ Error fetching products:', error);
+      throw error;
+    }
   }
 
   /**

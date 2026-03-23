@@ -27,6 +27,9 @@ export interface ApiError {
 
 class SimpleApiClient {
   private client: AxiosInstance;
+  private isRefreshing = false;
+  private refreshSubscribers: ((token: string) => void)[] = [];
+  private onTokenExpiredCallback: (() => void) | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -38,6 +41,79 @@ class SimpleApiClient {
     });
 
     this.setupInterceptors();
+    this.setupTokenExpiryListeners();
+  }
+
+  private setupTokenExpiryListeners() {
+    // Listen for token expiry warnings
+    tokenManager.onExpiryWarning((secondsRemaining) => {
+      console.warn(`⏰ Token expiring in ${secondsRemaining} seconds. Attempting refresh...`);
+      this.refreshAccessToken();
+    });
+
+    // Listen for token expiry
+    tokenManager.onTokenExpired(() => {
+      console.error('🔴 Token expired. User needs to re-authenticate.');
+      if (this.onTokenExpiredCallback) {
+        this.onTokenExpiredCallback();
+      }
+    });
+  }
+
+  setOnTokenExpired(callback: () => void) {
+    this.onTokenExpiredCallback = callback;
+  }
+
+  private subscribeToTokenRefresh(callback: (token: string) => void) {
+    this.refreshSubscribers.push(callback);
+  }
+
+  private onRefreshed(token: string) {
+    this.refreshSubscribers.forEach(callback => callback(token));
+    this.refreshSubscribers = [];
+  }
+
+  private async refreshAccessToken(): Promise<boolean> {
+    if (this.isRefreshing) {
+      return new Promise((resolve) => {
+        this.subscribeToTokenRefresh(() => {
+          resolve(true);
+        });
+      });
+    }
+
+    this.isRefreshing = true;
+
+    try {
+      const refreshToken = tokenManager.getRefreshToken();
+      if (!refreshToken) {
+        console.error('❌ No refresh token available');
+        await tokenManager.clearTokens();
+        return false;
+      }
+
+      const response = await this.client.post('/auth/refresh', { refreshToken });
+      const { data } = response;
+
+      if (data.status === 'success' && data.data?.token) {
+        const newAccessToken = data.data.token;
+        await tokenManager.setTokens(newAccessToken, refreshToken);
+        console.log('✅ Token refreshed successfully');
+        this.onRefreshed(newAccessToken);
+        this.isRefreshing = false;
+        return true;
+      } else {
+        console.error('❌ Token refresh failed:', data.message);
+        await tokenManager.clearTokens();
+        this.isRefreshing = false;
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Token refresh error:', error);
+      await tokenManager.clearTokens();
+      this.isRefreshing = false;
+      return false;
+    }
   }
 
   private setupInterceptors() {
@@ -47,6 +123,9 @@ class SimpleApiClient {
         const token = await tokenManager.getAccessToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
+        } else {
+          // Ensure no Authorization header is sent for guest users
+          delete config.headers.Authorization;
         }
 
         if (__DEV__) {
@@ -67,6 +146,8 @@ class SimpleApiClient {
         return response;
       },
       async (error: AxiosError) => {
+        const originalRequest = error.config as any;
+
         if (__DEV__) {
           console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
             status: error.response?.status,
@@ -74,8 +155,29 @@ class SimpleApiClient {
           });
         }
 
-        // If 401 error, clear tokens and let the app handle re-authentication
-        if (error.response?.status === 401) {
+        // If 401 error and not already retried, attempt token refresh
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+
+          const errorData = error.response?.data as any;
+          const errorCode = errorData?.errorCode || errorData?.data?.errorCode;
+
+          // Only attempt refresh if token expired, not for other auth errors
+          if (errorCode === 'TOKEN_EXPIRED') {
+            console.log('🔄 Attempting to refresh token...');
+            const refreshed = await this.refreshAccessToken();
+
+            if (refreshed) {
+              // Retry original request with new token
+              const newToken = await tokenManager.getAccessToken();
+              if (newToken) {
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                return this.client(originalRequest);
+              }
+            }
+          }
+
+          // If refresh failed or other auth error, clear tokens
           console.warn('🔒 Authentication failed, clearing tokens');
           await tokenManager.clearTokens();
         }

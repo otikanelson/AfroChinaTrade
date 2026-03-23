@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
@@ -13,12 +12,15 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../hooks/useToast';
 import { Header } from '../components/Header';
+import { Toast } from '../components/ui/Toast';
 import { messageService } from '../services/MessageService';
 
 export default function NewMessageScreen() {
   const router = useRouter();
   const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius } = useTheme();
+  const toast = useToast();
 
   const [messageType, setMessageType] = useState<'general' | 'quote_request'>('general');
   const [message, setMessage] = useState('');
@@ -137,7 +139,7 @@ export default function NewMessageScreen() {
       
       // For new general messages, we'll use a different approach
       // Generate a unique thread ID
-      const threadId = `general_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const threadId = `general_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       
       console.log('Creating new general message thread:', { threadId, messageType, messageLength: message.trim().length });
       
@@ -153,25 +155,17 @@ export default function NewMessageScreen() {
       console.log('New message response:', response);
 
       if (response.success) {
-        Alert.alert(
-          'Message Sent',
-          'Your message has been sent successfully. Our support team will respond soon.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                router.replace('/(tabs)/messages');
-              },
-            },
-          ]
-        );
+        toast.success('Message sent successfully. Our support team will respond soon.');
+        setTimeout(() => {
+          router.replace('/(tabs)/messages');
+        }, 1500);
       } else {
         console.error('Failed to send message:', response.error);
-        Alert.alert('Error', response.error?.message || 'Failed to send message. Please try again.');
+        toast.error(response.error?.message || 'Failed to send message. Please try again.');
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message. Please check your connection and try again.');
+      toast.error('Failed to send message. Please check your connection and try again.');
     } finally {
       setSending(false);
     }
@@ -252,6 +246,9 @@ export default function NewMessageScreen() {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Toast Component */}
+      <Toast {...toast} />
     </View>
   );
 }

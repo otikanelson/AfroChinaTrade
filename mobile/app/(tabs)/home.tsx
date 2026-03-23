@@ -56,36 +56,40 @@ export default function HomeTab() {
     },
     searchContainer: {
       paddingHorizontal: spacing.base,
-      paddingVertical: spacing.sm,
+      paddingVertical: spacing.xs,
     },
     featureCardsContainer: {
-      paddingVertical: spacing.md,
-      marginBottom: spacing.base,
+      paddingVertical: spacing.sm,
+      marginBottom: 0,
     },
     featureCardsRow: {
       paddingHorizontal: spacing.base,
-      gap: spacing.sm,
+      gap: spacing.xs,
     },
     section: {
-      marginBottom: spacing.sm,
+      marginBottom: spacing.xs,
+      marginTop: 0,
     },
     horizontalList: {
-      paddingHorizontal: spacing.base,
-      gap: spacing.md,
+      paddingHorizontal: 3,
     },
     featuredCardWrapper: {
-      width: 160,
+      width: 110,
+      margin: 5,
     },
     masonryContainer: {
       flexDirection: 'row',
       paddingHorizontal: spacing.base,
-      gap: spacing.md,
+      gap: spacing.lg,
     },
     masonryColumn: {
       flex: 1,
+      alignItems: 'center',
     },
     masonryItem: {
       marginBottom: spacing.md,
+      width: '100%',
+      alignItems: 'center',
     },
     loadingContainer: {
       flex: 1,
@@ -260,18 +264,20 @@ export default function HomeTab() {
 
   const categoryNames = ['All', ...categories.map(c => c.name)];
 
-  // Split products into two columns for masonry layout
+  // Split products into three columns for masonry layout
   const getMasonryColumns = (productList: Product[]) => {
-    const leftColumn: Product[] = [];
-    const rightColumn: Product[] = [];
+    const column1: Product[] = [];
+    const column2: Product[] = [];
+    const column3: Product[] = [];
     productList.forEach((product, index) => {
-      if (index % 2 === 0) leftColumn.push(product);
-      else rightColumn.push(product);
+      if (index % 3 === 0) column1.push(product);
+      else if (index % 3 === 1) column2.push(product);
+      else column3.push(product);
     });
-    return { leftColumn, rightColumn };
+    return { column1, column2, column3 };
   };
 
-  const { leftColumn, rightColumn } = getMasonryColumns(products);
+  const { column1, column2, column3 } = getMasonryColumns(products);
 
   if (isLoading) {
     return (
@@ -527,7 +533,7 @@ export default function HomeTab() {
           {products.length > 0 ? (
             <View style={styles.masonryContainer}>
               <View style={styles.masonryColumn}>
-                {leftColumn.map(product => {
+                {column1.map(product => {
                   const productId = (product as any)._id || product.id;
                   const badgeText = product.isNew ? 'New' : undefined;
                   return (
@@ -543,7 +549,23 @@ export default function HomeTab() {
                 })}
               </View>
               <View style={styles.masonryColumn}>
-                {rightColumn.map(product => {
+                {column2.map(product => {
+                  const productId = (product as any)._id || product.id;
+                  const badgeText = product.isNew ? 'New' : undefined;
+                  return (
+                    <View key={productId} style={styles.masonryItem}>
+                      <ProductCard
+                        product={product}
+                        badge={badgeText}
+                        onPress={() => handleProductPress(product)}
+                        showViewCount={true}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={styles.masonryColumn}>
+                {column3.map(product => {
                   const productId = (product as any)._id || product.id;
                   const badgeText = product.isNew ? 'New' : undefined;
                   return (
