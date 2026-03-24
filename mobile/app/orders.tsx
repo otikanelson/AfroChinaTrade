@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   Image,
   ActivityIndicator,
@@ -15,6 +15,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { tokenManager } from '../services/api/tokenManager';
 import { API_BASE_URL } from '../constants/config';
 import { useTheme } from '../contexts/ThemeContext';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 interface OrderItem {
   productId: string;
@@ -42,13 +43,10 @@ interface Order {
 }
 
 export default function OrdersScreen() {
-  // Require authentication
-  const { isAuthenticated } = useRequireAuth('Please sign in to view your orders');
-  
   const router = useRouter();
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const styles = StyleSheet.create({
@@ -223,18 +221,7 @@ export default function OrdersScreen() {
     },
   });
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  // Refresh orders when screen comes into focus
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchOrders();
-    }, [])
-  );
-
-  const fetchOrders = async () => {
+  const fetchOrders = React.useCallback(async (isRefresh: boolean = false) => {
     const token = await tokenManager.getAccessToken();
     if (!token) {
       setLoading(false);
@@ -243,33 +230,50 @@ export default function OrdersScreen() {
     }
 
     try {
-      console.log('Fetching orders from:', `${API_BASE_URL}/orders`);
-      const response = await fetch(`${API_BASE_URL}/orders`, {
+      if (!isRefresh) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(`${API_BASE_URL}/orders?limit=50`, {
         headers: { 'Authorization': `Bearer ${token}` },
+        signal: controller.signal,
       });
 
-      console.log('Orders response status:', response.status);
+      clearTimeout(timeoutId);
       const data = await response.json();
-      console.log('Orders response data:', JSON.stringify(data, null, 2));
       
       if (data.status === 'success') {
         setOrders(data.data || []);
-        console.log('Orders loaded:', data.data?.length || 0);
-      } else {
-        console.error('Failed to fetch orders:', data.message);
       }
-    } catch (error) {
-      console.error('Error fetching orders:', error);
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Error fetching orders:', error);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchOrders();
-  };
+  useEffect(() => {
+    fetchOrders(false);
+  }, [fetchOrders]);
+
+  // Refresh orders when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchOrders(false);
+    }, [fetchOrders])
+  );
+
+  const onRefresh = React.useCallback(() => {
+    fetchOrders(true);
+  }, [fetchOrders]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -314,9 +318,71 @@ export default function OrdersScreen() {
     });
   };
 
-  const handleOrderPress = (orderId: string) => {
+  const handleOrderPress = React.useCallback((orderId: string) => {
     router.push(`/order-detail/${orderId}`);
-  };
+  }, [router]);
+
+  const renderOrder = React.useCallback(({ item: order }: { item: Order }) => (
+    <TouchableOpacity
+      key={order._id}
+      style={styles.orderCard}
+      onPress={() => handleOrderPress(order._id)}
+    >
+      <View style={styles.orderHeader}>
+        <View style={styles.orderInfo}>
+          <Text style={styles.orderNumber}>#{order.orderId}</Text>
+          <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
+          <Ionicons 
+            name={getStatusIcon(order.status) as any} 
+            size={14} 
+            color="white" 
+          />
+          <Text style={styles.statusText}>
+            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.orderItems}>
+        {order.items.slice(0, 2).map((item, index) => (
+          <View key={index} style={styles.orderItem}>
+            <Image
+              source={{ uri: item.productImage || 'https://via.placeholder.com/50' }}
+              style={styles.itemImage}
+              resizeMode="cover"
+            />
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemName} numberOfLines={1}>
+                {item.productName}
+              </Text>
+              <Text style={styles.itemDetails}>
+                Qty: {item.quantity} × ₦{item.price.toLocaleString()}
+              </Text>
+            </View>
+          </View>
+        ))}
+        {order.items.length > 2 && (
+          <Text style={styles.moreItems}>
+            +{order.items.length - 2} more item{order.items.length - 2 > 1 ? 's' : ''}
+          </Text>
+        )}
+      </View>
+
+      <View style={styles.orderFooter}>
+        <View style={styles.deliveryInfo}>
+          <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+          <Text style={styles.deliveryText} numberOfLines={1}>
+            {order.deliveryAddress.city}, {order.deliveryAddress.state}
+          </Text>
+        </View>
+        <Text style={styles.orderTotal}>₦{order.totalAmount.toLocaleString()}</Text>
+      </View>
+    </TouchableOpacity>
+  ), [styles, colors, handleOrderPress]);
+
+  const keyExtractor = React.useCallback((item: Order) => item._id, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -350,8 +416,11 @@ export default function OrdersScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView 
-          style={styles.ordersList} 
+        <FlatList
+          data={orders}
+          renderItem={renderOrder}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={styles.ordersList}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -360,67 +429,11 @@ export default function OrdersScreen() {
               tintColor={colors.primary}
             />
           }
-        >
-          {orders.map((order) => (
-            <TouchableOpacity
-              key={order._id}
-              style={styles.orderCard}
-              onPress={() => handleOrderPress(order._id)}
-            >
-              <View style={styles.orderHeader}>
-                <View style={styles.orderInfo}>
-                  <Text style={styles.orderNumber}>#{order.orderId}</Text>
-                  <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
-                  <Ionicons 
-                    name={getStatusIcon(order.status) as any} 
-                    size={14} 
-                    color="white" 
-                  />
-                  <Text style={styles.statusText}>
-                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.orderItems}>
-                {order.items.slice(0, 2).map((item, index) => (
-                  <View key={index} style={styles.orderItem}>
-                    <Image
-                      source={{ uri: item.productImage || 'https://via.placeholder.com/50' }}
-                      style={styles.itemImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.itemInfo}>
-                      <Text style={styles.itemName} numberOfLines={1}>
-                        {item.productName}
-                      </Text>
-                      <Text style={styles.itemDetails}>
-                        Qty: {item.quantity} × ₦{item.price.toLocaleString()}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-                {order.items.length > 2 && (
-                  <Text style={styles.moreItems}>
-                    +{order.items.length - 2} more item{order.items.length - 2 > 1 ? 's' : ''}
-                  </Text>
-                )}
-              </View>
-
-              <View style={styles.orderFooter}>
-                <View style={styles.deliveryInfo}>
-                  <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-                  <Text style={styles.deliveryText} numberOfLines={1}>
-                    {order.deliveryAddress.city}, {order.deliveryAddress.state}
-                  </Text>
-                </View>
-                <Text style={styles.orderTotal}>₦{order.totalAmount.toLocaleString()}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          initialNumToRender={10}
+          windowSize={10}
+        />
       )}
     </SafeAreaView>
   );

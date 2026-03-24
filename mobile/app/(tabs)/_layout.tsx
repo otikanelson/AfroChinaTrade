@@ -70,7 +70,7 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: 'Messages',
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount.toString()) : undefined,
           tabBarBadgeStyle: {
             backgroundColor: colors.error, // Using error color for badge
             color: colors.textInverse,

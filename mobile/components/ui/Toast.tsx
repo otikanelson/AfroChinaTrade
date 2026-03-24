@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Animated,
   Dimensions,
+  PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -43,22 +44,86 @@ export const Toast: React.FC<ToastProps> = ({
   onClose,
 }) => {
   const { colors } = useTheme();
-  const slideAnim = React.useRef(new Animated.Value(-100)).current;
+  const slideAnim = useRef(new Animated.Value(-100)).current;
+  const swipeAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only respond to horizontal swipes
+        return Math.abs(gestureState.dx) > 5;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Allow swiping in both directions
+        swipeAnim.setValue(gestureState.dx);
+        // Fade out as user swipes
+        const opacity = 1 - Math.abs(gestureState.dx) / (screenWidth * 0.5);
+        opacityAnim.setValue(Math.max(0, opacity));
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const swipeThreshold = screenWidth * 0.3;
+        
+        if (Math.abs(gestureState.dx) > swipeThreshold) {
+          // Swipe threshold met - dismiss the toast
+          const direction = gestureState.dx > 0 ? screenWidth : -screenWidth;
+          Animated.parallel([
+            Animated.timing(swipeAnim, {
+              toValue: direction,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacityAnim, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            onClose?.();
+            // Reset animations
+            swipeAnim.setValue(0);
+            opacityAnim.setValue(1);
+          });
+        } else {
+          // Swipe threshold not met - bounce back
+          Animated.parallel([
+            Animated.spring(swipeAnim, {
+              toValue: 0,
+              useNativeDriver: true,
+              tension: 100,
+              friction: 8,
+            }),
+            Animated.timing(opacityAnim, {
+              toValue: 1,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        }
+      },
+    })
+  ).current;
 
   useEffect(() => {
     if (visible) {
+      // Reset swipe position when showing
+      swipeAnim.setValue(0);
+      opacityAnim.setValue(1);
+      
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
       }).start();
 
-      if (autoClose > 0) {
-        const timer = setTimeout(() => {
-          handleClose();
-        }, autoClose);
-        return () => clearTimeout(timer);
-      }
+      // Always auto-close, use provided duration or default
+      const duration = autoClose && autoClose > 0 ? autoClose : 3000;
+      const timer = setTimeout(() => {
+        handleClose();
+      }, duration);
+      
+      return () => clearTimeout(timer);
     } else {
       slideAnim.setValue(-100);
     }
@@ -93,37 +158,43 @@ export const Toast: React.FC<ToastProps> = ({
   const styles = StyleSheet.create({
     container: {
       position: 'absolute',
-      top: 20,
+      bottom: 70,
       left: 0,
       right: 0,
       zIndex: 9999,
-      paddingHorizontal: 12,
-      paddingTop: 8,
+      paddingHorizontal: 16,
     },
     toast: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: typeColor,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      gap: 8,
+      borderRadius: 12,
+      paddingHorizontal: 16,
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-      elevation: 5,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
+      minHeight: 50,
+      maxWidth: screenWidth - 32,
+    },
+    iconContainer: {
+      marginRight: 12,
+      marginTop: 2,
     },
     icon: {
       color: '#FFFFFF',
-      fontSize: 16,
+      fontSize: 22,
+    },
+    messageContainer: {
+      flex: 1,
+      flexShrink: 1,
     },
     message: {
-      flex: 1,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '500',
       color: '#FFFFFF',
-      lineHeight: 18,
+      lineHeight: 20,
     },
   });
 
@@ -137,13 +208,26 @@ export const Toast: React.FC<ToastProps> = ({
           transform: [{ translateY: slideAnim }],
         },
       ]}
+      {...panResponder.panHandlers}
     >
-      <View style={styles.toast}>
-        <Ionicons name={getIconName(type)} style={styles.icon} />
-        <Text style={styles.message} numberOfLines={2}>
-          {message}
-        </Text>
-      </View>
+      <Animated.View 
+        style={[
+          styles.toast,
+          {
+            transform: [{ translateX: swipeAnim }],
+            opacity: opacityAnim,
+          },
+        ]}
+      >
+        <View style={styles.iconContainer}>
+          <Ionicons name={getIconName(type)} style={styles.icon} />
+        </View>
+        <View style={styles.messageContainer}>
+          <Text style={styles.message} numberOfLines={4}>
+            {message}
+          </Text>
+        </View>
+      </Animated.View>
     </Animated.View>
   );
 };

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { tokenManager } from '../services/api/tokenManager';
+import { productService } from '../services/ProductService';
 import { API_BASE_URL } from '../constants/config';
 
 interface CartItem {
@@ -54,20 +56,92 @@ interface CartProviderProps {
 }
 
 export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, isGuestMode } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
+  const [guestCart, setGuestCart] = useState<Cart>({
+    _id: 'guest-cart',
+    items: [],
+    totalItems: 0,
+    totalAmount: 0
+  });
 
-  const cartCount = cart?.totalItems || 0;
+  const GUEST_CART_KEY = '@afrochinatrade:guest_cart';
+
+  // Load guest cart from storage on mount
+  useEffect(() => {
+    loadGuestCart();
+  }, []);
+
+  const loadGuestCart = async () => {
+    try {
+      const storedGuestCart = await AsyncStorage.getItem(GUEST_CART_KEY);
+      if (storedGuestCart) {
+        const parsedCart = JSON.parse(storedGuestCart);
+        setGuestCart(parsedCart);
+      }
+    } catch (error) {
+      console.error('Error loading guest cart:', error);
+    }
+  };
+
+  const saveGuestCart = async (cartData: Cart) => {
+    try {
+      await AsyncStorage.setItem(GUEST_CART_KEY, JSON.stringify(cartData));
+    } catch (error) {
+      console.error('Error saving guest cart:', error);
+    }
+  };
+
+  const cartCount = isGuestMode ? guestCart.totalItems : (cart?.totalItems || 0);
 
   useEffect(() => {
     if (user) {
-      refreshCart();
+      // Transfer guest cart items to authenticated cart if any exist
+      if (guestCart.items.length > 0) {
+        transferGuestCartToAuthenticated();
+      } else {
+        refreshCart();
+      }
+    } else if (isGuestMode) {
+      setCart(guestCart);
     } else {
       setCart(null);
     }
-  }, [user]);
+  }, [user, isGuestMode]);
+
+  // Function to transfer guest cart items to authenticated cart
+  const transferGuestCartToAuthenticated = async () => {
+    if (guestCart.items.length === 0) {
+      refreshCart();
+      return;
+    }
+
+    try {
+      // Add each guest cart item to the authenticated cart
+      for (const item of guestCart.items) {
+        await addToCart(item.productId._id, item.quantity, item.selectedVariant);
+      }
+      
+      // Clear guest cart after successful transfer
+      const clearedCart = {
+        _id: 'guest-cart',
+        items: [],
+        totalItems: 0,
+        totalAmount: 0
+      };
+      setGuestCart(clearedCart);
+      await saveGuestCart(clearedCart);
+      
+      // Refresh to get the updated cart from server
+      refreshCart();
+    } catch (error) {
+      console.error('Error transferring guest cart:', error);
+      // If transfer fails, just refresh the cart
+      refreshCart();
+    }
+  };
 
   const isOperationPending = (productId: string): boolean => {
     return pendingOperations.has(productId);
@@ -109,12 +183,76 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     }
   };
 
+  // Function to fetch product details for guest cart items
+  const fetchProductDetails = async (productId: string) => {
+    try {
+      const response = await productService.getProductById(productId);
+      if (response.success && response.data) {
+        return {
+          _id: response.data.id,
+          name: response.data.name,
+          price: response.data.price,
+          images: response.data.images || []
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching product details:', error);
+    }
+    return null;
+  };
+
   const addToCart = async (
     productId: string, 
     quantity: number = 1, 
     selectedVariant?: any
   ): Promise<boolean> => {
     try {
+      // Handle guest mode - store in local state only
+      if (isGuestMode) {
+        const updatedGuestCart = { ...guestCart };
+        
+        // Check if item already exists
+        const existingItemIndex = updatedGuestCart.items.findIndex(item => 
+          item.productId._id === productId && 
+          JSON.stringify(item.selectedVariant) === JSON.stringify(selectedVariant)
+        );
+
+        if (existingItemIndex >= 0) {
+          // Update existing item
+          updatedGuestCart.items[existingItemIndex] = {
+            ...updatedGuestCart.items[existingItemIndex],
+            quantity: updatedGuestCart.items[existingItemIndex].quantity + quantity
+          };
+        } else {
+          // Fetch actual product details for guest cart
+          const productDetails = await fetchProductDetails(productId);
+          const productInfo = productDetails || {
+            _id: productId,
+            name: 'Product',
+            price: 0,
+            images: []
+          };
+
+          // Add new item with actual product data
+          updatedGuestCart.items.push({
+            _id: `guest-${Date.now()}`,
+            productId: productInfo,
+            quantity,
+            price: productInfo.price,
+            selectedVariant
+          });
+        }
+        
+        updatedGuestCart.totalItems = updatedGuestCart.items.reduce((sum, item) => sum + item.quantity, 0);
+        updatedGuestCart.totalAmount = updatedGuestCart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        setGuestCart(updatedGuestCart);
+        setCart(updatedGuestCart);
+        await saveGuestCart(updatedGuestCart);
+        return true;
+      }
+
+      // Authenticated user logic (existing code)
       // Optimistic update - update UI immediately
       const previousCart = cart;
       
@@ -207,6 +345,23 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     selectedVariant?: any
   ): Promise<boolean> => {
     try {
+      // Handle guest mode - update local state only
+      if (isGuestMode) {
+        const updatedGuestCart = { ...guestCart };
+        updatedGuestCart.items = updatedGuestCart.items.filter(item => 
+          !(item.productId._id === productId && 
+            JSON.stringify(item.selectedVariant) === JSON.stringify(selectedVariant))
+        );
+        updatedGuestCart.totalItems = updatedGuestCart.items.reduce((sum, item) => sum + item.quantity, 0);
+        updatedGuestCart.totalAmount = updatedGuestCart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        setGuestCart(updatedGuestCart);
+        setCart(updatedGuestCart);
+        await saveGuestCart(updatedGuestCart);
+        return true;
+      }
+
+      // Authenticated user logic
       // Optimistic update - remove immediately
       const previousCart = cart;
       
@@ -272,6 +427,31 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     try {
       if (quantity < 1) return false;
 
+      // Handle guest mode - update local state only
+      if (isGuestMode) {
+        const updatedGuestCart = { ...guestCart };
+        const itemIndex = updatedGuestCart.items.findIndex(item => 
+          item.productId._id === productId && 
+          JSON.stringify(item.selectedVariant) === JSON.stringify(selectedVariant)
+        );
+
+        if (itemIndex >= 0) {
+          updatedGuestCart.items[itemIndex] = {
+            ...updatedGuestCart.items[itemIndex],
+            quantity
+          };
+          updatedGuestCart.totalItems = updatedGuestCart.items.reduce((sum, item) => sum + item.quantity, 0);
+          updatedGuestCart.totalAmount = updatedGuestCart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+          
+          setGuestCart(updatedGuestCart);
+          setCart(updatedGuestCart);
+          await saveGuestCart(updatedGuestCart);
+          return true;
+        }
+        return false;
+      }
+
+      // Authenticated user logic
       // Optimistic update - update immediately
       const previousCart = cart;
       
@@ -338,6 +518,21 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   const clearCart = async (): Promise<boolean> => {
     try {
+      // Handle guest mode - clear local state only
+      if (isGuestMode) {
+        const clearedCart = {
+          _id: 'guest-cart',
+          items: [],
+          totalItems: 0,
+          totalAmount: 0
+        };
+        setGuestCart(clearedCart);
+        setCart(clearedCart);
+        await saveGuestCart(clearedCart);
+        return true;
+      }
+
+      // Authenticated user logic
       // Optimistic update - clear immediately
       const previousCart = cart;
       setCart({ ...cart!, items: [], totalItems: 0, totalAmount: 0 });

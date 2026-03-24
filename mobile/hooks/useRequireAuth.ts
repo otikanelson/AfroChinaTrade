@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlertContext } from '../contexts/AlertContext';
+import { useRedirect } from '../contexts/RedirectContext';
 
 /**
  * Hook to require authentication for a screen
@@ -11,10 +12,15 @@ import { useAlertContext } from '../contexts/AlertContext';
 export const useRequireAuth = (message?: string) => {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const alert = useAlertContext();
+  const { setPendingRedirect } = useRedirect();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
+      // Store current path for redirect after login
+      setPendingRedirect(pathname);
+      
       alert.showInfo(
         'Sign In Required',
         message || 'Please sign in to access this feature',
@@ -26,7 +32,7 @@ export const useRequireAuth = (message?: string) => {
         router.push('/auth/login');
       }, 500);
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, pathname]);
 
   return { isAuthenticated, isLoading };
 };

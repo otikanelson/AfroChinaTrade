@@ -20,8 +20,8 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     if (isAuthenticated) {
       refreshUnreadCount();
       
-      // Set up polling for unread count every 30 seconds
-      const interval = setInterval(refreshUnreadCount, 30000);
+      // Set up polling for unread count every 10 minutes
+      const interval = setInterval(refreshUnreadCount, 600000);
       return () => clearInterval(interval);
     } else {
       setUnreadCount(0);

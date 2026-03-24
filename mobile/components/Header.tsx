@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
+import { Sidebar } from './Sidebar';
 
 interface HeaderProps {
   title: string;
@@ -13,6 +14,7 @@ interface HeaderProps {
   showCart?: boolean;
   showRefresh?: boolean;
   showFilter?: boolean;
+  showMenu?: boolean;
   cartCount?: number;
   onCartPress?: () => void;
   onRefreshPress?: () => void;
@@ -33,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   showBack = false,
   showCart = false,
   showRefresh = false,
+  showMenu = true,
   cartCount = 0,
   onCartPress,
   onRefreshPress,
@@ -41,6 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const router = useRouter();
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
+  const [sidebarVisible, setSidebarVisible] = useState(false);
 
   const styles = StyleSheet.create({
     container: {
@@ -67,16 +71,21 @@ export const Header: React.FC<HeaderProps> = ({
       marginRight: spacing.sm,
       borderRadius: borderRadius.base,
     },
+    menuBtn: {
+      padding: spacing.sm,
+      marginRight: spacing.sm,
+      borderRadius: borderRadius.base,
+    },
     logo: {
-      width: 40,
-      height: 40,
+      width: 30,
+      height: 30,
       marginRight: spacing.md,
     },
     titleContainer: {
       flex: 1,
     },
     title: {
-      fontSize: fontSizes['2xl'],
+      fontSize: fontSizes['xl'],
       fontWeight: fontWeights.bold,
       color: colors.text,
       marginBottom: subtitle ? 2 : 0,
@@ -129,6 +138,12 @@ export const Header: React.FC<HeaderProps> = ({
               </TouchableOpacity>
             )}
             
+            {!showBack && showMenu && (
+              <TouchableOpacity onPress={() => setSidebarVisible(true)} style={styles.menuBtn}>
+                <Ionicons name="menu" size={24} color={colors.primary} />
+              </TouchableOpacity>
+            )}
+            
             {showLogo && (
               <Image 
                 source={require('../assets/images/Logo_bg.png')} 
@@ -171,6 +186,11 @@ export const Header: React.FC<HeaderProps> = ({
           </View>
         </View>
       </View>
+      
+      <Sidebar 
+        visible={sidebarVisible} 
+        onClose={() => setSidebarVisible(false)} 
+      />
     </SafeAreaView>
   );
 };

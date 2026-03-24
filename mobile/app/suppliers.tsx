@@ -10,7 +10,7 @@ import { spacing } from '../theme/spacing';
 
 export default function SuppliersScreen() {
   const router = useRouter();
-  const { fonts, fontSizes, colors } = useTheme();
+  const { fonts, fontSizes, colors, fontWeights } = useTheme();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -45,7 +45,7 @@ export default function SuppliersScreen() {
     },
     supplierName: {
       fontSize: fontSizes.lg,
-      fontFamily: fonts.semibold,
+      fontFamily: fontWeights.semibold,
       color: colors.text,
       flex: 1,
     },

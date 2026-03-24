@@ -66,7 +66,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       backgroundColor: colors.background,
       borderRadius: borderRadius.lg,
       padding: spacing.lg,
-      marginHorizontal: spacing.base,
       marginVertical: spacing.sm,
       ...shadows.md,
       elevation: 2,
@@ -77,7 +76,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     },
     cardInfo: {
       flex: 1,
-      gap: spacing.sm,
     },
     topRow: {
       flexDirection: 'row',
@@ -91,7 +89,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       color: colors.text,
     },
     address: {
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.md,
       color: colors.textSecondary,
       fontWeight: fontWeights.medium as any,
     },
@@ -102,11 +100,11 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       marginTop: spacing.xs,
     },
     date: {
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.xs,
       color: colors.textLight,
     },
     amount: {
-      fontSize: fontSizes.lg,
+      fontSize: fontSizes.sm,
       fontWeight: fontWeights.bold as any,
       color: colors.primary,
     },

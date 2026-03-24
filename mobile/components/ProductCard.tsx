@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Product } from '../types/product';
 import { useCart } from '../contexts/CartContext';
 import { useWishlist } from '../contexts/WishlistContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useToast } from '../hooks/useToast';
-import { Toast } from './ui/Toast';
+import { useAlertContext } from '../contexts/AlertContext';
+import { tokenManager } from '../services/api/tokenManager';
 import { colors } from '../theme/colors';
 import { spacing, borderRadius, shadows } from '../theme/spacing';
 import { typography, fontSizes, fontWeights } from '../theme/typography';
@@ -32,7 +32,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
   const { user } = useAuth();
   const [togglingWishlist, setTogglingWishlist] = useState(false);
-  const toast = useToast();
+  const alert = useAlertContext();
 
   const isAdmin = user?.role === 'admin';
   const getProductId = () => (product as any)._id || product.id;
@@ -41,17 +41,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const formatPrice = (price: number) => {
     try {
-      const formattedPrice = price.toLocaleString();
+      const safePrice = Number(price) || 0;
+      const formattedPrice = safePrice.toLocaleString();
       return `₦${formattedPrice}`;
     } catch (error) {
-      return `₦${price}`;
+      return `₦${Number(price) || 0}`;
     }
   };
 
   const formatViewCount = (count: number): string => {
-    if (count < 1000) return count.toString();
-    if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
-    return `${(count / 1000000).toFixed(1)}M`;
+    const safeCount = Number(count) || 0;
+    if (safeCount < 1000) return safeCount.toString();
+    if (safeCount < 1000000) return `${(safeCount / 1000).toFixed(1)}K`;
+    return `${(safeCount / 1000000).toFixed(1)}M`;
   };
 
   const getDiscountedPrice = () => {
@@ -76,12 +78,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     e.stopPropagation();
     
     if (isAdmin) {
-      toast.warning('Admins cannot add items to cart. This is for viewing purposes only.');
+      alert.showWarning('Admin Mode', 'Admins cannot add items to cart. This is for viewing purposes only.');
       return;
     }
     
     if (product.stock === 0) {
-      toast.warning('This product is currently out of stock');
+      alert.showWarning('Out of Stock', 'This product is currently out of stock');
       return;
     }
 
@@ -90,9 +92,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     const success = await addToCart(productId, 1);
     
     if (success) {
-      toast.success(`${product.name} has been added to your cart`);
+      alert.showSuccess('Added to Cart', `${product.name} has been added to your cart`);
     } else {
-      toast.error('Failed to add product to cart');
+      alert.showError('Failed', 'Failed to add product to cart');
     }
   };
 
@@ -100,7 +102,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     e.stopPropagation();
     
     if (isAdmin) {
-      toast.warning('Admins cannot manage wishlists. This is for viewing purposes only.');
+      alert.showWarning('Admin Mode', 'Admins cannot manage wishlists. This is for viewing purposes only.');
       return;
     }
     
@@ -109,14 +111,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     // Handle both _id and id fields from backend
     const productId = (product as any)._id || product.id;
     let success;
+    
     if (inWishlist) {
       success = await removeFromWishlist(productId);
+      if (success) {
+        alert.showSuccess('Removed', 'Removed from wishlist');
+      } else {
+        alert.showError('Failed', 'Failed to remove from wishlist');
+      }
     } else {
       success = await addToWishlist(productId);
-    }
-    
-    if (!success) {
-      toast.error(`Failed to ${inWishlist ? 'remove from' : 'add to'} wishlist`);
+      if (success) {
+        alert.showSuccess('Added', 'Added to wishlist');
+      } else {
+        alert.showError('Failed', 'Failed to add to wishlist');
+      }
     }
     
     setTogglingWishlist(false);
@@ -160,7 +169,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {hasDiscount && (
             <View style={[styles.listDiscountBadge, { backgroundColor: colors.error, paddingHorizontal: spacing.xs, paddingVertical: 2, borderRadius: borderRadius.sm }]}>
-              <Text style={[styles.discountText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold }]}>{product.discount}% OFF</Text>
+              <Text style={[styles.discountText, { color: colors.textInverse, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold }]}>{String(product.discount || 0)}% OFF</Text>
             </View>
           )}
 
@@ -187,14 +196,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <View style={[styles.listContent, { padding: spacing.sm, flex: 1 }]}>
           {/* Name */}
           <Text style={[styles.listName, { ...typography.body, fontSize: fontSizes.sm, color: colors.text, lineHeight: 18 }]} numberOfLines={2}>
-            {product.name || 'Unnamed Product'}
+            {String(product.name || 'Unnamed Product')}
           </Text>
 
           {/* Supplier */}
           {supplier && supplier.name && (
-            <Text style={[styles.listSupplier, { fontSize: fontSizes.xs, color: colors.primary, marginTop: spacing.xs }]} numberOfLines={1}>
-              {supplier.verified ? '✓ ' : ''}{supplier.name}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs }}>
+              {supplier.verified && <Ionicons name='shield-checkmark-outline' size={12} color={colors.primary} style={{ marginRight: 4 }} />}
+              <Text style={[styles.listSupplier, { fontSize: fontSizes.xs, color: colors.primary }]} numberOfLines={1}>
+                {String(supplier.name || '')}
+              </Text>
+            </View>
           )}
 
           {/* Price and Stats Row */}
@@ -218,7 +230,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             
             {/* Stats and Add Button */}
             <View style={styles.listActionsContainer}>
-              {product.reviewCount > 0 && (
+              {product.reviewCount && product.reviewCount > 0 && (
                 <Text style={[styles.listStats, { fontSize: fontSizes.xs, color: colors.textSecondary }]}>
                   {product.reviewCount > 999
                     ? `${(product.reviewCount / 1000).toFixed(1)}k+`
@@ -256,13 +268,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </View>
         </View>
       </TouchableOpacity>
-      <Toast
-        visible={toast.visible}
-        type={toast.type}
-        message={toast.message}
-        autoClose={toast.autoClose}
-        onClose={toast.hideToast}
-      />
       </>
     );
   }
@@ -307,7 +312,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Discount Badge - always positioned at top-left */}
         {hasDiscount && (
           <View style={[styles.discountBadge, { backgroundColor: colors.error, paddingHorizontal: 4, paddingVertical: 2, borderRadius: borderRadius.sm }]}>
-            <Text style={[styles.discountText, { color: colors.textInverse, fontSize: 10, fontWeight: fontWeights.semibold }]}>{product.discount}% OFF</Text>
+            <Text style={[styles.discountText, { color: colors.textInverse, fontSize: 10, fontWeight: fontWeights.semibold }]}>{String(product.discount || 0)}% OFF</Text>
           </View>
         )}
 
@@ -334,7 +339,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <View style={[styles.content, { paddingHorizontal: spacing.xs, paddingVertical: spacing.xs, gap: spacing.xs }]}>
         {/* Name — fixed 2-line height so price always aligns */}
         <Text style={[styles.name, { ...typography.body, fontSize: fontSizes.xs, color: colors.text, lineHeight: 18 }]} numberOfLines={2}>
-          {product.name || 'Unnamed Product'}
+          {String(product.name || 'Unnamed Product')}
         </Text>
 
         {/* Price and Add to Cart */}
@@ -386,12 +391,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Supplier / stats row */}
         <View style={[styles.footer, { marginTop: spacing.xs }]}>
           {supplier && supplier.name && (
-            <Text style={[styles.supplier, { fontSize: 10, color: colors.primary }]} numberOfLines={1}>
-              {supplier.verified ? <Ionicons name='shield-checkmark-outline' style={{ marginRight: 5}}/> : ''}{supplier.name}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              {supplier.verified && <Ionicons name='shield-checkmark-outline' size={10} color={colors.primary} style={{ marginRight: 2 }} />}
+              <Text style={[styles.supplier, { fontSize: 10, color: colors.primary }]} numberOfLines={1}>
+                {String(supplier.name || '')}
+              </Text>
+            </View>
           )}
-          {product.reviewCount > 0 && (
-            <Text style={[styles.stats, { fontSize: fontSizes.xs, color: colors.textSecondary, marginLeft: spacing.xs }]}>
+          {product.reviewCount && product.reviewCount > 0 && (
+            <Text style={[styles.stats, { fontSize: 10, color: colors.textSecondary, marginLeft: spacing.xs }]}>
               {product.reviewCount > 999
                 ? `${(product.reviewCount / 1000).toFixed(1)}k+`
                 : `${product.reviewCount}+`}
@@ -400,13 +408,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </View>
       </View>
     </TouchableOpacity>
-    <Toast
-      visible={toast.visible}
-      type={toast.type}
-      message={toast.message}
-      autoClose={toast.autoClose}
-      onClose={toast.hideToast}
-    />
     </>
   );
 };
@@ -497,8 +498,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.sm,
     right: spacing.sm,
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',

@@ -7,8 +7,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -513,17 +513,10 @@ export default function ProductDetailScreen() {
     }
     
     try {
-      // Check if user is authenticated
-      const token = await tokenManager.getAccessToken();
-      if (!token) {
-        toast.warning('Please log in to add items to your cart.');
-        return;
-      }
-      
       // Show immediate feedback
       setAddingToCart(true);
       
-      // Call add to cart - it will update UI immediately with optimistic update
+      // Call add to cart - it will handle guest mode internally
       const success = await addToCart(product.id, quantity);
       
       if (success) {
@@ -563,13 +556,17 @@ export default function ProductDetailScreen() {
     
     if (inWishlist) {
       const success = await removeFromWishlist(productId);
-      if (!success) {
-        Alert.alert('Error', 'Failed to remove from wishlist');
+      if (success) {
+        toast.success('Removed from wishlist');
+      } else {
+        toast.error('Failed to remove from wishlist');
       }
     } else {
       const success = await addToWishlist(productId);
-      if (!success) {
-        Alert.alert('Error', 'Failed to add to wishlist');
+      if (success) {
+        toast.success('Added to wishlist');
+      } else {
+        toast.error('Failed to add to wishlist');
       }
     }
   };
@@ -577,20 +574,10 @@ export default function ProductDetailScreen() {
   const handleContactSupplier = () => {
     if (!product) return;
     
-    // Check if user is authenticated first
-    const checkAuthAndShowModal = async () => {
-      const token = await tokenManager.getAccessToken();
-      if (!token) {
-        toast.warning('Please log in to contact support.');
-        return;
-      }
-      
-      chatModal.openModal({
-        title: 'Contact Supplier',
-      });
-    };
-    
-    checkAuthAndShowModal();
+    // Show modal directly - auth check will happen when user tries to send message
+    chatModal.openModal({
+      title: 'Contact Supplier',
+    });
   };
 
   const createProductThread = async (threadType: 'product_inquiry' | 'quote_request') => {

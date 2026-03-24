@@ -2,12 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,21 +17,12 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
 import { Order, Refund } from '../../../types/product';
-import { analyticsService } from '../../../services/AnalyticsService';
 import { refundService } from '../../../services/RefundService';
 import { orderService } from '../../../services/OrderService';
-import { OrderCard } from '../../../components/admin/OrderCard';
 import { Button } from '../../../components/admin/Button';
 import { mobileToastManager } from '../../../utils/toast';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Header } from '../../../components/Header';
-
-interface StatCardProps {
-  label: string;
-  value: string;
-  icon: string;
-  color: string;
-}
 
 interface RefundModalProps {
   visible: boolean;
@@ -62,13 +55,6 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function paymentStatusToBadge(status: Order['status']): StatusType {
-  if (status === 'delivered') return 'completed';
-  if (status === 'cancelled') return 'failed';
-  if (status === 'pending') return 'pending';
-  return 'accepted';
-}
-
 function escapeCsv(value: string | number): string {
   const str = String(value);
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
@@ -90,7 +76,7 @@ function buildCsv(orders: Order[], refunds: Refund[], period: TimePeriod): strin
   lines.push(['Order ID', 'Date', 'Status', 'Amount'].map(escapeCsv).join(','));
   for (const o of orders) {
     lines.push([
-      o.orderId.slice(-8).toUpperCase(),
+      o.orderId,
       formatDate(o.createdAt),
       o.status,
       o.totalAmount.toFixed(2),
@@ -107,7 +93,7 @@ function buildCsv(orders: Order[], refunds: Refund[], period: TimePeriod): strin
   for (const r of periodRefunds) {
     lines.push([
       r.id,
-      r.orderId.slice(-8).toUpperCase(),
+      r.orderId,
       r.type,
       (r.amount || 0).toFixed(2),
       r.reason,
@@ -118,100 +104,306 @@ function buildCsv(orders: Order[], refunds: Refund[], period: TimePeriod): strin
   return lines.join('\n');
 }
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
+// ─── Compact Order Item ──────────────────────────────────────────────────────
+
+interface CompactFinanceOrderProps {
+  order: Order;
+  onPress: () => void;
+  onRefund: () => void;
+}
+
+const CompactFinanceOrder: React.FC<CompactFinanceOrderProps> = ({ order, onPress, onRefund }) => {
+  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
+  
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return '#f59e0b';
+      case 'processing': return '#3b82f6';
+      case 'shipped': return '#8b5cf6';
+      case 'delivered': return '#10b981';
+      case 'cancelled': return '#ef4444';
+      default: return colors.textSecondary;
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      style={{
+        backgroundColor: colors.background,
+        borderRadius: borderRadius.md,
+        padding: spacing.sm,
+        marginHorizontal: spacing.base,
+        marginVertical: spacing.xs,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderLeftWidth: 3,
+        borderLeftColor: getStatusColor(order.status),
+      }}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={{
+          fontSize: fontSizes.sm,
+          fontWeight: fontWeights.bold,
+          color: colors.text,
+          marginBottom: 2,
+        }}>
+          #{order.orderId}
+        </Text>
+        <Text style={{
+          fontSize: fontSizes.xs,
+          color: colors.textSecondary,
+        }}>
+          {formatDate(order.createdAt)}
+        </Text>
+        <View style={{
+          backgroundColor: getStatusColor(order.status) + '20',
+          paddingHorizontal: spacing.xs,
+          paddingVertical: 2,
+          borderRadius: borderRadius.sm,
+          alignSelf: 'flex-start',
+          marginTop: spacing.xs,
+        }}>
+          <Text style={{
+            fontSize: fontSizes.xs,
+            color: getStatusColor(order.status),
+            fontWeight: fontWeights.semibold,
+            textTransform: 'capitalize',
+          }}>
+            {order.status}
+          </Text>
+        </View>
+      </View>
+      
+      <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
+        <Text style={{
+          fontSize: fontSizes.base,
+          fontWeight: fontWeights.bold,
+          color: colors.primary,
+        }}>
+          ₦{order.totalAmount.toLocaleString()}
+        </Text>
+        {order.status === 'delivered' && (
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: spacing.sm,
+              paddingVertical: 4,
+              borderRadius: borderRadius.sm,
+              borderWidth: 1,
+              borderColor: colors.error,
+            }}
+            onPress={(e) => {
+              e.stopPropagation();
+              onRefund();
+            }}
+          >
+            <Text style={{
+              fontSize: fontSizes.xs,
+              color: colors.error,
+              fontWeight: fontWeights.medium,
+            }}>
+              Refund
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 export default function FinanceScreen() {
   const router = useRouter();
-  const { colors, fonts, fontSizes, spacing, borderRadius, shadows, fontWeights } = useTheme();
+  const { colors, fontSizes, spacing, borderRadius, fontWeights } = useTheme();
   
   const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: colors.surface },
-    exportBtn: {
-      padding: 6, borderRadius: borderRadius.base,
-      borderWidth: 1, borderColor: colors.primary,
+    screen: { 
+      flex: 1, 
+      backgroundColor: colors.surface 
     },
-    periodBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      paddingHorizontal: spacing.sm, paddingVertical: 4,
-      borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary,
+    statsContainer: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.sm,
+      gap: spacing.xs,
     },
-    periodBtnText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.medium as any },
-    content: { padding: spacing.base, gap: spacing.md, paddingBottom: spacing['2xl'] },
-    statsRow: { flexDirection: 'row', gap: spacing.sm },
     statCard: {
-      backgroundColor: colors.background, borderRadius: borderRadius.md,
-      borderLeftWidth: 4, padding: spacing.md, minWidth: 120, gap: 4,
-      ...shadows.base,
+      flex: 1,
+      borderLeftWidth: 1.5,
+      borderRadius: 5,
+      padding: spacing.sm,
+      alignItems: 'center',
     },
-    statValue: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold as any, color: colors.text },
-    statLabel: { fontSize: fontSizes.xs, color: colors.textSecondary },
-    refundHistoryBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-      backgroundColor: colors.background, padding: spacing.md,
-      borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.primary + '40',
+    statValue: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.bold,
+      color: colors.text,
     },
-    refundHistoryText: { flex: 1, fontSize: fontSizes.base, color: colors.primary, fontWeight: fontWeights.medium as any },
-    sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold as any, color: colors.text },
-    emptyText: { fontSize: fontSizes.base, color: colors.textSecondary, textAlign: 'center', paddingVertical: spacing.xl },
-    orderCard: { marginBottom: 0 },
-    orderRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-    orderInfo: { gap: 4 },
-    orderId: { fontSize: fontSizes.base, fontWeight: fontWeights.bold as any, color: colors.text },
-    orderDate: { fontSize: fontSizes.xs, color: colors.textSecondary },
-    orderRight: { alignItems: 'flex-end', gap: spacing.xs },
-    orderAmount: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold as any, color: colors.primary },
-    refundBtn: {
-      paddingHorizontal: spacing.sm, paddingVertical: 4,
-      borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.error,
+    statLabel: {
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.semibold,
+      color: colors.textLight,
+      textAlign: 'center',
     },
-    refundBtnText: { fontSize: fontSizes.xs, color: colors.error, fontWeight: fontWeights.medium as any },
-    // Modal
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    actionRow: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.base,
+      paddingBottom: spacing.sm,
+      gap: spacing.sm,
+    },
+    actionButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      backgroundColor: colors.background,
+      padding: spacing.sm,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.primary + '40',
+    },
+    actionButtonText: {
+      fontSize: fontSizes.sm,
+      color: colors.primary,
+      fontWeight: fontWeights.medium,
+    },
+    periodButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.base,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    periodButtonText: {
+      fontSize: fontSizes.sm,
+      color: colors.primary,
+      fontWeight: fontWeights.medium,
+    },
+    emptyContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing.xl,
+    },
+    emptyText: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: spacing.sm,
+    },
+    // Modal styles
+    modalOverlay: { 
+      flex: 1, 
+      backgroundColor: 'rgba(0,0,0,0.4)', 
+      justifyContent: 'flex-end' 
+    },
     modalSheet: {
       backgroundColor: colors.background,
-      borderTopLeftRadius: borderRadius.xl, borderTopRightRadius: borderRadius.xl,
-      padding: spacing.xl, gap: spacing.md,
+      borderTopLeftRadius: borderRadius.xl, 
+      borderTopRightRadius: borderRadius.xl,
+      padding: spacing.xl, 
+      gap: spacing.md,
     },
-    modalTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold as any, color: colors.text },
-    modalSub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: -spacing.sm },
-    fieldLabel: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium as any, color: colors.text },
-    typeRow: { flexDirection: 'row', gap: spacing.sm },
+    modalTitle: { 
+      fontSize: fontSizes.lg, 
+      fontWeight: fontWeights.semibold, 
+      color: colors.text 
+    },
+    modalSub: { 
+      fontSize: fontSizes.sm, 
+      color: colors.textSecondary, 
+      marginTop: -spacing.sm 
+    },
+    fieldLabel: { 
+      fontSize: fontSizes.sm, 
+      fontWeight: fontWeights.medium, 
+      color: colors.text 
+    },
+    typeRow: { 
+      flexDirection: 'row', 
+      gap: spacing.sm 
+    },
     typeBtn: {
-      flex: 1, paddingVertical: spacing.sm, borderRadius: borderRadius.base,
-      borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
+      flex: 1, 
+      paddingVertical: spacing.sm, 
+      borderRadius: borderRadius.base,
+      borderWidth: 1.5, 
+      borderColor: colors.border, 
+      alignItems: 'center',
     },
-    typeBtnActive: { borderColor: colors.primary, backgroundColor: colors.primary },
-    typeBtnText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium as any },
-    typeBtnTextActive: { color: colors.background },
+    typeBtnActive: { 
+      borderColor: colors.primary, 
+      backgroundColor: colors.primary 
+    },
+    typeBtnText: { 
+      fontSize: fontSizes.sm, 
+      color: colors.textSecondary, 
+      fontWeight: fontWeights.medium 
+    },
+    typeBtnTextActive: { 
+      color: colors.background 
+    },
     input: {
-      borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.base,
-      padding: spacing.md, fontSize: fontSizes.base, color: colors.text,
+      borderWidth: 1, 
+      borderColor: colors.border, 
+      borderRadius: borderRadius.base,
+      padding: spacing.md, 
+      fontSize: fontSizes.base, 
+      color: colors.text,
       backgroundColor: colors.surface,
     },
-    inputMulti: { minHeight: 80, textAlignVertical: 'top' },
-    modalActions: { flexDirection: 'row', gap: spacing.sm },
-    modalBtn: { flex: 1 },
-    // Period menu
-    menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 110, paddingRight: spacing.base },
-    periodMenu: { backgroundColor: colors.background, borderRadius: borderRadius.md, ...shadows.md, minWidth: 160, overflow: 'hidden' },
-    periodItem: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: spacing.base, paddingVertical: spacing.md,
-      borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+    inputMulti: { 
+      minHeight: 80, 
+      textAlignVertical: 'top' 
     },
-    periodItemActive: { backgroundColor: colors.surface },
-    periodItemText: { fontSize: fontSizes.base, color: colors.text },
-    periodItemTextActive: { color: colors.primary, fontWeight: fontWeights.semibold as any },
+    modalActions: { 
+      flexDirection: 'row', 
+      gap: spacing.sm 
+    },
+    modalBtn: { 
+      flex: 1 
+    },
+    // Period menu
+    menuOverlay: { 
+      flex: 1, 
+      backgroundColor: 'rgba(0,0,0,0.3)', 
+      justifyContent: 'flex-start', 
+      alignItems: 'flex-end', 
+      paddingTop: 110, 
+      paddingRight: spacing.base 
+    },
+    periodMenu: { 
+      backgroundColor: colors.background, 
+      borderRadius: borderRadius.md, 
+      minWidth: 160, 
+      overflow: 'hidden' 
+    },
+    periodItem: {
+      flexDirection: 'row', 
+      alignItems: 'center', 
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.base, 
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1, 
+      borderBottomColor: colors.border,
+    },
+    periodItemActive: { 
+      backgroundColor: colors.surface 
+    },
+    periodItemText: { 
+      fontSize: fontSizes.base, 
+      color: colors.text 
+    },
+    periodItemTextActive: { 
+      color: colors.primary, 
+      fontWeight: fontWeights.semibold 
+    },
   });
-
-  // StatCard component
-  const StatCard: React.FC<StatCardProps> = ({ label, value, icon, color }) => (
-    <View style={[styles.statCard, { borderLeftColor: color }]}>
-      <Ionicons name={icon as any} size={22} color={color} />
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
 
   // RefundModal component
   const RefundModal: React.FC<RefundModalProps> = ({ visible, order, onClose, onSubmit }) => {
@@ -237,7 +429,7 @@ export default function FinanceScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <Text style={styles.modalTitle}>Process Refund</Text>
-            {order && <Text style={styles.modalSub}>Order #{order.orderId.slice(-8).toUpperCase()} — ₦{order.totalAmount.toFixed(2)}</Text>}
+            {order && <Text style={styles.modalSub}>Order #{order.orderId} — ₦{order.totalAmount.toFixed(2)}</Text>}
 
             <Text style={styles.fieldLabel}>Refund Type</Text>
             <View style={styles.typeRow}>
@@ -334,8 +526,9 @@ export default function FinanceScreen() {
   );
 
   const stats = useMemo(() => {
+    // Only count delivered orders as revenue
     const revenue = periodOrders
-      .filter((o) => o.status !== 'cancelled')
+      .filter((o) => o.status === 'delivered')
       .reduce((s, o) => s + o.totalAmount, 0);
     const pending = periodOrders
       .filter((o) => o.status === 'pending')
@@ -346,14 +539,30 @@ export default function FinanceScreen() {
     const refunded = refundsArray
       .filter((r) => isWithinPeriod(r.createdAt, period))
       .reduce((s, r) => s + (r.amount || 0), 0);
+    
+    // Net revenue = delivered orders - refunds
+    const netRevenue = revenue - refunded;
       
-    return { revenue, pending, refunded };
+    return { revenue: netRevenue, pending, refunded };
   }, [periodOrders, refunds, period]);
 
   const recentOrders = useMemo(
-    () => [...periodOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 20),
+    () => [...periodOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10),
     [periodOrders],
   );
+
+  const renderOrder = useCallback(
+    ({ item }: { item: Order }) => (
+      <CompactFinanceOrder
+        order={item}
+        onPress={() => router.push({ pathname: '/(admin)/order/[id]', params: { id: item._id } })}
+        onRefund={() => setRefundModalOrder(item)}
+      />
+    ),
+    [router],
+  );
+
+  const keyExtractor = useCallback((item: Order) => item._id, []);
 
   const handleRefundSubmit = useCallback(
     async (orderId: string, type: 'full' | 'partial', amount: number, reason: string) => {
@@ -405,68 +614,80 @@ export default function FinanceScreen() {
     <View style={styles.screen}>
       <Header 
         title="Finance"
-        subtitle="Revenue and analytics"
+        subtitle="Track revenue, and refunds"
         rightAction={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
             <TouchableOpacity
-              style={styles.exportBtn}
+              style={{ padding: 6, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary }}
               onPress={handleExport}
-              accessibilityRole="button"
-              accessibilityLabel="Export financial report"
             >
-              <Ionicons name="download-outline" size={20} color={colors.primary} />
+              <Ionicons name="download-outline" size={18} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.periodBtn}
+              style={styles.periodButton}
               onPress={() => setPeriodMenuVisible(true)}
-              accessibilityRole="button"
             >
-              <Text style={styles.periodBtnText}>{periodLabel}</Text>
+              <Text style={styles.periodButtonText}>{periodLabel}</Text>
               <Ionicons name="chevron-down" size={14} color={colors.primary} />
             </TouchableOpacity>
           </View>
         }
       />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <StatCard label="Revenue" value={`₦${stats.revenue.toFixed(2)}`} icon="cash-outline" color="#10b981" />
-          <StatCard label="Pending" value={`₦${stats.pending.toFixed(2)}`} icon="time-outline" color="#f59e0b" />
-          <StatCard label="Refunded" value={`₦${stats.refunded.toFixed(2)}`} icon="return-down-back-outline" color={colors.error} />
+      {/* Professional Stats */}
+      <View style={styles.statsContainer}>
+        <View style={[styles.statCard, { borderLeftColor: '#10b981' }]}>
+          <Text style={styles.statLabel}>Net Revenue</Text>
+          <Text style={styles.statValue}>₦{stats.revenue.toFixed(0)}</Text>
         </View>
+        <View style={[styles.statCard, { borderLeftColor: '#f59e0b' }]}>
+          <Text style={styles.statLabel}>Pending</Text>
+          <Text style={styles.statValue}>₦{stats.pending.toFixed(0)}</Text>
+        </View>
+        <View style={[styles.statCard, { borderLeftColor: colors.error }]}>
+          <Text style={styles.statLabel}>Refunded</Text>
+          <Text style={styles.statValue}>₦{stats.refunded.toFixed(0)}</Text>
+        </View>
+      </View>
 
-        {/* Refund history link */}
+      {/* Action Buttons */}
+      <View style={styles.actionRow}>
         <TouchableOpacity
-          style={styles.refundHistoryBtn}
+          style={styles.actionButton}
           onPress={() => router.push('/(admin)/finance/refunds')}
-          accessibilityRole="button"
         >
-          <Ionicons name="list-outline" size={18} color={colors.primary} />
-          <Text style={styles.refundHistoryText}>View Refund History</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+          <Ionicons name="list-outline" size={16} color={colors.primary} />
+          <Text style={styles.actionButtonText}>Refund History</Text>
         </TouchableOpacity>
+      </View>
 
-        {/* Recent orders */}
-        <Text style={styles.sectionTitle}>Recent Orders</Text>
-        {loading ? (
-          <Text style={styles.emptyText}>Loading…</Text>
-        ) : recentOrders.length === 0 ? (
-          <Text style={styles.emptyText}>No orders in this period.</Text>
-        ) : (
-          <View>
-            {recentOrders.map((order) => (
-              <OrderCard 
-                key={order._id} 
-                order={order}
-                onPress={() => router.push({ pathname: '/(admin)/order/[id]', params: { id: order._id } })}
-                showRefundButton={true}
-                onRefundPress={() => setRefundModalOrder(order)}
-              />
-            ))}
-          </View>
-        )}
-      </ScrollView>
+      {/* Orders List */}
+      <FlatList
+        data={recentOrders}
+        renderItem={renderOrder}
+        keyExtractor={keyExtractor}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={load}
+            tintColor={colors.primary}
+          />
+        }
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="cash-outline" size={48} color={colors.textLight} />
+              <Text style={styles.emptyText}>No orders in this period.</Text>
+            </View>
+          )
+        }
+        contentContainerStyle={{ paddingBottom: spacing.xl }}
+        showsVerticalScrollIndicator={false}
+      />
 
       {/* Period menu */}
       <Modal visible={periodMenuVisible} transparent animationType="fade" onRequestClose={() => setPeriodMenuVisible(false)}>

@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(GUEST_MODE_KEY, 'true');
   };
 
-  const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
+  const login = async (credentials: LoginCredentials, onSuccess?: () => void): Promise<AuthResponse> => {
     try {
       setAuthError(null);
       const authResponse = await authService.login(credentials);
@@ -135,6 +135,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Load full profile in background
       setTimeout(() => loadCurrentUser(), 100);
+      
+      // Call success callback if provided
+      if (onSuccess) {
+        setTimeout(onSuccess, 200);
+      }
       
       return authResponse;
     } catch (error: any) {

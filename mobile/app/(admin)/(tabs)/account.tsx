@@ -216,7 +216,15 @@ export default function AdminAccountTab() {
   });
 
   const handleLogout = async () => {
-    await logout();
+    try {
+      await logout();
+      // Use replace to ensure we don't go back to admin pages
+      router.replace('/(tabs)/home');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if logout fails, redirect to home
+      router.replace('/(tabs)/home');
+    }
   };
 
   // Show loading state while user data is being fetched

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { recommendationEngine } from '../services/RecommendationEngine';
 import { BrowsingHistory } from '../models';
+import { cacheService } from '../services/CacheService';
 import mongoose from 'mongoose';
 
 /**
@@ -112,6 +113,18 @@ export const getUserBrowsingHistory = async (req: Request, res: Response): Promi
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 20));
     const skip = (pageNum - 1) * limitNum;
 
+    // Build cache key
+    const cacheKey = `browsing_history:${userId}:${pageNum}:${limitNum}:${interactionType || 'all'}:${startDate || ''}:${endDate || ''}`;
+    
+    // Try to get from cache (only for first page without date filters)
+    if (pageNum === 1 && !startDate && !endDate) {
+      const cached = await cacheService.get(cacheKey);
+      if (cached) {
+        res.status(200).json(cached);
+        return;
+      }
+    }
+
     // Build filter
     const filter: any = { userId: new mongoose.Types.ObjectId(userId) };
 
@@ -132,33 +145,46 @@ export const getUserBrowsingHistory = async (req: Request, res: Response): Promi
       }
     }
 
-    // Execute query
+    // Execute query with optimizations
     const [history, total] = await Promise.all([
       BrowsingHistory.find(filter)
-        .populate('productId', 'name price images category rating')
+        .populate({
+          path: 'productId',
+          select: 'name price images category rating',
+          options: { lean: true }
+        })
         .sort({ timestamp: -1 })
         .skip(skip)
         .limit(limitNum)
-        .lean(),
-      BrowsingHistory.countDocuments(filter)
+        .lean()
+        .hint({ userId: 1, timestamp: -1 }), // Use index hint for faster queries
+      // Only count on first page to reduce overhead
+      pageNum === 1 ? BrowsingHistory.countDocuments(filter) : Promise.resolve(0)
     ]);
 
-    const pages = Math.ceil(total / limitNum);
+    const pages = pageNum === 1 ? Math.ceil(total / limitNum) : 0;
 
-    res.status(200).json({
+    const response = {
       status: 'success',
       data: {
         history,
         pagination: {
           page: pageNum,
           limit: limitNum,
-          total,
-          pages,
-          hasNext: pageNum < pages,
+          total: pageNum === 1 ? total : undefined,
+          pages: pageNum === 1 ? pages : undefined,
+          hasNext: history.length === limitNum,
           hasPrev: pageNum > 1
         }
       }
-    });
+    };
+
+    // Cache first page results for 5 minutes
+    if (pageNum === 1 && !startDate && !endDate) {
+      await cacheService.set(cacheKey, response, 300); // 5 minutes TTL
+    }
+
+    res.status(200).json(response);
 
   } catch (error) {
     console.error('Error getting browsing history:', error);
@@ -220,6 +246,9 @@ export const addBrowsingHistoryEntry = async (req: Request, res: Response): Prom
       timestamp: new Date(),
       metadata
     });
+
+    // Invalidate cache for this user's browsing history
+    await cacheService.deletePattern(`browsing_history:${userId}`);
 
     res.status(201).json({
       status: 'success',

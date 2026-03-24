@@ -113,7 +113,7 @@ export default function UserListScreen() {
         subtitle="Manage customer accounts"
       />
       
-      <SearchBar value={search} onChangeText={setSearch} placeholder="Search by name or email…" />
+      <SearchBar style={{margin: 10}} value={search} onChangeText={setSearch} placeholder="Search by name or email…" />
 
       <View style={styles.filterRow}>
         {FILTERS.map((f) => (

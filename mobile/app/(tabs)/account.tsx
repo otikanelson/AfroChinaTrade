@@ -245,8 +245,7 @@ export default function AccountTab() {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.surface,
-      marginHorizontal: spacing.sm,
-      marginBottom: spacing.md,
+      margin: spacing.md,
       padding: spacing.md,
       borderRadius: 12,
       borderWidth: 1,
@@ -372,7 +371,7 @@ export default function AccountTab() {
               icon="refresh"
               title="Refunds"
               subtitle=""
-              onPress={() => console.log('Navigate to refunds')}
+              onPress={() => router.push('/refunds')}
               variant="grid"
               showChevron={false}
               disabled={isAdminViewingCustomer}
@@ -394,7 +393,7 @@ export default function AccountTab() {
               icon="time"
               title="Browsing History"
               subtitle=""
-              onPress={() => console.log('Navigate to browsing history')}
+              onPress={() => router.push('/browsing-history')}
               variant="grid"
               showChevron={false}
               disabled={isAdminViewingCustomer}
@@ -405,7 +404,7 @@ export default function AccountTab() {
               icon="mail"
               title="Inquiries"
               subtitle=""
-              onPress={() => console.log('Navigate to inquiries')}
+              onPress={() => router.push('/inquiries')}
               variant="grid"
               showChevron={false}
               disabled={isAdminViewingCustomer}
@@ -416,7 +415,7 @@ export default function AccountTab() {
               icon="chatbubble"
               title="Quotations"
               subtitle=""
-              onPress={() => console.log('Navigate to quotations')}
+              onPress={() => router.push('/quotations')}
               variant="grid"
               showChevron={false}
               disabled={isAdminViewingCustomer}
@@ -427,7 +426,7 @@ export default function AccountTab() {
               icon="star"
               title="Reviews"
               subtitle=""
-              onPress={() => console.log('Navigate to reviews')}
+              onPress={() => router.push('/reviews')}
               variant="grid"
               showChevron={false}
               disabled={isAdminViewingCustomer}
@@ -490,14 +489,14 @@ export default function AccountTab() {
           icon="notifications-outline"
           title="Notifications"
           subtitle="Manage notification preferences"
-          onPress={() => console.log('Navigate to notifications')}
+          onPress={() => router.push('/notifications')}
         />
         
         <MenuItem
           icon="language-outline"
           title="Language"
           subtitle="English"
-          onPress={() => console.log('Navigate to language')}
+          onPress={() => router.push('/language')}
         />
 
         {/* Logout */}

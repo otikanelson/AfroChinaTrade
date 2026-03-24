@@ -1,27 +1,36 @@
-// Development API URLs - choose the appropriate one for your setup
-const DEV_URLS = {
-  // Use this for Android emulator
-  EMULATOR: 'http://10.0.2.2:3000/api',
-  // Use this for physical device on same WiFi network
-  WIFI: 'http://192.168.95.202:3000/api',
-  // Use this for iOS simulator
-  IOS_SIMULATOR: 'http://localhost:3000/api',
-};
+// ============================================
+// API CONFIGURATION
+// ============================================
+// Update the URL below based on your setup:
+// - For local dev with physical device: Use your computer's IP (e.g., 'http://192.168.95.202:3000/api')
+// - For Android emulator: Use 'http://10.0.2.2:3000/api'
+// - For iOS simulator: Use 'http://localhost:3000/api'
+// - For EAS preview/production: This will be overridden by EXPO_PUBLIC_API_URL from eas.json
 
-// Production API URL (Vercel deployment)
-const PRODUCTION_URL = 'https://afro-china-trade.vercel.app/api';
+const LOCAL_DEV_API_URL = 'http://192.168.1.7:3000/api'; // <-- UPDATE THIS WHEN YOUR IP CHANGES
+
+// Production API URL (used by EAS builds)
+const PRODUCTION_API_URL = 'https://afro-china-trade.vercel.app/api';
+
+// ============================================
+// DO NOT MODIFY BELOW THIS LINE
+// ============================================
 
 // Demo mode configuration
 export const DEMO_MODE = false; // Set to true for client demo build
 
 // Determine API URL based on environment
-// Use app.json extra.apiUrl if available (set by EAS), otherwise use local dev URL
-import Constants from 'expo-constants';
+// Priority: EXPO_PUBLIC_API_URL (from EAS) > LOCAL_DEV_API_URL
+const easApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-const appExtra = Constants.expoConfig?.extra as any;
-const configApiUrl = appExtra?.apiUrl;
+export const API_BASE_URL = easApiUrl || LOCAL_DEV_API_URL;
 
-export const API_BASE_URL = configApiUrl || DEV_URLS.EMULATOR; // Change to EMULATOR if using Android emulator
+console.log('🌐 API Configuration:', {
+  easApiUrl: easApiUrl || 'not set',
+  localDevUrl: LOCAL_DEV_API_URL,
+  finalUrl: API_BASE_URL,
+  isProduction: !!easApiUrl
+});
 
 export const APP_CONFIG = {
   name: 'AfroChinaTrade',

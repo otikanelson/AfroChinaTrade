@@ -12,10 +12,10 @@ export default function AdminLayout() {
   const segments = useSegments();
 
   useEffect(() => {
-    // Redirect non-admin users to login or home
+    // Redirect non-admin users to home (allow guest mode)
     if (!isAuthenticated) {
-      console.log('🔐 Admin access denied: Not authenticated, redirecting to login');
-      router.replace('/auth/login');
+      console.log('🔐 Admin access denied: Not authenticated, redirecting to home');
+      router.replace('/(tabs)/home');
     } else if (!isAdmin) {
       console.log('🔐 Admin access denied: Not admin user, redirecting to home');
       router.replace('/(tabs)/home');

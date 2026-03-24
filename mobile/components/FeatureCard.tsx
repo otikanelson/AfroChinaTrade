@@ -26,6 +26,7 @@ export const FeatureCard: React.FC<FeatureCardProps> = ({
       backgroundColor: colors.background, 
       borderRadius: borderRadius.md, 
       padding: spacing.sm,
+      marginBottom: spacing.md,
       ...shadows.sm 
     }]} onPress={onPress}>
       <View style={[styles.iconContainer, { 

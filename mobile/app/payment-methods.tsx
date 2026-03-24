@@ -16,6 +16,7 @@ import { API_BASE_URL } from '../constants/config';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../hooks/useToast';
 import { Toast } from '../components/ui/Toast';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 interface PaymentMethod {
   _id?: string;
@@ -53,7 +54,7 @@ export default function PaymentMethodsScreen() {
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const toast = useToast();
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const styles = StyleSheet.create({
@@ -205,35 +206,47 @@ export default function PaymentMethodsScreen() {
     },
   });
 
-  useEffect(() => {
-    fetchPaymentMethods();
-  }, []);
-
-  const fetchPaymentMethods = async () => {
+  const fetchPaymentMethods = React.useCallback(async (isRefresh: boolean = false) => {
     const token = await tokenManager.getAccessToken();
     if (!token) return;
 
     try {
+      if (!isRefresh) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(`${API_BASE_URL}/payment-methods`, {
         headers: { 'Authorization': `Bearer ${token}` },
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
       if (data.success) {
         setMethods(data.data || []);
       }
-    } catch (error) {
-      console.error('Error fetching payment methods:', error);
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Error fetching payment methods:', error);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchPaymentMethods();
-  };
+  useEffect(() => {
+    fetchPaymentMethods(false);
+  }, [fetchPaymentMethods]);
+
+  const onRefresh = React.useCallback(() => {
+    fetchPaymentMethods(true);
+  }, [fetchPaymentMethods]);
 
   const setDefaultMethod = async (methodId: string) => {
     const token = await tokenManager.getAccessToken();
@@ -413,6 +426,7 @@ export default function PaymentMethodsScreen() {
               tintColor={colors.primary}
             />
           }
+          removeClippedSubviews={true}
         >
           {methods.map((method) => {
             const details = getMethodDetails(method);

@@ -11,7 +11,7 @@ export const getWishlist = async (req: Request, res: Response) => {
     const wishlist = await Wishlist.find({ userId })
       .populate({
         path: 'productId',
-        select: 'name price images category stock isActive supplierId',
+        select: 'name price images category stock isActive supplierId discount viewCount reviewCount',
         populate: {
           path: 'supplierId',
           select: 'name email verified rating location responseTime'
@@ -73,7 +73,7 @@ export const addToWishlist = async (req: Request, res: Response) => {
     await wishlistItem.save();
     await wishlistItem.populate({
       path: 'productId',
-      select: 'name price images category supplierId',
+      select: 'name price images category supplierId discount viewCount reviewCount stock',
       populate: {
         path: 'supplierId',
         select: 'name email verified rating location responseTime'

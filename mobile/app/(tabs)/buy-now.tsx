@@ -69,7 +69,7 @@ export default function BuyNowTab() {
     quickActions: {
       flexDirection: 'row',
       paddingHorizontal: spacing.base,
-      paddingVertical: spacing.xs,
+      paddingVertical: spacing.md,
       gap: spacing.sm,
       backgroundColor: colors.surface,
     },
@@ -77,16 +77,13 @@ export default function BuyNowTab() {
       flex: 1,
       backgroundColor: colors.background,
       borderRadius: borderRadius.md,
-      padding: spacing.md,
+      padding: spacing.sm,
       alignItems: 'center',
       gap: spacing.xs,
       borderWidth: 1,
       borderColor: colors.border,
       minHeight: 70,
       justifyContent: 'center',
-    },
-    quickActionIcon: {
-      marginBottom: 0,
     },
     quickActionText: {
       fontSize: fontSizes.xs,
@@ -147,14 +144,12 @@ export default function BuyNowTab() {
     productsGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: spacing.xs,
-      justifyContent: 'space-between',
+      gap: spacing.lg,
       marginTop: spacing.sm,
-      marginHorizontal: spacing.xs,
     },
     productCardContainer: {
-      width: 85,
-      alignItems: 'center',
+      width: '31%',
+      marginBottom: spacing.sm,
     },
     bottomSpacing: {
       height: spacing.xl,
@@ -199,7 +194,7 @@ export default function BuyNowTab() {
             style={styles.quickActionCard}
             onPress={() => router.push('/search')}
           >
-            <View style={styles.quickActionIcon}>
+            <View>
               <Ionicons name="search" size={24} color={colors.primary} />
             </View>
             <Text style={styles.quickActionText}>Browse All</Text>
@@ -209,7 +204,7 @@ export default function BuyNowTab() {
             style={styles.quickActionCard}
             onPress={() => router.push('/wishlist')}
           >
-            <View style={styles.quickActionIcon}>
+            <View>
               <Ionicons name="heart" size={24} color={colors.primary} />
             </View>
             <Text style={styles.quickActionText}>Wishlist</Text>
@@ -219,7 +214,7 @@ export default function BuyNowTab() {
             style={styles.quickActionCard}
             onPress={() => router.push('/orders')}
           >
-            <View style={styles.quickActionIcon}>
+            <View>
               <Ionicons name="receipt" size={24} color={colors.primary} />
             </View>
             <Text style={styles.quickActionText}>Orders</Text>

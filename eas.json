@@ -6,19 +6,24 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://192.168.95.202:3000/api"
+      }
     },
     "preview": {
       "developmentClient": false,
       "distribution": "internal",
       "env": {
-        "EAS_BUILD": "true"
+        "EAS_BUILD": "true",
+        "EXPO_PUBLIC_API_URL": "https://afro-china-trade.vercel.app/api"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EAS_BUILD": "true"
+        "EAS_BUILD": "true",
+        "EXPO_PUBLIC_API_URL": "https://afro-china-trade.vercel.app/api"
       }
     }
   },

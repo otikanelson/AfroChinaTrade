@@ -27,8 +27,6 @@ interface AuditEntry {
   createdAt: string;
 }
 
-type AccountAction = 'suspend' | 'block' | 'reactivate';
-
 interface SuspendModalProps {
   visible: boolean;
   onClose: () => void;
@@ -260,7 +258,7 @@ export default function UserDetailScreen() {
             </View>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>Total Spent</Text>
-              <Text style={styles.metaValue}>₦{orders.reduce((s, o) => s + (o.totalAmount || o.total), 0).toFixed(2)}</Text>
+              <Text style={styles.metaValue}>₦{orders.filter(o => o.status === 'delivered').reduce((s, o) => s + o.totalAmount, 0).toLocaleString()}</Text>
             </View>
           </View>
         </Card>
@@ -287,14 +285,14 @@ export default function UserDetailScreen() {
         ) : (
           <View>
             {orders.slice(0, 10).map((order) => (
-              <Card key={order.id} style={styles.orderCard}>
+              <Card key={order._id} style={styles.orderCard}>
                 <View style={styles.orderRow}>
                   <View>
-                    <Text style={styles.orderId}>#{order.id.slice(-6).toUpperCase()}</Text>
+                    <Text style={styles.orderId}>#{order.orderId}</Text>
                     <Text style={styles.orderMeta}>{new Date(order.createdAt).toLocaleDateString()} · {order.items.length} item{order.items.length !== 1 ? 's' : ''}</Text>
                   </View>
                   <View style={styles.orderRight}>
-                    <Text style={styles.orderAmount}>₦{(order.totalAmount || order.total).toFixed(2)}</Text>
+                    <Text style={styles.orderAmount}>₦{order.totalAmount.toLocaleString()}</Text>
                     <StatusBadge status={order.status as StatusType} size="sm" />
                   </View>
                 </View>

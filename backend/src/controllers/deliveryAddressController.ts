@@ -65,6 +65,7 @@ export const createAddress = async (req: AuthRequest, res: Response): Promise<vo
     console.log('📥 [createAddress] Body:', JSON.stringify(req.body, null, 2));
 
     const {
+      name,
       type,
       addressLine1,
       addressLine2,
@@ -102,6 +103,7 @@ export const createAddress = async (req: AuthRequest, res: Response): Promise<vo
 
     const newAddress = new DeliveryAddress({
       userId: req.userId,
+      name: name?.trim(),
       type: type || 'home',
       addressLine1: addressLine1.trim(),
       addressLine2: addressLine2?.trim(),
@@ -143,6 +145,7 @@ export const updateAddress = async (req: AuthRequest, res: Response): Promise<vo
   try {
     const { id } = req.params;
     const {
+      name,
       type,
       addressLine1,
       addressLine2,
@@ -170,6 +173,7 @@ export const updateAddress = async (req: AuthRequest, res: Response): Promise<vo
     }
 
     // Update fields
+    if (name !== undefined) address.name = name?.trim();
     if (addressLine1) address.addressLine1 = addressLine1.trim();
     if (addressLine2 !== undefined) address.addressLine2 = addressLine2?.trim();
     if (city) address.city = city.trim();

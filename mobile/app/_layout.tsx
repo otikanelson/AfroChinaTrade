@@ -11,6 +11,7 @@ import { MessagesProvider } from '../contexts/MessagesContext';
 import { CartProvider } from '../contexts/CartContext';
 import { WishlistProvider } from '../contexts/WishlistContext';
 import { AlertProvider } from '../contexts/AlertContext';
+import { RedirectProvider } from '../contexts/RedirectContext';
 import { CartSidebar } from '../components/CartSidebar';
 import { useAuthTokenMonitor } from '../hooks/useAuthTokenMonitor';
 
@@ -57,16 +58,18 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <CartProvider>
-            <WishlistProvider>
-              <MessagesProvider>
-                <AlertProvider>
-                  <RootLayoutContent />
-                  <CartSidebar />
-                </AlertProvider>
-              </MessagesProvider>
-            </WishlistProvider>
-          </CartProvider>
+          <RedirectProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <MessagesProvider>
+                  <AlertProvider>
+                    <RootLayoutContent />
+                    <CartSidebar />
+                  </AlertProvider>
+                </MessagesProvider>
+              </WishlistProvider>
+            </CartProvider>
+          </RedirectProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

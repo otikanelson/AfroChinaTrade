@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   Image,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -140,6 +141,46 @@ export default function RegisterScreen() {
       fontSize: fontSizes.base,
       fontFamily: fonts.medium,
     },
+    passwordInputContainer: {
+      position: 'relative',
+    },
+    passwordToggle: {
+      position: 'absolute',
+      right: spacing.md,
+      top: '50%',
+      transform: [{ translateY: -12 }],
+      padding: spacing.xs,
+    },
+    passwordRequirements: {
+      marginTop: spacing.sm,
+      padding: spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    requirementTitle: {
+      fontSize: fontSizes.sm,
+      fontFamily: fonts.medium,
+      color: colors.text,
+      marginBottom: spacing.xs,
+    },
+    requirement: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    requirementText: {
+      fontSize: fontSizes.xs,
+      fontFamily: fonts.regular,
+      marginLeft: spacing.xs,
+    },
+    requirementMet: {
+      color: colors.success,
+    },
+    requirementNotMet: {
+      color: colors.textSecondary,
+    },
   });
 
   const [formData, setFormData] = useState({
@@ -151,6 +192,8 @@ export default function RegisterScreen() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register } = useAuth();
   const alert = useAlertContext();
   const router = useRouter();
@@ -158,6 +201,22 @@ export default function RegisterScreen() {
   const updateFormData = useCallback((field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
+
+  // Password validation function
+  const validatePassword = (password: string) => {
+    const requirements = {
+      minLength: password.length >= 8,
+      hasUppercase: /[A-Z]/.test(password),
+      hasLowercase: /[a-z]/.test(password),
+      hasNumber: /\d/.test(password),
+      hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
+    
+    const isValid = Object.values(requirements).every(req => req);
+    return { isValid, requirements };
+  };
+
+  const passwordValidation = validatePassword(formData.password);
 
   const handleRegister = async () => {
     const { name, email, phone, password, confirmPassword } = formData;
@@ -193,8 +252,19 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (password.length < 6) {
-      alert.showError('Validation Error', 'Password must be at least 6 characters long');
+    const { isValid, requirements } = validatePassword(password);
+    if (!isValid) {
+      const missingRequirements = [];
+      if (!requirements.minLength) missingRequirements.push('at least 8 characters');
+      if (!requirements.hasUppercase) missingRequirements.push('one uppercase letter');
+      if (!requirements.hasLowercase) missingRequirements.push('one lowercase letter');
+      if (!requirements.hasNumber) missingRequirements.push('one number');
+      if (!requirements.hasSpecialChar) missingRequirements.push('one special character');
+      
+      alert.showError(
+        'Password Requirements', 
+        `Password must contain ${missingRequirements.join(', ')}`
+      );
       return;
     }
 
@@ -321,39 +391,146 @@ export default function RegisterScreen() {
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedField === 'password' && styles.inputFocused
-                ]}
-                placeholder="Create a password"
-                placeholderTextColor={colors.textLight}
-                value={formData.password}
-                onChangeText={(value) => updateFormData('password', value)}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField(null)}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-              <Text style={styles.helperText}>Minimum 6 characters</Text>
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    focusedField === 'password' && styles.inputFocused,
+                    { paddingRight: 50 }
+                  ]}
+                  placeholder="Create a password"
+                  placeholderTextColor={colors.textLight}
+                  value={formData.password}
+                  onChangeText={(value) => updateFormData('password', value)}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.passwordToggle}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+              
+              {formData.password.length > 0 && (
+                <View style={styles.passwordRequirements}>
+                  <Text style={styles.requirementTitle}>Password Requirements:</Text>
+                  
+                  <View style={styles.requirement}>
+                    <Ionicons
+                      name={passwordValidation.requirements.minLength ? 'checkmark-circle' : 'close-circle'}
+                      size={16}
+                      color={passwordValidation.requirements.minLength ? colors.success : colors.textSecondary}
+                    />
+                    <Text style={[
+                      styles.requirementText,
+                      passwordValidation.requirements.minLength ? styles.requirementMet : styles.requirementNotMet
+                    ]}>
+                      At least 8 characters
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.requirement}>
+                    <Ionicons
+                      name={passwordValidation.requirements.hasUppercase ? 'checkmark-circle' : 'close-circle'}
+                      size={16}
+                      color={passwordValidation.requirements.hasUppercase ? colors.success : colors.textSecondary}
+                    />
+                    <Text style={[
+                      styles.requirementText,
+                      passwordValidation.requirements.hasUppercase ? styles.requirementMet : styles.requirementNotMet
+                    ]}>
+                      One uppercase letter (A-Z)
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.requirement}>
+                    <Ionicons
+                      name={passwordValidation.requirements.hasLowercase ? 'checkmark-circle' : 'close-circle'}
+                      size={16}
+                      color={passwordValidation.requirements.hasLowercase ? colors.success : colors.textSecondary}
+                    />
+                    <Text style={[
+                      styles.requirementText,
+                      passwordValidation.requirements.hasLowercase ? styles.requirementMet : styles.requirementNotMet
+                    ]}>
+                      One lowercase letter (a-z)
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.requirement}>
+                    <Ionicons
+                      name={passwordValidation.requirements.hasNumber ? 'checkmark-circle' : 'close-circle'}
+                      size={16}
+                      color={passwordValidation.requirements.hasNumber ? colors.success : colors.textSecondary}
+                    />
+                    <Text style={[
+                      styles.requirementText,
+                      passwordValidation.requirements.hasNumber ? styles.requirementMet : styles.requirementNotMet
+                    ]}>
+                      One number (0-9)
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.requirement}>
+                    <Ionicons
+                      name={passwordValidation.requirements.hasSpecialChar ? 'checkmark-circle' : 'close-circle'}
+                      size={16}
+                      color={passwordValidation.requirements.hasSpecialChar ? colors.success : colors.textSecondary}
+                    />
+                    <Text style={[
+                      styles.requirementText,
+                      passwordValidation.requirements.hasSpecialChar ? styles.requirementMet : styles.requirementNotMet
+                    ]}>
+                      One special character (!@#$%^&*)
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Confirm Password</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedField === 'confirmPassword' && styles.inputFocused
-                ]}
-                placeholder="Confirm your password"
-                placeholderTextColor={colors.textLight}
-                value={formData.confirmPassword}
-                onChangeText={(value) => updateFormData('confirmPassword', value)}
-                onFocus={() => setFocusedField('confirmPassword')}
-                onBlur={() => setFocusedField(null)}
-                secureTextEntry
-                autoCapitalize="none"
-              />
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    focusedField === 'confirmPassword' && styles.inputFocused,
+                    { paddingRight: 50 }
+                  ]}
+                  placeholder="Confirm your password"
+                  placeholderTextColor={colors.textLight}
+                  value={formData.confirmPassword}
+                  onChangeText={(value) => updateFormData('confirmPassword', value)}
+                  onFocus={() => setFocusedField('confirmPassword')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.passwordToggle}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+              
+              {formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword && (
+                <Text style={[styles.helperText, { color: colors.error }]}>
+                  Passwords do not match
+                </Text>
+              )}
             </View>
 
             <TouchableOpacity

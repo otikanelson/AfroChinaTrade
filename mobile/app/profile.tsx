@@ -203,11 +203,9 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
       fontSize: fontSizes.lg,
       fontWeight: '600',
       color: colors.text,
-      marginBottom: spacing.md,
     },
     actionSection: {
-      backgroundColor: colors.surface,
-      marginBottom: spacing.base,
+      marginVertical: spacing.base,
     },
     actionButton: {
       flexDirection: 'row',
@@ -537,13 +535,13 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
               </Text>
             </View>
           )}
-        </View>
-
-        {/* Action Buttons */}
+                  {/* Action Buttons */}
         <View style={styles.actionSection}>
           {isAdminUser && (
             <Text style={styles.sectionTitle}>Security & Settings</Text>
           )}
+
+        </View>
           
           <TouchableOpacity style={styles.actionButton} onPress={handleChangePassword}>
             <Ionicons name="lock-closed-outline" size={20} color={colors.primary} />

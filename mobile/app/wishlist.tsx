@@ -6,31 +6,30 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useWishlist } from '../contexts/WishlistContext';
 import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { useRequireAuth } from '../hooks/useRequireAuth';
 import { Header } from '../components/Header';
 import { ProductCard } from '../components/ProductCard';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
-export default function WishlistScreen() {
-  // Require authentication
-  const { isAuthenticated } = useRequireAuth('Please sign in to view your wishlist');
-  
+export default function WishlistScreen() {  
   const router = useRouter();
-  const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius } = useTheme();
-  const { wishlist, loading, removeFromWishlist, clearWishlist } = useWishlist();
+  const { colors: themeColors, fontSizes, fontWeights, borderRadius } = useTheme();
+  const { wishlist, loading, removeFromWishlist, clearWishlist, refreshWishlist } = useWishlist();
   const { addToCart } = useCart();
+  const { isAuthenticated, isGuestMode } = useAuth();
 
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.surface,
+      backgroundColor: themeColors.surface,
     },
     centerContainer: {
       flex: 1,
@@ -70,16 +69,16 @@ export default function WishlistScreen() {
       paddingHorizontal: spacing.base,
       paddingVertical: spacing.sm,
       gap: spacing.lg,
+      backgroundColor: themeColors.surface,
     },
   });
 
-  const handleProductPress = (productId: string) => {
+  const handleProductPress = React.useCallback((productId: string) => {
     router.push(`/product-detail/${productId}`);
-  };
+  }, [router]);
 
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = React.useCallback(({ item }: { item: any }) => {
     const product = item.productId;
-    // Handle both _id and id fields from backend
     const productId = (product as any)._id || product.id;
     
     return (
@@ -90,7 +89,9 @@ export default function WishlistScreen() {
         showAddButton={true}
       />
     );
-  };
+  }, [handleProductPress]);
+
+  const keyExtractor = React.useCallback((item: any) => item._id, []);
 
   return (
     <View style={styles.container}>
@@ -122,9 +123,20 @@ export default function WishlistScreen() {
         <FlatList
           data={wishlist}
           renderItem={renderItem}
-          keyExtractor={(item) => item._id}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.productsList}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={refreshWishlist}
+              tintColor={colors.primary}
+            />
+          }
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          initialNumToRender={10}
+          windowSize={10}
         />
       )}
     </View>

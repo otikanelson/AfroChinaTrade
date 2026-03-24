@@ -12,7 +12,6 @@
  */
 
 import React, { createContext, useContext } from 'react';
-import { useRouter } from 'expo-router';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,8 +54,6 @@ export function NotificationProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-
   // ---------------------------------------------------------------------------
   // Helpers (Disabled for Expo Go compatibility)
   // ---------------------------------------------------------------------------

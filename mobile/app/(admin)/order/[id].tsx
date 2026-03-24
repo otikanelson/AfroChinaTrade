@@ -209,16 +209,8 @@ export default function OrderDetailScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          #{order.id.slice(-8).toUpperCase()}
+          #{order.orderId}
         </Text>
         <StatusBadge
           status={orderStatusToBadge(order.status)}
@@ -234,7 +226,7 @@ export default function OrderDetailScreen() {
           <SectionTitle title="Order Summary" />
           <View style={styles.row}>
             <Text style={styles.label}>Order ID</Text>
-            <Text style={styles.value}>#{order.id.slice(-8).toUpperCase()}</Text>
+            <Text style={styles.value}>#{order.orderId}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Date</Text>
@@ -250,7 +242,7 @@ export default function OrderDetailScreen() {
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Total</Text>
-            <Text style={[styles.value, styles.totalValue]}>₦{(order.totalAmount || order.total).toFixed(2)}</Text>
+            <Text style={[styles.value, styles.totalValue]}>₦{order.totalAmount.toFixed(2)}</Text>
           </View>
           {trackingNumber ? (
             <View style={styles.row}>
@@ -281,22 +273,19 @@ export default function OrderDetailScreen() {
           ))}
           <View style={[styles.row, styles.totalRow]}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>₦{(order.totalAmount || order.total).toFixed(2)}</Text>
+            <Text style={styles.totalValue}>₦{order.totalAmount.toFixed(2)}</Text>
           </View>
         </Card>
 
         {/* Shipping address */}
         <Card style={styles.card}>
           <SectionTitle title="Shipping Address" />
-          <Text style={styles.addressLine}>{(order.deliveryAddress || order.shippingAddress)?.fullName}</Text>
-          <Text style={styles.addressLine}>{(order.deliveryAddress || order.shippingAddress)?.address || (order.deliveryAddress || order.shippingAddress)?.street}</Text>
+          <Text style={styles.addressLine}>{order.deliveryAddress?.street}</Text>
           <Text style={styles.addressLine}>
-            {(order.deliveryAddress || order.shippingAddress)?.city}, {(order.deliveryAddress || order.shippingAddress)?.state}{' '}
-            {(order.deliveryAddress || order.shippingAddress)?.zipCode || (order.deliveryAddress || order.shippingAddress)?.postalCode}
+            {order.deliveryAddress?.city}, {order.deliveryAddress?.state}{' '}
+            {order.deliveryAddress?.postalCode}
           </Text>
-          {(order.deliveryAddress || order.shippingAddress)?.phone ? (
-            <Text style={styles.addressLine}>📞 {(order.deliveryAddress || order.shippingAddress)?.phone}</Text>
-          ) : null}
+          <Text style={styles.addressLine}>{order.deliveryAddress?.country}</Text>
         </Card>
 
         {/* Actions */}
@@ -364,7 +353,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: theme.fontSizes.lg,
+    fontSize: theme.fontSizes.xl,
     fontWeight: theme.fontWeights.bold as any,
     color: theme.colors.text,
   },

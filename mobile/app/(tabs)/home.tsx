@@ -58,17 +58,13 @@ export default function HomeTab() {
       paddingHorizontal: spacing.base,
       paddingVertical: spacing.xs,
     },
-    featureCardsContainer: {
-      paddingVertical: spacing.sm,
-      marginBottom: 0,
-    },
     featureCardsRow: {
       paddingHorizontal: spacing.base,
       gap: spacing.xs,
+      marginTop: spacing.sm,
     },
     section: {
       marginBottom: spacing.xs,
-      marginTop: 0,
     },
     horizontalList: {
       paddingHorizontal: 3,
@@ -346,7 +342,7 @@ export default function HomeTab() {
       >
 
         {/* Feature Cards - Single Row */}
-        <View style={styles.featureCardsContainer}>
+        <View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}

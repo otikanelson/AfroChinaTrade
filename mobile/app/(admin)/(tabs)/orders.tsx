@@ -1,20 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Order } from '../../../types/product';
 import { orderService } from '../../../services/OrderService';
-import { DataList } from '../../../components/admin/DataList';
 import { SearchBar } from '../../../components/admin/SearchBar';
-import { OrderCard } from '../../../components/admin/OrderCard';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Header } from '../../../components/Header';
 
@@ -36,93 +36,97 @@ function isWithinPeriod(iso: string, period: TimePeriod): boolean {
   return true;
 }
 
-// ─── Filter chip ──────────────────────────────────────────────────────────────
 
-interface ChipProps {
-  label: string;
-  active: boolean;
+
+// ─── Compact Order Item ──────────────────────────────────────────────────────
+
+interface CompactOrderItemProps {
+  order: Order;
   onPress: () => void;
 }
 
-const FilterChip: React.FC<ChipProps> = ({ label, active, onPress }) => {
-  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
+const CompactOrderItem: React.FC<CompactOrderItemProps> = ({ order, onPress }) => {
+  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
   
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return '#f59e0b';
+      case 'processing': return '#3b82f6';
+      case 'shipped': return '#8b5cf6';
+      case 'delivered': return '#10b981';
+      case 'cancelled': return '#ef4444';
+      default: return colors.textSecondary;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
   return (
     <TouchableOpacity
+      style={{
+        backgroundColor: colors.background,
+        borderRadius: borderRadius.md,
+        padding: spacing.sm,
+        marginHorizontal: spacing.base,
+        marginVertical: spacing.xs,
+        borderLeftWidth: 3,
+        borderLeftColor: getStatusColor(order.status),
+      }}
       onPress={onPress}
-      style={[
-        {
-          paddingHorizontal: spacing.lg,
-          paddingVertical: spacing.sm,
-          borderRadius: borderRadius.full,
-          borderWidth: 1.5,
-          borderColor: colors.border,
-          backgroundColor: colors.background,
-          ...shadows.sm,
-        },
-        active && {
-          borderColor: colors.primary,
-          backgroundColor: colors.primary,
-          ...shadows.md,
-        }
-      ]}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
+      activeOpacity={0.7}
     >
-      <Text style={[
-        {
-          fontSize: fontSizes.sm,
-          fontWeight: fontWeights.semibold as any,
-          color: colors.textSecondary,
-        },
-        active && { color: colors.background }
-      ]}>{label}</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{
+            fontSize: fontSizes.sm,
+            fontWeight: fontWeights.bold,
+            color: colors.text,
+            marginBottom: 2,
+          }}>
+            #{order.orderId.slice(-8).toUpperCase()}
+          </Text>
+          <Text style={{
+            fontSize: fontSizes.xs,
+            color: colors.textSecondary,
+            marginBottom: spacing.xs,
+          }}>
+            {formatDate(order.createdAt)} • {order.items?.length || 0} items
+          </Text>
+          <View style={{
+            backgroundColor: getStatusColor(order.status) + '20',
+            paddingHorizontal: spacing.xs,
+            paddingVertical: 2,
+            borderRadius: borderRadius.sm,
+            alignSelf: 'flex-start',
+          }}>
+            <Text style={{
+              fontSize: fontSizes.xs,
+              color: getStatusColor(order.status),
+              fontWeight: fontWeights.semibold,
+              textTransform: 'capitalize',
+            }}>
+              {order.status}
+            </Text>
+          </View>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={{
+            fontSize: fontSizes.base,
+            fontWeight: fontWeights.bold,
+            color: colors.primary,
+            marginBottom: spacing.xs,
+          }}>
+            ₦{order.totalAmount.toLocaleString()}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
+        </View>
+      </View>
     </TouchableOpacity>
   );
 };
-
-// ─── Stats card ───────────────────────────────────────────────────────────────
-
-interface StatsCardProps {
-  label: string;
-  value: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  color: string;
-}
-
-const StatsCard: React.FC<StatsCardProps> = ({ label, value, icon, color }) => {
-  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
-  
-  return (
-    <View style={[
-      {
-        flex: 1,
-        backgroundColor: colors.background,
-        borderRadius: borderRadius.md,
-        borderLeftWidth: 4,
-        padding: spacing.md,
-        gap: 4,
-        ...shadows.base,
-      },
-      { borderLeftColor: color }
-    ]}>
-      <Ionicons name={icon} size={22} color={color} />
-      <Text style={{
-        fontSize: fontSizes.xl,
-        fontWeight: fontWeights.bold as any,
-        color: colors.text,
-      }}>{value}</Text>
-      <Text style={{
-        fontSize: fontSizes.xs,
-        color: colors.textSecondary,
-      }}>{label}</Text>
-    </View>
-  );
-};
-
-// ─── Order card ───────────────────────────────────────────────────────────────
-
-// Removed - now using shared OrderCard component
 
 // ─── Period selector modal ────────────────────────────────────────────────────
 
@@ -177,7 +181,7 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ visible, selected, onSe
 
 export default function OrdersScreen() {
   const router = useRouter();
-  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
+  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,186 +198,87 @@ export default function OrdersScreen() {
       flex: 1,
       backgroundColor: colors.surface,
     },
-
-    // List
-    listContent: {
-      paddingBottom: spacing['2xl'],
-    },
-    listHeader: {
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.md,
-      gap: spacing.md,
-      backgroundColor: colors.surface,
-    },
-
-    // Stats
-    statsTitle: {
-      fontSize: fontSizes.lg,
-      fontWeight: fontWeights.bold as any,
-      color: colors.text,
+    statsContainer: {
+      flexDirection: 'row',
       paddingHorizontal: spacing.base,
-      marginBottom: spacing.sm,
+      paddingVertical: spacing.sm,
+      gap: spacing.xs,
+    },
+    statCard: {
+      flex: 1,
+      borderLeftWidth: 1.5,
+      borderRadius: 5,
+      padding: spacing.sm,
+      alignItems: 'center',
+    },
+    statValue: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.bold,
+      color: colors.text,
+    },
+    statLabel: {
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.semibold,
+      color: colors.textLight,
+      textAlign: 'center',
+    },
+    filtersContainer: {
+      paddingHorizontal: spacing.base,
+      paddingBottom: spacing.sm,
+      gap: spacing.sm,
+    },
+    filterRow: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+      flexWrap: 'wrap',
+    },
+    filterChip: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    filterChipActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
+    },
+    filterChipText: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+      fontWeight: fontWeights.medium,
+    },
+    filterChipTextActive: {
+      color: colors.background,
     },
     periodButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      borderRadius: borderRadius.full,
-      borderWidth: 1.5,
+      gap: 4,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.base,
+      borderWidth: 1,
       borderColor: colors.primary,
-      backgroundColor: colors.background,
-      ...shadows.sm,
     },
     periodButtonText: {
       fontSize: fontSizes.sm,
       color: colors.primary,
-      fontWeight: fontWeights.semibold as any,
+      fontWeight: fontWeights.medium,
     },
-    statsRow: {
-      flexDirection: 'row',
-      paddingHorizontal: spacing.base,
-      gap: spacing.sm,
-    },
-    statsCard: {
-      flex: 1,
-      backgroundColor: colors.background,
-      borderRadius: borderRadius.md,
-      borderLeftWidth: 4,
-      padding: spacing.md,
-      gap: 4,
-      ...shadows.base,
-    },
-    statsValue: {
-      fontSize: fontSizes.xl,
-      fontWeight: fontWeights.bold as any,
-      color: colors.text,
-    },
-    statsLabel: {
-      fontSize: fontSizes.xs,
-      color: colors.textSecondary,
-    },
-
-    // Search & filters
-    searchBar: {
-      marginHorizontal: spacing.base,
-      marginBottom: spacing.xs,
-    },
-    filterRow: {
-      flexDirection: 'row',
-      paddingHorizontal: spacing.base,
-      gap: spacing.sm,
-      flexWrap: 'wrap',
-    },
-
-    // Filter chips
-    chip: {
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-      borderRadius: borderRadius.full,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.background,
-      ...shadows.sm,
-    },
-    chipActive: {
-      borderColor: colors.primary,
-      backgroundColor: colors.primary,
-      ...shadows.md,
-    },
-    chipText: {
-      fontSize: fontSizes.sm,
-      fontWeight: fontWeights.semibold as any,
-      color: colors.textSecondary,
-    },
-    chipTextActive: {
-      color: colors.background,
-    },
-
-    // Order card
-    card: {
-      marginHorizontal: spacing.base,
-      marginVertical: spacing.sm,
-      backgroundColor: colors.background,
-      borderRadius: borderRadius.lg,
-      padding: spacing.lg,
-      ...shadows.md,
-      elevation: 2,
-    },
-    cardRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    cardInfo: {
-      flex: 1,
-      gap: spacing.sm,
-    },
-    cardTopRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: spacing.xs,
-    },
-    orderId: {
-      fontSize: fontSizes.lg,
-      fontWeight: fontWeights.bold as any,
-      color: colors.text,
-    },
-    customerName: {
-      fontSize: fontSizes.base,
-      color: colors.textSecondary,
-      fontWeight: fontWeights.medium as any,
-    },
-    cardBottomRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginTop: spacing.xs,
-    },
-    orderDate: {
-      fontSize: fontSizes.sm,
-      color: colors.textLight,
-    },
-    orderTotal: {
-      fontSize: fontSizes.lg,
-      fontWeight: fontWeights.bold as any,
-      color: colors.primary,
-    },
-    chevron: {
-      marginLeft: spacing.md,
-      flexShrink: 0,
-      opacity: 0.6,
-    },
-
-    // Error state
-    errorContainer: {
+    emptyContainer: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: spacing['2xl'],
-      gap: spacing.lg,
+      padding: spacing.xl,
     },
-    errorText: {
-      fontSize: fontSizes.lg,
+    emptyText: {
+      fontSize: fontSizes.base,
       color: colors.textSecondary,
       textAlign: 'center',
-      lineHeight: 24,
+      marginTop: spacing.sm,
     },
-    retryButton: {
-      paddingHorizontal: spacing['2xl'],
-      paddingVertical: spacing.md,
-      borderRadius: borderRadius.lg,
-      backgroundColor: colors.primary,
-      ...shadows.md,
-    },
-    retryText: {
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.bold as any,
-      color: colors.background,
-    },
-
-    // Period modal
     modalOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.4)',
@@ -385,31 +290,28 @@ export default function OrdersScreen() {
     periodMenu: {
       backgroundColor: colors.background,
       borderRadius: borderRadius.lg,
-      ...shadows.lg,
-      minWidth: 180,
+      minWidth: 160,
       overflow: 'hidden',
-      elevation: 8,
     },
     periodItem: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.sm,
       borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
+      borderBottomColor: colors.border,
     },
     periodItemActive: {
-      backgroundColor: colors.primary + '10',
+      backgroundColor: colors.surface,
     },
     periodItemText: {
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.sm,
       color: colors.text,
-      fontWeight: fontWeights.medium as any,
     },
     periodItemTextActive: {
       color: colors.primary,
-      fontWeight: fontWeights.bold as any,
+      fontWeight: fontWeights.semibold,
     },
   });
 
@@ -495,7 +397,7 @@ export default function OrdersScreen() {
 
   const renderOrder = useCallback(
     ({ item }: { item: Order }) => (
-      <OrderCard order={item} onPress={() => handleOrderPress(item)} />
+      <CompactOrderItem order={item} onPress={() => handleOrderPress(item)} />
     ),
     [handleOrderPress],
   );
@@ -504,66 +406,6 @@ export default function OrdersScreen() {
 
   const periodLabel = PERIODS.find((p) => p.value === timePeriod)?.label ?? 'All Time';
 
-  const ListHeader = (
-    <View style={styles.listHeader}>
-      {/* Stats section */}
-      <View
-        style={styles.statsRow}
-      >
-        <StatsCard
-          label="Total Orders"
-          value={String(stats.total)}
-          icon="receipt-outline"
-          color={colors.primary}
-        />
-        <StatsCard
-          label="Pending"
-          value={String(stats.pending)}
-          icon="time-outline"
-          color="#f59e0b"
-        />
-        <StatsCard
-          label="Revenue"
-          value={`₦${stats.revenue.toFixed(2)}`}
-          icon="cash-outline"
-          color="#10b981"
-        />
-      </View>
-
-      {/* Search */}
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search by order ID or customer…"
-        style={styles.searchBar}
-        testID="orders-search"
-      />
-
-      {/* Status filter chips */}
-      <View
-        style={styles.filterRow}
-      >
-        {(
-          [
-            { value: 'all',        label: 'All' },
-            { value: 'pending',    label: 'Pending' },
-            { value: 'processing', label: 'Accepted' },
-            { value: 'shipped',    label: 'Shipped' },
-            { value: 'delivered',  label: 'Delivered' },
-            { value: 'cancelled',  label: 'Cancelled' },
-          ] as { value: OrderStatusFilter; label: string }[]
-        ).map((f) => (
-          <FilterChip
-            key={f.value}
-            label={f.label}
-            active={statusFilter === f.value}
-            onPress={() => setStatusFilter(f.value)}
-          />
-        ))}
-      </View>
-    </View>
-  );
-
   // ── Error state ────────────────────────────────────────────────────────────
 
   if (error && !loading && orders.length === 0) {
@@ -571,25 +413,20 @@ export default function OrdersScreen() {
       <View style={styles.screen}>
         <Header 
           title="Orders"
-          subtitle="Track sales and fulfillment"
+          subtitle="Track customer orders"
           rightAction={
             <TouchableOpacity
               style={styles.periodButton}
               onPress={() => setPeriodModalVisible(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Select time period"
             >
               <Text style={styles.periodButtonText}>{periodLabel}</Text>
               <Ionicons name="chevron-down" size={14} color={colors.primary} />
             </TouchableOpacity>
           }
         />
-        <View style={styles.errorContainer}>
+        <View style={styles.emptyContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={() => fetchOrders()} style={styles.retryButton}>
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
+          <Text style={styles.emptyText}>{error}</Text>
         </View>
       </View>
     );
@@ -601,13 +438,11 @@ export default function OrdersScreen() {
     <View style={styles.screen}>
       <Header 
         title="Orders"
-        subtitle="Track sales and fulfillment"
+        subtitle="Track customer orders"
         rightAction={
           <TouchableOpacity
             style={styles.periodButton}
             onPress={() => setPeriodModalVisible(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Select time period"
           >
             <Text style={styles.periodButtonText}>{periodLabel}</Text>
             <Ionicons name="chevron-down" size={14} color={colors.primary} />
@@ -615,21 +450,90 @@ export default function OrdersScreen() {
         }
       />
 
-      <DataList<Order>
+      {/* Professional Stats */}
+      <View style={styles.statsContainer}>
+        <View style={[styles.statCard, { borderLeftColor: colors.primary }]}>
+          <Text style={styles.statLabel}>Total Orders</Text>
+          <Text style={styles.statValue}>{stats.total}</Text>
+        </View>
+        <View style={[styles.statCard, { borderLeftColor: '#f59e0b' }]}>
+          <Text style={styles.statLabel}>Pending</Text>
+          <Text style={styles.statValue}>{stats.pending}</Text>
+        </View>
+        <View style={[styles.statCard, { borderLeftColor: '#10b981' }]}>
+          <Text style={styles.statLabel}>Revenue</Text>
+          <Text style={styles.statValue}>₦{stats.revenue.toLocaleString()}</Text>
+        </View>
+      </View>
+
+      {/* Filters */}
+      <View style={styles.filtersContainer}>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search orders..."
+        />
+        
+        <View style={styles.filterRow}>
+          {[
+            { value: 'all', label: 'All' },
+            { value: 'pending', label: 'Pending' },
+            { value: 'processing', label: 'Processing' },
+            { value: 'shipped', label: 'Shipped' },
+            { value: 'delivered', label: 'Delivered' },
+            { value: 'cancelled', label: 'Cancelled' },
+          ].map((filter) => (
+            <TouchableOpacity
+              key={filter.value}
+              style={[
+                styles.filterChip,
+                statusFilter === filter.value && styles.filterChipActive,
+              ]}
+              onPress={() => setStatusFilter(filter.value as OrderStatusFilter)}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  statusFilter === filter.value && styles.filterChipTextActive,
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Orders List */}
+      <FlatList
         data={filteredOrders}
         renderItem={renderOrder}
         keyExtractor={keyExtractor}
-        loading={loading}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
-        emptyMessage={
-          searchQuery || statusFilter !== 'all'
-            ? 'No orders match your filters.'
-            : 'No orders yet.'
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
         }
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={ListHeader}
-        skeletonCount={6}
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="receipt-outline" size={48} color={colors.textLight} />
+              <Text style={styles.emptyText}>
+                {searchQuery || statusFilter !== 'all'
+                  ? 'No orders match your filters.'
+                  : 'No orders yet.'}
+              </Text>
+            </View>
+          )
+        }
+        contentContainerStyle={{ paddingBottom: spacing.xl }}
+        showsVerticalScrollIndicator={false}
       />
 
       <PeriodSelector

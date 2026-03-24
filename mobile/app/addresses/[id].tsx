@@ -20,6 +20,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { CustomModal } from '../../components/ui/CustomModal';
 
 interface Address {
+  name?: string;
   type?: string;
   addressLine1: string;
   addressLine2?: string;
@@ -42,6 +43,7 @@ export default function EditAddressScreen() {
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
   
   const [formData, setFormData] = useState<Address>({
+    name: '',
     type: 'home',
     addressLine1: '',
     addressLine2: '',
@@ -320,6 +322,7 @@ export default function EditAddressScreen() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          name: formData.name?.trim() || undefined,
           type: formData.type || 'home',
           addressLine1: trimmedStreet,
           addressLine2: formData.addressLine2?.trim() || undefined,
@@ -386,6 +389,18 @@ export default function EditAddressScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Address Details</Text>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Address Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Home, Office, Mom's House"
+              placeholderTextColor={colors.textSecondary}
+              value={formData.name}
+              onChangeText={(text) => setFormData({ ...formData, name: text })}
+              maxLength={50}
+            />
+          </View>
           
           <View style={styles.formGroup}>
             <Text style={styles.label}>Street Address *</Text>

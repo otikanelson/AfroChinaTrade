@@ -12,8 +12,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { Header } from '../components/Header';
 import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useRedirect } from '../contexts/RedirectContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { useRequireAuth } from '../hooks/useRequireAuth';
 import { tokenManager } from '../services/api/tokenManager';
 import { API_BASE_URL } from '../constants/config';
 
@@ -49,12 +50,9 @@ interface DeliveryAddress {
 }
 
 export default function CheckoutScreen() {
-  // Require authentication for checkout
-  const { isAuthenticated, isLoading: authLoading } = useRequireAuth(
-    'Please sign in to complete your purchase'
-  );
-  
   const { cart, clearCart } = useCart();
+  const { isAuthenticated } = useAuth();
+  const { setPendingRedirect } = useRedirect();
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [addresses, setAddresses] = useState<DeliveryAddress[]>([]);
@@ -64,23 +62,31 @@ export default function CheckoutScreen() {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchCheckoutData();
-    }
+    // Always load checkout data, but only fetch payment/address data if authenticated
+    fetchCheckoutData();
   }, [isAuthenticated]);
 
   // Refresh data when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      if (isAuthenticated) {
-        fetchCheckoutData();
-      }
+      fetchCheckoutData();
     }, [isAuthenticated])
   );
 
   const fetchCheckoutData = async () => {
+    setLoading(true);
+    
+    // If not authenticated, just finish loading (guest checkout)
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
     const token = await tokenManager.getAccessToken();
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
     try {
       const [paymentResponse, addressResponse] = await Promise.all([
@@ -114,6 +120,26 @@ export default function CheckoutScreen() {
   };
 
   const processOrder = async () => {
+    // Check if user is authenticated, if not redirect to login
+    if (!isAuthenticated) {
+      setPendingRedirect('/checkout');
+      Alert.alert(
+        'Sign In Required',
+        'Please sign in to complete your purchase',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Sign In',
+            onPress: () => router.push('/auth/login'),
+          },
+        ]
+      );
+      return;
+    }
+
     if (!selectedPayment || !selectedAddress || !cart) {
       Alert.alert('Error', 'Please select payment method and delivery address');
       return;
@@ -340,6 +366,22 @@ export default function CheckoutScreen() {
       justifyContent: 'center',
       alignItems: 'center',
     },
+    guestNotice: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: spacing.base,
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.base,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    guestNoticeText: {
+      flex: 1,
+      marginLeft: spacing.sm,
+      fontSize: fontSizes.sm,
+      color: colors.text,
+      lineHeight: 20,
+    },
   });
 
   if (!cart || cart.items.length === 0) {
@@ -402,119 +444,136 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {/* Delivery Address */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Delivery Address</Text>
-            <TouchableOpacity onPress={() => router.push('/addresses')}>
-              <Text style={styles.manageLink}>Manage</Text>
-            </TouchableOpacity>
-          </View>
-          {addresses.length === 0 ? (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => router.push('/addresses/new-address')}
-            >
-              <Ionicons name="add" size={20} color={colors.primary} />
-              <Text style={styles.addButtonText}>Add Delivery Address</Text>
-            </TouchableOpacity>
-          ) : (
-            <>
-              {addresses.map((address) => (
-                <TouchableOpacity
-                  key={address._id || address.id}
-                  style={[
-                    styles.optionCard,
-                    (selectedAddress === address._id || selectedAddress === address.id) && styles.selectedCard,
-                  ]}
-                  onPress={() => setSelectedAddress(address._id || address.id || '')}
-                >
-                  <View style={styles.optionHeader}>
-                    <Text style={styles.optionTitle}>
-                      {address.type ? address.type.charAt(0).toUpperCase() + address.type.slice(1) : 'Address'}
-                    </Text>
-                    <View style={styles.radioButton}>
-                      {(selectedAddress === address._id || selectedAddress === address.id) && (
-                        <View style={styles.radioSelected} />
-                      )}
-                    </View>
-                  </View>
-                  <Text style={styles.optionSubtitle}>
-                    {address.addressLine1 || address.street}, {address.city}, {address.state}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+        {/* Delivery Address - Only show for authenticated users */}
+        {isAuthenticated && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Delivery Address</Text>
+              <TouchableOpacity onPress={() => router.push('/addresses')}>
+                <Text style={styles.manageLink}>Manage</Text>
+              </TouchableOpacity>
+            </View>
+            {addresses.length === 0 ? (
               <TouchableOpacity
                 style={styles.addButton}
                 onPress={() => router.push('/addresses/new-address')}
               >
                 <Ionicons name="add" size={20} color={colors.primary} />
-                <Text style={styles.addButtonText}>Add Another Address</Text>
+                <Text style={styles.addButtonText}>Add Delivery Address</Text>
               </TouchableOpacity>
-            </>
-          )}
-        </View>
-
-        {/* Payment Method */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Payment Method</Text>
-            <TouchableOpacity onPress={() => router.push('/payment-methods')}>
-              <Text style={styles.manageLink}>Manage</Text>
-            </TouchableOpacity>
+            ) : (
+              <>
+                {addresses.map((address) => (
+                  <TouchableOpacity
+                    key={address._id || address.id}
+                    style={[
+                      styles.optionCard,
+                      (selectedAddress === address._id || selectedAddress === address.id) && styles.selectedCard,
+                    ]}
+                    onPress={() => setSelectedAddress(address._id || address.id || '')}
+                  >
+                    <View style={styles.optionHeader}>
+                      <Text style={styles.optionTitle}>
+                        {address.type ? address.type.charAt(0).toUpperCase() + address.type.slice(1) : 'Address'}
+                      </Text>
+                      <View style={styles.radioButton}>
+                        {(selectedAddress === address._id || selectedAddress === address.id) && (
+                          <View style={styles.radioSelected} />
+                        )}
+                      </View>
+                    </View>
+                    <Text style={styles.optionSubtitle}>
+                      {address.addressLine1 || address.street}, {address.city}, {address.state}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => router.push('/addresses/new-address')}
+                >
+                  <Ionicons name="add" size={20} color={colors.primary} />
+                  <Text style={styles.addButtonText}>Add Another Address</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
-          {paymentMethods.length === 0 ? (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => router.push('/payment-methods/new')}
-            >
-              <Ionicons name="add" size={20} color={colors.primary} />
-              <Text style={styles.addButtonText}>Add Payment Method</Text>
-            </TouchableOpacity>
-          ) : (
-            paymentMethods.map((method) => (
-              <TouchableOpacity
-                key={method._id}
-                style={[
-                  styles.optionCard,
-                  selectedPayment === method._id && styles.selectedCard,
-                ]}
-                onPress={() => setSelectedPayment(method._id)}
-              >
-                <View style={styles.optionHeader}>
-                  <Text style={styles.optionTitle}>
-                    {method.type === 'card' && method.cardDetails
-                      ? `${method.cardDetails.brand} •••• ${method.cardDetails.last4}`
-                      : method.type === 'mobile_money' && method.mobileMoneyDetails
-                      ? `${method.mobileMoneyDetails.provider} - ${method.mobileMoneyDetails.phoneNumber}`
-                      : method.type.replace('_', ' ').toUpperCase()}
-                  </Text>
-                  <View style={styles.radioButton}>
-                    {selectedPayment === method._id && (
-                      <View style={styles.radioSelected} />
-                    )}
-                  </View>
-                </View>
+        )}
+
+        {/* Payment Method - Only show for authenticated users */}
+        {isAuthenticated && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Payment Method</Text>
+              <TouchableOpacity onPress={() => router.push('/payment-methods')}>
+                <Text style={styles.manageLink}>Manage</Text>
               </TouchableOpacity>
-            ))
-          )}
-        </View>
+            </View>
+            {paymentMethods.length === 0 ? (
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => router.push('/payment-methods/new')}
+              >
+                <Ionicons name="add" size={20} color={colors.primary} />
+                <Text style={styles.addButtonText}>Add Payment Method</Text>
+              </TouchableOpacity>
+            ) : (
+              paymentMethods.map((method) => (
+                <TouchableOpacity
+                  key={method._id}
+                  style={[
+                    styles.optionCard,
+                    selectedPayment === method._id && styles.selectedCard,
+                  ]}
+                  onPress={() => setSelectedPayment(method._id)}
+                >
+                  <View style={styles.optionHeader}>
+                    <Text style={styles.optionTitle}>
+                      {method.type === 'card' && method.cardDetails
+                        ? `${method.cardDetails.brand} •••• ${method.cardDetails.last4}`
+                        : method.type === 'mobile_money' && method.mobileMoneyDetails
+                        ? `${method.mobileMoneyDetails.provider} - ${method.mobileMoneyDetails.phoneNumber}`
+                        : method.type.replace('_', ' ').toUpperCase()}
+                    </Text>
+                    <View style={styles.radioButton}>
+                      {selectedPayment === method._id && (
+                        <View style={styles.radioSelected} />
+                      )}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        )}
+
+        {/* Guest Notice - Only show for guests */}
+        {!isAuthenticated && (
+          <View style={styles.section}>
+            <View style={styles.guestNotice}>
+              <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
+              <Text style={styles.guestNoticeText}>
+                You'll be asked to sign in or create an account to complete your purchase
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Place Order Button */}
         <View style={styles.footer}>
           <TouchableOpacity
             style={[
               styles.placeOrderButton,
-              (!selectedPayment || !selectedAddress || processing) && styles.disabledButton,
+              (isAuthenticated && (!selectedPayment || !selectedAddress)) && styles.disabledButton,
+              processing && styles.disabledButton,
             ]}
             onPress={processOrder}
-            disabled={!selectedPayment || !selectedAddress || processing}
+            disabled={processing || (isAuthenticated && (!selectedPayment || !selectedAddress))}
           >
             {processing ? (
               <ActivityIndicator color={colors.textInverse} />
             ) : (
               <Text style={styles.placeOrderText}>
-                Place Order - ₦{cart.totalAmount.toLocaleString()}
+                {isAuthenticated ? 'Place Order' : 'Continue to Sign In'} - ₦{cart.totalAmount.toLocaleString()}
               </Text>
             )}
           </TouchableOpacity>

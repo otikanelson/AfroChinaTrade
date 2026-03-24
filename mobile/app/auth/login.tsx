@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRedirect } from '../../contexts/RedirectContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
 export default function LoginScreen() {
@@ -177,18 +178,30 @@ export default function LoginScreen() {
       fontSize: fontSizes.sm,
       fontFamily: fonts.medium,
     },
+    passwordInputContainer: {
+      position: 'relative',
+    },
+    passwordToggle: {
+      position: 'absolute',
+      right: spacing.md,
+      top: '50%',
+      transform: [{ translateY: -12 }],
+      padding: spacing.xs,
+    },
   });
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
     general?: string;
   }>({});
   const { login } = useAuth();
+  const { handlePendingRedirect } = useRedirect();
   const router = useRouter();
 
   const handleLogin = async () => {
@@ -212,13 +225,18 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      const authResponse = await login({ email: email.trim(), password });
-      
-      if (authResponse?.role === 'admin' || authResponse?.role === 'super_admin') {
-        router.replace('/(admin)/(tabs)/products');
-      } else {
-        router.replace('/(tabs)/home');
-      }
+      const authResponse = await login({ email: email.trim(), password }, async () => {
+        // Handle post-login redirect
+        const redirectPath = await handlePendingRedirect();
+        
+        if (redirectPath) {
+          router.replace(redirectPath);
+        } else if (authResponse?.role === 'admin' || authResponse?.role === 'super_admin') {
+          router.replace('/(admin)/(tabs)/products');
+        } else {
+          router.replace('/(tabs)/home');
+        }
+      });
     } catch (error: any) {
       console.error('Login error:', error);
       
@@ -314,24 +332,37 @@ export default function LoginScreen() {
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedField === 'password' && styles.inputFocused,
-                  errors.password && styles.inputError
-                ]}
-                placeholder="Enter your password"
-                placeholderTextColor={colors.textLight}
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (errors.password) setErrors(prev => ({ ...prev, password: undefined }));
-                }}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField(null)}
-                secureTextEntry
-                autoCapitalize="none"
-              />
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    focusedField === 'password' && styles.inputFocused,
+                    errors.password && styles.inputError,
+                    { paddingRight: 50 }
+                  ]}
+                  placeholder="Enter your password"
+                  placeholderTextColor={colors.textLight}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errors.password) setErrors(prev => ({ ...prev, password: undefined }));
+                  }}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.passwordToggle}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
               {errors.password && <Text style={styles.fieldErrorText}>{errors.password}</Text>}
             </View>
 
@@ -355,7 +386,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.divider}>
+          {/* <View style={styles.divider}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>Quick Demo Access</Text>
             <View style={styles.dividerLine} />
@@ -368,7 +399,7 @@ export default function LoginScreen() {
             <TouchableOpacity style={styles.demoButton} onPress={loginAsCustomer} activeOpacity={0.7}>
               <Text style={styles.demoButtonText}>Demo Customer Account</Text>
             </TouchableOpacity>
-          </View>
+          </View> */}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

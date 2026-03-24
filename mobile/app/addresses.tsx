@@ -19,6 +19,7 @@ import { CustomModal } from '../components/ui/CustomModal';
 
 interface Address {
   _id?: string;
+  name?: string;
   type?: string;
   addressLine1: string;
   addressLine2?: string;
@@ -42,7 +43,7 @@ export default function AddressesScreen() {
   const router = useRouter();
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<string | null>(null);
@@ -232,41 +233,53 @@ export default function AddressesScreen() {
     },
   });
 
-  useEffect(() => {
-    fetchAddresses();
-  }, []);
-
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchAddresses();
-    }, [])
-  );
-
-  const fetchAddresses = async () => {
+  const fetchAddresses = React.useCallback(async (isRefresh: boolean = false) => {
     const token = await tokenManager.getAccessToken();
     if (!token) return;
 
     try {
+      if (!isRefresh) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(`${API_BASE_URL}/addresses`, {
         headers: { 'Authorization': `Bearer ${token}` },
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
       if (data.status === 'success') {
         setAddresses(data.data || []);
       }
-    } catch (error) {
-      console.error('Error fetching addresses:', error);
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Error fetching addresses:', error);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchAddresses();
-  };
+  useEffect(() => {
+    fetchAddresses(false);
+  }, [fetchAddresses]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchAddresses(false);
+    }, [fetchAddresses])
+  );
+
+  const onRefresh = React.useCallback(() => {
+    fetchAddresses(true);
+  }, [fetchAddresses]);
 
   const setDefaultAddress = async (addressId: string) => {
     const token = await tokenManager.getAccessToken();
@@ -380,6 +393,7 @@ export default function AddressesScreen() {
               tintColor={colors.primary}
             />
           }
+          removeClippedSubviews={true}
         >
           {addresses.map((address, index) => (
             <View key={address._id || index} style={styles.addressCard}>
@@ -391,7 +405,7 @@ export default function AddressesScreen() {
                     color={colors.primary} 
                   />
                   <Text style={styles.addressType}>
-                    {address.type ? address.type.charAt(0).toUpperCase() + address.type.slice(1) : 'Address'}
+                    {address.name || (address.type ? address.type.charAt(0).toUpperCase() + address.type.slice(1) : 'Address')}
                   </Text>
                   {address.isDefault && (
                     <View style={styles.defaultBadge}>

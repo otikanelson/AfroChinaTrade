@@ -50,7 +50,7 @@ export interface AuthContextType {
   isLoading: boolean;
   authError: string | null;
   isGuestMode: boolean;
-  login: (credentials: LoginCredentials) => Promise<AuthResponse>;
+  login: (credentials: LoginCredentials, onSuccess?: () => void) => Promise<AuthResponse>;
   register: (data: RegisterData) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   forceLogout: () => Promise<void>;

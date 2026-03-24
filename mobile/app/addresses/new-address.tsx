@@ -21,6 +21,7 @@ import { CustomModal } from '../../components/ui/CustomModal';
 import { useAlertContext } from '../../contexts/AlertContext';
 
 interface Address {
+  name?: string;
   type?: string;
   addressLine1: string;
   addressLine2?: string;
@@ -43,6 +44,7 @@ export default function NewAddressScreen() {
   const alert = useAlertContext();
   
   const [formData, setFormData] = useState<Address>({
+    name: '',
     type: 'home',
     addressLine1: '',
     addressLine2: '',
@@ -120,7 +122,7 @@ export default function NewAddressScreen() {
       borderRadius: borderRadius.md,
       paddingHorizontal: spacing.base,
       paddingVertical: spacing.sm,
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.sm,
       color: colors.text,
     },
     pickerButton: {
@@ -444,6 +446,7 @@ export default function NewAddressScreen() {
       }
 
       const payload = {
+        name: formData.name?.trim() || undefined,
         type: formData.type || 'home',
         addressLine1: trimmedStreet,
         addressLine2: formData.addressLine2?.trim() || undefined,
@@ -525,6 +528,7 @@ export default function NewAddressScreen() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            name: formData.name?.trim() || undefined,
             type: formData.type || 'home',
             addressLine1: trimmedStreet,
             addressLine2: formData.addressLine2?.trim() || undefined,
@@ -588,6 +592,18 @@ export default function NewAddressScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Address Details</Text>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Address Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Home, Office, Mom's House"
+              placeholderTextColor={colors.textSecondary}
+              value={formData.name}
+              onChangeText={(text) => setFormData({ ...formData, name: text })}
+              maxLength={50}
+            />
+          </View>
           
           <View style={styles.formGroup}>
             <Text style={styles.label}>Street Address *</Text>

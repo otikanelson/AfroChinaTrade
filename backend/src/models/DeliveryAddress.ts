@@ -2,6 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IDeliveryAddress extends Document {
   userId: mongoose.Types.ObjectId;
+  name?: string; // Custom name for the address (e.g., "Mom's House", "Office", "Apartment")
   type: 'home' | 'work' | 'other';
   isDefault: boolean;
   
@@ -34,6 +35,11 @@ const deliveryAddressSchema = new Schema<IDeliveryAddress>({
     ref: 'User',
     required: true,
     index: true
+  },
+  name: {
+    type: String,
+    trim: true,
+    maxlength: 50
   },
   type: {
     type: String,
