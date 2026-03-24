@@ -15,7 +15,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useRecommendations } from '../../hooks/useRecommendations';
 import { Product, Category } from '../../types/product';
 import { NavigationSource } from '../../types/navigation';
-import { spacing } from '../../theme/spacing';
+import { API_BASE_URL } from '../../constants/config';
+import { spacing } from '../../theme';
 
 export default function HomeTab() {
   const router = useRouter();
@@ -155,6 +156,32 @@ export default function HomeTab() {
     try {
       if (!isRefresh) {
         setIsLoading(true);
+      }
+
+      // Test backend connection first
+      console.log('🔍 Testing backend connection to:', API_BASE_URL);
+      try {
+        const healthResponse = await fetch(`${API_BASE_URL}/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(5000), // 5 second timeout
+        });
+        
+        if (healthResponse.ok) {
+          const healthData = await healthResponse.json();
+          console.log('✅ Backend connection successful:', healthData);
+        } else {
+          console.warn('⚠️ Backend health check failed:', healthResponse.status);
+        }
+      } catch (connectionError) {
+        console.error('❌ Backend connection failed:', connectionError);
+        if (!isRefresh) {
+          Alert.alert(
+            'Connection Error', 
+            'Unable to connect to the server. Please check your internet connection and try again.',
+            [{ text: 'OK' }]
+          );
+        }
       }
 
       // Load categories first

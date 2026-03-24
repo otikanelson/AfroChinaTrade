@@ -20,16 +20,19 @@ const PRODUCTION_API_URL = 'https://afro-china-trade.vercel.app/api';
 export const DEMO_MODE = false; // Set to true for client demo build
 
 // Determine API URL based on environment
-// Priority: EXPO_PUBLIC_API_URL (from EAS) > LOCAL_DEV_API_URL
+// Priority: EXPO_PUBLIC_API_URL (from EAS) > PRODUCTION_API_URL for testing > LOCAL_DEV_API_URL
 const easApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-export const API_BASE_URL = easApiUrl || LOCAL_DEV_API_URL;
+// For testing, use production URL by default
+export const API_BASE_URL = easApiUrl || PRODUCTION_API_URL;
 
 console.log('🌐 API Configuration:', {
   easApiUrl: easApiUrl || 'not set',
+  productionUrl: PRODUCTION_API_URL,
   localDevUrl: LOCAL_DEV_API_URL,
   finalUrl: API_BASE_URL,
-  isProduction: !!easApiUrl
+  isProduction: !!easApiUrl,
+  usingProductionFallback: !easApiUrl
 });
 
 export const APP_CONFIG = {

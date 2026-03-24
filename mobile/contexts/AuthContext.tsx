@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const connectionTest = await authService.testConnection();
       if (!connectionTest.success) {
         console.error('❌ Backend connection failed:', connectionTest.error);
-        setAuthError(`Cannot connect to server: ${connectionTest.error?.message}`);
+        setAuthError(`Cannot connect to server. Please check your internet connection.`);
         // Allow guest mode even if backend is down
         console.log('👤 Allowing guest mode due to connection failure');
         setIsGuestMode(true);
