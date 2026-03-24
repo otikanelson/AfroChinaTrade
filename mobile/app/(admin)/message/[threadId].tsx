@@ -119,7 +119,7 @@ export default function MessageThreadScreen() {
       
       if (response.success && response.data) {
         // Add the new message to the list
-        setMessages(prev => [...prev, response.data]);
+        setMessages(prev => [...prev, response.data!]);
         setInput('');
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
       } else {

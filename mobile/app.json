@@ -9,9 +9,9 @@
     "icon": "./assets/images/Logo_bg.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/images/Logo_bg.png",
+      "image": "./assets/images/splash_icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#C41E3A"
+      "backgroundColor": "#8f231d"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -23,7 +23,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/Logo_bg.png",
-        "backgroundColor": "#C41E3A"
+        "backgroundColor": "#8f231d"
       },
       "package": "com.afrochinatrade.app",
       "softwareKeyboardLayoutMode": "pan",
@@ -31,7 +31,7 @@
         "barStyle": "light-content",
         "backgroundColor": "#ffffff"
       },
-      "windowSoftInputMode": "adjustPan"
+      "windowSoftInputMode": "adjustResize"
     },
     "web": {
       "favicon": "./assets/images/Logo_bg.png",

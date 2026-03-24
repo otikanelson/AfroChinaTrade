@@ -247,7 +247,7 @@ export default function MessageThreadScreen() {
       }
       
       const response = await messageService.getThreadMessages(threadId);
-      if (response.success) {
+      if (response.success && response.data) {
         setThread(response.data.thread);
         setMessages(response.data.messages);
         // Mark messages as read
@@ -334,7 +334,7 @@ export default function MessageThreadScreen() {
       console.log('Send message response:', response);
 
       if (response.success && response.data) {
-        setMessages(prev => [...prev, response.data]);
+        setMessages(prev => [...prev, response.data!]);
         setNewMessage('');
         // Clear product preview after sending
         setDisplayProductImage(undefined);

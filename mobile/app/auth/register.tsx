@@ -304,8 +304,8 @@ export default function RegisterScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -314,7 +314,7 @@ export default function RegisterScreen() {
         >
           <View style={styles.header}>
             <Image 
-              source={require('../../assets/images/Logo_bg.png')} 
+              source={require('../../assets/images/Logo.png')} 
               style={styles.logo}
               resizeMode="contain"
             />

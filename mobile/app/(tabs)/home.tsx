@@ -16,6 +16,7 @@ import { useRecommendations } from '../../hooks/useRecommendations';
 import { Product, Category } from '../../types/product';
 import { NavigationSource } from '../../types/navigation';
 import { API_BASE_URL } from '../../constants/config';
+import { testConnectionWithRetry, getConnectionErrorMessage } from '../../utils/connectionUtils';
 import { spacing } from '../../theme';
 
 export default function HomeTab() {
@@ -57,7 +58,7 @@ export default function HomeTab() {
     },
     searchContainer: {
       paddingHorizontal: spacing.base,
-      paddingVertical: spacing.xs,
+      paddingVertical: spacing.md,
     },
     featureCardsRow: {
       paddingHorizontal: spacing.base,
@@ -158,29 +159,28 @@ export default function HomeTab() {
         setIsLoading(true);
       }
 
-      // Test backend connection first
-      console.log('🔍 Testing backend connection to:', API_BASE_URL);
-      try {
-        const healthResponse = await fetch(`${API_BASE_URL}/health`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(5000), // 5 second timeout
-        });
+      // Test backend connection first with retry logic for cold starts
+      console.log('🔍 Testing backend connection...');
+      const connectionResult = await testConnectionWithRetry(3, 15000);
+      
+      if (!connectionResult.success) {
+        const errorMessage = getConnectionErrorMessage(connectionResult);
+        console.error('❌ All connection attempts failed:', connectionResult.error);
         
-        if (healthResponse.ok) {
-          const healthData = await healthResponse.json();
-          console.log('✅ Backend connection successful:', healthData);
-        } else {
-          console.warn('⚠️ Backend health check failed:', healthResponse.status);
-        }
-      } catch (connectionError) {
-        console.error('❌ Backend connection failed:', connectionError);
         if (!isRefresh) {
           Alert.alert(
-            'Connection Error', 
-            'Unable to connect to the server. Please check your internet connection and try again.',
-            [{ text: 'OK' }]
+            'Connection Issue', 
+            errorMessage,
+            [
+              { text: 'Retry', onPress: () => loadInitialData(false) },
+              { text: 'Continue Offline', style: 'cancel' }
+            ]
           );
+        }
+        // Continue loading even if connection test fails - the individual API calls might still work
+      } else {
+        if (connectionResult.isColdStart) {
+          console.log('🥶 Cold start detected - server was sleeping');
         }
       }
 

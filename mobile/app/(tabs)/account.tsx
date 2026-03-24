@@ -279,7 +279,12 @@ export default function AccountTab() {
           <View style={styles.guestIcon}>
             <Ionicons name="person-circle-outline" size={80} color={colors.textSecondary} />
           </View>
-          <Text style={styles.guestTitle}>Welcome to AfroChinaTrade</Text>
+          <View style={{flexDirection: 'row'}}>
+            <Text style={styles.guestTitle}>Welcome to </Text>
+            <Text style={[styles.guestTitle, {color: colors.primary}]}>Afro</Text>
+            <Text style={[styles.guestTitle, {color: colors.secondary}]}>China</Text>
+            <Text style={[styles.guestTitle, {color: colors.accentDark}]}>Trade</Text>
+          </View>
           <Text style={styles.guestSubtitle}>
             Sign in to access your orders, wishlist, and personalized shopping experience
           </Text>

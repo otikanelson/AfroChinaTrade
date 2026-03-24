@@ -414,7 +414,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    width: 112,
+    flex: 1,
     overflow: 'hidden',
     marginBottom: 5,
   },

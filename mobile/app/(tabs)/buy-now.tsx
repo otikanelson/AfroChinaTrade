@@ -161,7 +161,6 @@ export default function BuyNowTab() {
       <SafeAreaView style={styles.container}>
         <Header
           title="Buy Now"
-          subtitle="Featured deals & quick purchases"
           showRefresh={true}
           onRefreshPress={handleRefresh}
         />
@@ -178,7 +177,6 @@ export default function BuyNowTab() {
       {/* Header */}
       <Header
         title="Buy Now"
-        subtitle="Featured deals & quick purchases"
         showRefresh={true}
         onRefreshPress={handleRefresh}
       />

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser, AuthContextType, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
 import { authService } from '../services/AuthService';
 import { tokenManager } from '../services/api/tokenManager';
+import { APP_CONFIG } from '../constants/config';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -33,20 +34,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Test connection first
-      console.log('🔍 Testing backend connection...');
-      const connectionTest = await authService.testConnection();
-      if (!connectionTest.success) {
-        console.error('❌ Backend connection failed:', connectionTest.error);
-        setAuthError(`Cannot connect to server. Please check your internet connection.`);
-        // Allow guest mode even if backend is down
-        console.log('👤 Allowing guest mode due to connection failure');
-        setIsGuestMode(true);
-        setIsLoading(false);
-        return;
-      }
-      console.log('✅ Backend connection successful');
-
       // Initialize token manager
       await tokenManager.initialize();
 
@@ -67,8 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('👤 Loaded user from storage:', userData.name);
       }
 
-      // Then refresh user data from server
-      await loadCurrentUser();
+      // Then refresh user data from server (but don't block startup)
+      loadCurrentUser().catch(error => {
+        console.warn('Failed to refresh user data:', error);
+        // Don't force logout on connection errors during startup
+        if (APP_CONFIG.debug) {
+          console.log('🔄 Will retry user data refresh later');
+        }
+      });
     } catch (error) {
       console.error('Auth initialization failed:', error);
       // Allow guest mode on error

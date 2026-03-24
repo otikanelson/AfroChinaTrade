@@ -6,7 +6,7 @@ import {
   TouchableOpacity, 
   ScrollView,
   Modal,
-  Dimensions 
+  Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,7 +15,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ThemeModal } from './ThemeModal';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface SidebarProps {
   visible: boolean;
@@ -29,35 +29,53 @@ interface MenuItem {
   route?: string;
   action?: () => void;
   badge?: number;
-  requiresAuth?: boolean; // New property to mark items that need authentication
+  requiresAuth?: boolean;
+  adminOnly?: boolean;
+  customerOnly?: boolean;
 }
 
 const menuItems: MenuItem[] = [
-  { id: 'profile', title: 'Profile', icon: 'person-outline', route: '/account', requiresAuth: true },
-  { id: 'orders', title: 'My Orders', icon: 'bag-outline', route: '/orders', requiresAuth: true },
-  { id: 'wishlist', title: 'Wishlist', icon: 'heart-outline', route: '/wishlist', requiresAuth: false },
-  { id: 'addresses', title: 'Addresses', icon: 'location-outline', route: '/addresses', requiresAuth: true },
-  { id: 'payment', title: 'Payment Methods', icon: 'card-outline', route: '/payment-methods', requiresAuth: true },
-  { id: 'notifications', title: 'Notifications', icon: 'notifications-outline', route: '/notifications', requiresAuth: true },
+  // Customer-only items
+  { id: 'profile', title: 'Profile', icon: 'person-outline', route: '/profile', requiresAuth: true, customerOnly: true },
+  { id: 'orders', title: 'My Orders', icon: 'bag-outline', route: '/orders', requiresAuth: true, customerOnly: true },
+  { id: 'wishlist', title: 'Wishlist', icon: 'heart-outline', route: '/wishlist', requiresAuth: false, customerOnly: true },
+  { id: 'addresses', title: 'Addresses', icon: 'location-outline', route: '/addresses', requiresAuth: true, customerOnly: true },
+  { id: 'payment', title: 'Payment Methods', icon: 'card-outline', route: '/payment-methods', requiresAuth: true, customerOnly: true },
+  { id: 'notifications', title: 'Notifications', icon: 'notifications-outline', route: '/notifications', requiresAuth: true, customerOnly: true },
+  
+  // Admin-only items
+  { id: 'admin-dashboard', title: 'Dashboard', icon: 'speedometer-outline', route: '/(admin)/(tabs)/products', requiresAuth: true, adminOnly: true },
+  { id: 'admin-orders', title: 'Orders', icon: 'receipt-outline', route: '/(admin)/(tabs)/orders', requiresAuth: true, adminOnly: true },
+  { id: 'admin-users', title: 'Users', icon: 'people-outline', route: '/(admin)/users', requiresAuth: true, adminOnly: true },
+  { id: 'admin-messages', title: 'Messages', icon: 'chatbubbles-outline', route: '/(admin)/(tabs)/messages', requiresAuth: true, adminOnly: true },
+  { id: 'admin-finance', title: 'Finance', icon: 'analytics-outline', route: '/(admin)/(tabs)/finance', requiresAuth: true, adminOnly: true },
+  { id: 'admin-account', title: 'Settings', icon: 'settings-outline', route: '/(admin)/(tabs)/account', requiresAuth: true, adminOnly: true },
 ];
 
 const settingsItems: MenuItem[] = [
   { 
     id: 'theme', 
-    title: 'Theme Settings', 
+    title: 'Theme', 
     icon: 'color-palette-outline', 
-    action: () => {} // This will be set in the component
+    action: () => {}
   },
-  { id: 'privacy', title: 'Privacy', icon: 'shield-outline', route: '/settings/privacy' },
   { id: 'help', title: 'Help & Support', icon: 'help-circle-outline', route: '/help-support' },
   { id: 'about', title: 'About', icon: 'information-circle-outline', route: '/settings/about' },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
   const router = useRouter();
-  const { colors, spacing, fontSizes, fontWeights } = useTheme();
-  const { isAuthenticated, isGuestMode } = useAuth();
+  const { colors, fontSizes, fontWeights } = useTheme();
+  const { isAuthenticated, isGuestMode, isAdmin, user } = useAuth();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
+
+  // Filter menu items based on user role
+  const filteredMenuItems = menuItems.filter(item => {
+    if (isAdmin) {
+      return item.adminOnly === true;
+    }
+    return item.customerOnly === true;
+  });
 
   // Create settings items with the theme action
   const settingsItemsWithActions: MenuItem[] = settingsItems.map(item => {
@@ -70,9 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
     return item;
   });
 
-
   const handleItemPress = (item: MenuItem) => {
-    // If item requires auth and user is not authenticated, redirect to login
     if (item.requiresAuth && !isAuthenticated) {
       onClose();
       router.push('/auth/login');
@@ -90,64 +106,115 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
   const styles = StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+      flexDirection: 'row',
     },
     sidebar: {
-      width: width * 0.8,
-      maxWidth: 300,
-      backgroundColor: colors.background,
+      width: Math.min(320, width * 0.85),
       height: '100%',
+      backgroundColor: colors.background,
+      shadowColor: '#000',
+      shadowOffset: { width: 2, height: 0 },
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 10,
+      borderTopRightRadius: 20,
+      borderBottomRightRadius: 20,
+    },
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
     },
     header: {
-      padding: spacing.lg,
+      paddingHorizontal: 24,
+      paddingVertical: 15,
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
+      backgroundColor: colors.surface,
+    },
+    headerTop: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
+      marginBottom: 12,
     },
-    headerTitle: {
-      fontSize: fontSizes.xl,
-      fontWeight: fontWeights.bold,
+    userInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    userAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    userAvatarText: {
+      color: colors.textInverse,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    userDetails: {
+      flex: 1,
+    },
+    userName: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold,
       color: colors.text,
     },
-    closeButton: {
-      padding: spacing.sm,
+    userRole: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+      textTransform: 'capitalize',
     },
     content: {
       flex: 1,
     },
     section: {
-      paddingVertical: spacing.md,
+      paddingVertical: 8,
     },
     sectionTitle: {
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.xs,
       fontWeight: fontWeights.semibold,
       color: colors.textSecondary,
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.sm,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
       textTransform: 'uppercase',
-      letterSpacing: 0.5,
+      letterSpacing: 1,
     },
     menuItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
+      paddingHorizontal: 24,
+      paddingVertical: 16,
+      borderRadius: 12,
+      marginVertical: 2,
+    },
+    menuItemActive: {
+      backgroundColor: colors.surface,
     },
     menuItemDisabled: {
       opacity: 0.5,
     },
     menuIcon: {
-      marginRight: spacing.md,
+      marginRight: 16,
       width: 24,
+      alignItems: 'center',
     },
     menuText: {
       flex: 1,
       fontSize: fontSizes.base,
+      fontWeight: '500',
       color: colors.text,
+    },
+    menuTextDisabled: {
+      color: colors.textLight,
+    },
+    menuTextPrimary: {
+      color: colors.primary,
+      fontWeight: '600',
     },
     badge: {
       backgroundColor: colors.primary,
@@ -156,19 +223,81 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
       height: 20,
       justifyContent: 'center',
       alignItems: 'center',
-      marginLeft: spacing.sm,
+      marginLeft: 8,
     },
     badgeText: {
       color: colors.textInverse,
       fontSize: fontSizes.xs,
-      fontWeight: fontWeights.bold,
+      fontWeight: '600',
+    },
+    chevron: {
+      marginLeft: 8,
     },
     divider: {
       height: 1,
       backgroundColor: colors.borderLight,
-      marginVertical: spacing.sm,
+      marginHorizontal: 24,
+    },
+    signInItem: {
+      backgroundColor: colors.primary + '10',
+      borderWidth: 1,
+      borderColor: colors.primary + '20',
+    },
+    quickSwitchItem: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary + '20',
     },
   });
+
+  const getUserInitials = (name?: string) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const renderUserSection = () => {
+    if (isGuestMode) {
+      return (
+        <TouchableOpacity
+          style={[styles.menuItem, styles.signInItem]}
+          onPress={() => {
+            onClose();
+            router.push('/auth/login');
+          }}
+        >
+          <Ionicons 
+            name="log-in-outline" 
+            size={24} 
+            color={colors.primary} 
+            style={styles.menuIcon}
+          />
+          <Text style={[styles.menuText, styles.menuTextPrimary]}>Sign In</Text>
+          <Ionicons 
+            name="chevron-forward" 
+            size={20} 
+            color={colors.primary}
+            style={styles.chevron}
+          />
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View style={styles.userInfo}>
+        <View style={styles.userAvatar}>
+          <Text style={styles.userAvatarText}>
+            {getUserInitials(user?.name)}
+          </Text>
+        </View>
+        <View style={styles.userDetails}>
+          <Text style={styles.userName}>{user?.name || 'User'}</Text>
+          <Text style={styles.userRole}>
+            {isAdmin ? 'Administrator' : 'Customer'}
+          </Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <Modal
@@ -176,114 +305,147 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
       transparent
       animationType="slide"
       onRequestClose={onClose}
+      statusBarTranslucent
     >
-      <TouchableOpacity 
-        style={styles.overlay} 
-        activeOpacity={1} 
-        onPress={onClose}
-      >
-        <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-          <SafeAreaView style={styles.sidebar}>
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>Menu</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.content}>
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Account</Text>
-                {isGuestMode && (
-                  <TouchableOpacity
-                    style={styles.menuItem}
-                    onPress={() => {
-                      onClose();
-                      router.push('/auth/login');
-                    }}
-                  >
-                    <Ionicons 
-                      name="log-in-outline" 
-                      size={24} 
-                      color={colors.primary} 
-                      style={styles.menuIcon}
-                    />
-                    <Text style={[styles.menuText, { color: colors.primary }]}>Sign In</Text>
-                    <Ionicons 
-                      name="chevron-forward" 
-                      size={20} 
-                      color={colors.primary} 
-                    />
-                  </TouchableOpacity>
+      <View style={styles.overlay}>
+        <View style={styles.sidebar}>
+          <SafeAreaView style={styles.safeArea}>
+              {/* Header */}
+              <View style={styles.header}>
+                <View style={styles.headerTop}>
+                </View>
+                {renderUserSection()}
+              </View>
+              
+              {/* Content */}
+              <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+                {/* Main Menu */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>
+                    {isAdmin ? 'Admin Panel' : 'Account'}
+                  </Text>
+                  {filteredMenuItems.map((item) => {
+                    const isDisabled = item.requiresAuth && !isAuthenticated;
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={[
+                          styles.menuItem,
+                          isDisabled && styles.menuItemDisabled
+                        ]}
+                        onPress={() => handleItemPress(item)}
+                        disabled={isDisabled}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons 
+                          name={item.icon} 
+                          size={22} 
+                          color={isDisabled ? colors.textLight : colors.textSecondary} 
+                          style={styles.menuIcon}
+                        />
+                        <Text style={[
+                          styles.menuText,
+                          isDisabled && styles.menuTextDisabled
+                        ]}>
+                          {item.title}
+                        </Text>
+                        {item.badge && item.badge > 0 && !isDisabled && (
+                          <View style={styles.badge}>
+                            <Text style={styles.badgeText}>
+                              {item.badge > 99 ? '99+' : item.badge}
+                            </Text>
+                          </View>
+                        )}
+                        <Ionicons 
+                          name="chevron-forward" 
+                          size={18} 
+                          color={isDisabled ? colors.textLight : colors.textSecondary}
+                          style={styles.chevron}
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Admin Quick Switch */}
+                {isAdmin && (
+                  <>
+                    <View style={styles.divider} />
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Quick Actions</Text>
+                      <TouchableOpacity
+                        style={[styles.menuItem, styles.quickSwitchItem]}
+                        onPress={() => {
+                          onClose();
+                          router.push('/(tabs)/home');
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons 
+                          name="storefront-outline" 
+                          size={22} 
+                          color={colors.primary} 
+                          style={styles.menuIcon}
+                        />
+                        <Text style={[styles.menuText, styles.menuTextPrimary]}>
+                          Customer View
+                        </Text>
+                        <Ionicons 
+                          name="chevron-forward" 
+                          size={18} 
+                          color={colors.primary}
+                          style={styles.chevron}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </>
                 )}
-                {menuItems.map((item) => {
-                  const isDisabled = item.requiresAuth && !isAuthenticated;
-                  return (
+
+                <View style={styles.divider} />
+
+                {/* Settings */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Settings</Text>
+                  {settingsItemsWithActions.map((item) => (
                     <TouchableOpacity
                       key={item.id}
-                      style={[styles.menuItem, isDisabled && styles.menuItemDisabled]}
+                      style={styles.menuItem}
                       onPress={() => handleItemPress(item)}
-                      disabled={isDisabled}
+                      activeOpacity={0.7}
                     >
                       <Ionicons 
                         name={item.icon} 
-                        size={24} 
-                        color={isDisabled ? colors.textLight : colors.textSecondary} 
+                        size={22} 
+                        color={colors.textSecondary} 
                         style={styles.menuIcon}
                       />
-                      <Text style={[styles.menuText, isDisabled && { color: colors.textLight }]}>
-                        {item.title}
-                        {isDisabled && ' (Sign in required)'}
-                      </Text>
-                      {item.badge && item.badge > 0 && !isDisabled && (
-                        <View style={styles.badge}>
-                          <Text style={styles.badgeText}>{item.badge}</Text>
-                        </View>
-                      )}
+                      <Text style={styles.menuText}>{item.title}</Text>
                       <Ionicons 
                         name="chevron-forward" 
-                        size={20} 
-                        color={isDisabled ? colors.textLight : colors.textSecondary} 
+                        size={18} 
+                        color={colors.textSecondary}
+                        style={styles.chevron}
                       />
                     </TouchableOpacity>
-                  );
-                })}
-              </View>
+                  ))}
+                </View>
 
-              <View style={styles.divider} />
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Settings</Text>
-                {settingsItemsWithActions.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.menuItem}
-                    onPress={() => handleItemPress(item)}
-                  >
-                    <Ionicons 
-                      name={item.icon} 
-                      size={24} 
-                      color={colors.textSecondary} 
-                      style={styles.menuIcon}
-                    />
-                    <Text style={styles.menuText}>{item.title}</Text>
-                    <Ionicons 
-                      name="chevron-forward" 
-                      size={20} 
-                      color={colors.textSecondary} 
-                    />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
+                {/* Bottom spacing */}
+                <View style={{ height: 40 }} />
+              </ScrollView>
+            </SafeAreaView>
             
             <ThemeModal
               visible={themeModalVisible}
               onClose={() => setThemeModalVisible(false)}
             />
-          </SafeAreaView>
-        </TouchableOpacity>
-      </TouchableOpacity>
+          </View>
+        <TouchableOpacity 
+          style={{ flex: 1 }} 
+          activeOpacity={1} 
+          onPress={onClose}
+        />
+      </View>
     </Modal>
   );
-};
+  };

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { messageService } from '../services/MessageService';
+import { MessageThread } from '../types/message';
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -19,17 +20,6 @@ const POLL_INTERVAL_MS = 10_000;
  */
 export async function requestNotificationPermissions(): Promise<boolean> {
   return false;
-}
-
-interface MessageThread {
-  id: string;
-  customerId: string;
-  customerName: string;
-  customerEmail: string;
-  lastMessage: string;
-  lastMessageAt: string;
-  unreadCount: number;
-  status: 'active' | 'closed';
 }
 
 interface UseMessagePollingOptions {

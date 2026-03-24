@@ -246,7 +246,7 @@ export default function ProductListingPage() {
   };
 
   const renderProduct = ({ item, index }: { item: Product; index: number }) => (
-    <View style={[styles.productColumn, { marginLeft: index % 2 === 0 ? 0 : spacing.md }]}>
+    <View style={styles.productColumn}>
       <ProductCard
         product={item}
         onPress={() => handleProductPress(item)}
@@ -306,6 +306,7 @@ export default function ProductListingPage() {
     productColumn: {
       flex: 1,
       marginBottom: spacing.md,
+      marginHorizontal: spacing.xs,
     },
     loadMoreContainer: {
       padding: spacing.lg,
@@ -375,7 +376,8 @@ export default function ProductListingPage() {
         renderItem={renderProduct}
         contentContainerStyle={[
           styles.productsGrid,
-          products.length === 0 && { flex: 1 }
+          products.length === 0 && { flex: 1 },
+          products.length > 0 && { flexGrow: 1 }
         ]}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.8}
