@@ -121,7 +121,7 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
           product={item}
           onPress={() => onProductPress(item)}
           showViewCount={showViewCount}
-          trackViews={trackViews}
+          // trackViews={trackViews} // Removed - not supported by ProductCard
           variant={variant}
         />
       </View>

@@ -446,7 +446,7 @@ export default function MessageThreadScreen() {
   return (
     <View style={styles.container}>
       <Header 
-        title={isNewThread ? 'New Message' : (user?.role === 'admin' ? thread?.customerName : 'Support')} 
+        title={isNewThread ? 'New Message' : (user?.role === 'admin' ? (thread?.customerName || 'Customer') : 'Support')} 
         showBack={true} 
       />
       

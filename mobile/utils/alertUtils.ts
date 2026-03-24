@@ -9,7 +9,15 @@
  * Note: These functions require the AlertProvider to be set up in your app root.
  */
 
-import { AlertType, AlertButton } from '../components/ui/CustomAlert';
+// import { AlertType, AlertButton } from '../components/ui/CustomAlert';
+
+// Define types locally since CustomAlert is not available
+type AlertType = 'info' | 'success' | 'warning' | 'error';
+type AlertButton = {
+  text: string;
+  onPress?: () => void;
+  style: 'default' | 'cancel' | 'destructive';
+};
 
 // This will be set by the app when AlertProvider is initialized
 let alertFunction: ((

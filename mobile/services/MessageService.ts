@@ -1,5 +1,12 @@
 import { apiClient as api } from './api/apiClient';
-import { ApiResponse } from '../types/api';
+// import { ApiResponse } from '../types/api'; // File not found
+
+// Define ApiResponse locally
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+}
 import { Message, MessageThread, SendMessageRequest } from '../types/message';
 
 class MessageService {

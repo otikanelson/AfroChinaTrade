@@ -24,5 +24,5 @@ export {
 } from './Spacer';
 
 // Alert and Modal components
-export { CustomAlert, type AlertType, type AlertButton, type CustomAlertProps } from './CustomAlert';
+// export { CustomAlert, type AlertType, type AlertButton, type CustomAlertProps } from './CustomAlert';
 export { CustomModal, type ModalSize, type ModalPosition, type CustomModalProps } from './CustomModal';

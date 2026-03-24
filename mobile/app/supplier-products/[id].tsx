@@ -36,7 +36,7 @@ export default function SupplierProductsScreen() {
     },
     supplierName: {
       fontSize: fontSizes.xl,
-      fontFamily: fonts.semibold,
+      fontFamily: fonts.medium,
       color: colors.text,
       marginBottom: spacing.xs,
     },
@@ -56,7 +56,7 @@ export default function SupplierProductsScreen() {
     },
     sectionTitle: {
       fontSize: fontSizes.lg,
-      fontFamily: fonts.semibold,
+      fontFamily: fonts.medium,
       color: colors.text,
       marginBottom: spacing.base,
     },

@@ -301,13 +301,13 @@ export default function NewPaymentMethodScreen() {
         toast.error('Please fill in all card details');
         return;
       }
-    } else if (formData.type === 'mobileMoney') {
+    } else if (formData.type === 'mobile_money') {
       if (!formData.mobileMoneyDetails?.provider || !formData.mobileMoneyDetails?.phoneNumber || 
           !formData.mobileMoneyDetails?.accountName) {
         toast.error('Please fill in all mobile money details');
         return;
       }
-    } else if (formData.type === 'bank') {
+    } else if (formData.type === 'bank_transfer') {
       if (!formData.bankDetails?.bankName || !formData.bankDetails?.accountNumber || 
           !formData.bankDetails?.accountName) {
         toast.error('Please fill in all bank details');
@@ -337,8 +337,8 @@ export default function NewPaymentMethodScreen() {
         body: JSON.stringify({
           type: formData.type,
           cardDetails: formData.type === 'card' ? formData.cardDetails : undefined,
-          mobileMoneyDetails: formData.type === 'mobileMoney' ? formData.mobileMoneyDetails : undefined,
-          bankDetails: formData.type === 'bank' ? formData.bankDetails : undefined,
+          mobileMoneyDetails: formData.type === 'mobile_money' ? formData.mobileMoneyDetails : undefined,
+          bankDetails: formData.type === 'bank_transfer' ? formData.bankDetails : undefined,
           paypalDetails: formData.type === 'paypal' ? formData.paypalDetails : undefined,
           isDefault: formData.isDefault,
         }),

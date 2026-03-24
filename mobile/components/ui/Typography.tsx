@@ -1,9 +1,9 @@
 import React from 'react';
 import { Text, TextProps, StyleSheet } from 'react-native';
-import { useTheme, TypographyVariants } from '../../contexts/ThemeContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface TypographyProps extends TextProps {
-  variant?: keyof TypographyVariants;
+  variant?: string;
   color?: string;
   align?: 'left' | 'center' | 'right' | 'justify';
   children: React.ReactNode;
@@ -19,7 +19,7 @@ export const Typography: React.FC<TypographyProps> = ({
 }) => {
   const { colors, typography, fonts } = useTheme();
   
-  const typographyStyle = typography[variant];
+  const typographyStyle = (typography as any)[variant];
   
   const textStyle = StyleSheet.create({
     text: {

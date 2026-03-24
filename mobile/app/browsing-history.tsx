@@ -16,6 +16,7 @@ import { Header } from '../components/Header';
 import { ProductCard } from '../components/ProductCard';
 import { API_BASE_URL } from '../constants/config';
 import { spacing } from '../theme/spacing';
+import { tokenManager } from '../services/api/tokenManager';
 
 interface BrowsingHistoryItem {
   _id: string;
@@ -35,7 +36,7 @@ export default function BrowsingHistoryScreen() {
   const { isAuthenticated } = useRequireAuth('Please sign in to view your browsing history');
   const router = useRouter();
   const { colors, fontSizes, fontWeights, borderRadius } = useTheme();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   
   const [history, setHistory] = useState<BrowsingHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -114,7 +115,7 @@ export default function BrowsingHistoryScreen() {
   });
 
   const fetchBrowsingHistory = useCallback(async (pageNum: number = 1, isRefresh: boolean = false) => {
-    if (!user?._id || !token) return;
+    if (!user?.id) return;
 
     try {
       if (pageNum === 1 && !isRefresh) {
@@ -129,8 +130,15 @@ export default function BrowsingHistoryScreen() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
+      // Get the current token
+      const token = await tokenManager.getAccessToken();
+      if (!token) {
+        setError('Authentication required. Please log in again.');
+        return;
+      }
+
       const response = await fetch(
-        `${API_BASE_URL}/users/${user._id}/browsing-history?page=${pageNum}&limit=20&interactionType=view`,
+        `${API_BASE_URL}/users/${user.id}/browsing-history?page=${pageNum}&limit=20&interactionType=view`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -166,13 +174,13 @@ export default function BrowsingHistoryScreen() {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [user?._id, token]);
+  }, [user?.id]);
 
   useEffect(() => {
-    if (isAuthenticated && user?._id && token) {
+    if (isAuthenticated && user?.id) {
       fetchBrowsingHistory(1);
     }
-  }, [isAuthenticated, user?._id, token, fetchBrowsingHistory]);
+  }, [isAuthenticated, user?.id, fetchBrowsingHistory]);
 
   const handleProductPress = useCallback((productId: string) => {
     router.push(`/product-detail/${productId}`);
@@ -189,13 +197,23 @@ export default function BrowsingHistoryScreen() {
   }, [fetchBrowsingHistory]);
 
   const renderItem = useCallback(({ item }: { item: BrowsingHistoryItem }) => {
-    const product = item.productId;
+    const product = {
+      id: item.productId._id,
+      name: item.productId.name,
+      description: '', // Not provided in browsing history
+      price: item.productId.price,
+      images: item.productId.images,
+      category: item.productId.category,
+      rating: item.productId.rating || 0,
+      reviewCount: 0, // Not provided in browsing history
+      stock: 0, // Not provided in browsing history
+    };
     
     return (
       <ProductCard
         product={product}
         variant="list"
-        onPress={() => handleProductPress(product._id)}
+        onPress={() => handleProductPress(product.id)}
         showAddButton={true}
       />
     );

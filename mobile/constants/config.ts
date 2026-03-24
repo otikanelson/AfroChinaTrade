@@ -7,7 +7,7 @@
 // - For iOS simulator: Use 'http://localhost:3000/api'
 // - For EAS preview/production: This will be overridden by EXPO_PUBLIC_API_URL from eas.json
 
-const LOCAL_DEV_API_URL = 'http://192.168.1.7:3000/api'; // <-- UPDATE THIS WHEN YOUR IP CHANGES
+const LOCAL_DEV_API_URL = 'http://192.168.95.202:3000/api'; // <-- UPDATE THIS WHEN YOUR IP CHANGES
 
 // Production API URL (used by EAS builds)
 const PRODUCTION_API_URL = 'https://afro-china-trade.vercel.app/api';

@@ -299,8 +299,7 @@ export const OptimizedProductImage: React.FC<OptimizedProductImageProps> = ({
         // Performance optimizations
         fadeDuration={200}
         progressiveRenderingEnabled={true}
-        // Cache the image
-        cache="force-cache"
+        // Cache the image - removed cache prop as it's not supported in React Native Image
       />
     </View>
   );

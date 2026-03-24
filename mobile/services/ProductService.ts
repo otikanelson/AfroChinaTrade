@@ -225,7 +225,7 @@ class ProductService {
       };
     }
     
-    return response as ApiResponse<Product[]>;
+    return response as unknown as ApiResponse<Product[]>;
   }
 
   /**

@@ -21,7 +21,7 @@ export const useRecommendations = () => {
 
       const response = await productService.getRecommendedProducts(user.id, 1, 10);
       
-      if (response.success && response.data?.products?.length > 0) {
+      if (response.success && response.data?.products && response.data.products.length > 0) {
         setRecommendations(response.data.products);
       } else {
         setRecommendations([]);

@@ -88,7 +88,7 @@ class RecommendationService {
 
       return {
         success: false,
-        message: response.message || 'Failed to get recommendations'
+        data: []
       };
     } catch (error) {
       console.error('Failed to get user recommendations:', error);
@@ -103,7 +103,7 @@ class RecommendationService {
 
       return {
         success: false,
-        message: 'Failed to get recommendations'
+        data: []
       };
     }
   }
@@ -125,7 +125,7 @@ class RecommendationService {
       console.error('Failed to get product recommendations:', error);
       return {
         success: false,
-        message: 'Failed to get product recommendations'
+        data: []
       };
     }
   }
@@ -172,13 +172,13 @@ class RecommendationService {
 
       return {
         success: false,
-        message: response.message || 'Failed to get trending recommendations'
+        data: []
       };
     } catch (error) {
       console.error('Failed to get trending recommendations:', error);
       return {
         success: false,
-        message: 'Failed to get trending recommendations'
+        data: []
       };
     }
   }
@@ -210,7 +210,7 @@ class RecommendationService {
       console.error('Failed to get category recommendations:', error);
       return {
         success: false,
-        message: 'Failed to get category recommendations'
+        data: []
       };
     }
   }
@@ -256,7 +256,12 @@ class RecommendationService {
       console.error('Failed to get recommendation stats:', error);
       return {
         success: false,
-        message: 'Failed to get recommendation statistics'
+        data: {
+          totalRecommendations: 0,
+          clickThroughRate: 0,
+          conversionRate: 0,
+          topCategories: []
+        }
       };
     }
   }
