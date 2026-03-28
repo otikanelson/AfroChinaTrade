@@ -235,7 +235,7 @@ export default function SupplierProductsScreen() {
                     const productId = (product as any)._id || product.id;
                     const badgeText = product.discount && product.discount > 0 
                       ? `${product.discount}% OFF` 
-                      : product.isNew ? 'New' : undefined;
+                      : product.isNew ? 'New' : null;
                     
                     return (
                       <View key={productId} style={styles.productWrapper}>

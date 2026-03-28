@@ -29,7 +29,7 @@
       "softwareKeyboardLayoutMode": "pan",
       "navigationBar": {
         "barStyle": "light-content",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#8f231d"
       },
       "windowSoftInputMode": "adjustResize"
     },

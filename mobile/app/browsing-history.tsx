@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
@@ -27,6 +27,23 @@ interface BrowsingHistoryItem {
     images: string[];
     category: string;
     rating?: number;
+    stock?: number;
+    viewCount?: number;
+    reviewCount?: number;
+    description?: string;
+    discount?: number;
+    supplier?: {
+      name: string;
+      location?: string;
+      rating?: number;
+      verified?: boolean;
+    };
+    supplierId?: {
+      name: string;
+      location?: string;
+      rating?: number;
+      verified?: boolean;
+    };
   };
   interactionType: 'view' | 'cart_add' | 'wishlist_add' | 'purchase';
   timestamp: string;
@@ -45,6 +62,7 @@ export default function BrowsingHistoryScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const styles = StyleSheet.create({
     container: {
@@ -112,10 +130,25 @@ export default function BrowsingHistoryScreen() {
       paddingVertical: spacing.md,
       alignItems: 'center',
     },
+    lastUpdatedContainer: {
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.sm,
+      alignItems: 'center',
+    },
+    lastUpdatedText: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+      fontStyle: 'italic',
+    },
   });
 
   const fetchBrowsingHistory = useCallback(async (pageNum: number = 1, isRefresh: boolean = false) => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log('❌ No user ID available for browsing history');
+      return;
+    }
+
+    console.log(`🔍 Fetching browsing history for user ${user.id}, page ${pageNum}`);
 
     try {
       if (pageNum === 1 && !isRefresh) {
@@ -133,37 +166,47 @@ export default function BrowsingHistoryScreen() {
       // Get the current token
       const token = await tokenManager.getAccessToken();
       if (!token) {
+        console.error('❌ No access token available');
         setError('Authentication required. Please log in again.');
         return;
       }
 
-      const response = await fetch(
-        `${API_BASE_URL}/users/${user.id}/browsing-history?page=${pageNum}&limit=20&interactionType=view`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          signal: controller.signal,
-        }
-      );
+      const url = `${API_BASE_URL}/users/${user.id}/browsing-history?page=${pageNum}&limit=20&interactionType=view&_t=${Date.now()}`;
+      console.log(`📡 Making API call to: ${url}`);
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+        signal: controller.signal,
+      });
 
       clearTimeout(timeoutId);
+      console.log(`📊 API response status: ${response.status}`);
+      
       const data = await response.json();
+      console.log(`📋 API response data:`, data);
 
       if (data.status === 'success') {
+        console.log(`✅ Found ${data.data.history.length} browsing history items`);
         if (pageNum === 1) {
           setHistory(data.data.history);
+          setLastUpdated(new Date());
         } else {
           setHistory(prev => [...prev, ...data.data.history]);
         }
         setHasMore(data.data.pagination.hasNext);
         setPage(pageNum);
       } else {
+        console.error('❌ API returned error:', data.message);
         setError(data.message || 'Failed to load browsing history');
       }
     } catch (err: any) {
-      console.error('Error fetching browsing history:', err);
+      console.error('❌ Error fetching browsing history:', err);
       if (err.name === 'AbortError') {
         setError('Request timed out. Please check your connection.');
       } else {
@@ -182,6 +225,16 @@ export default function BrowsingHistoryScreen() {
     }
   }, [isAuthenticated, user?.id, fetchBrowsingHistory]);
 
+  // Refresh data when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔄 Browsing history screen focused, refreshing data...');
+      if (isAuthenticated && user?.id) {
+        fetchBrowsingHistory(1, true); // Force refresh
+      }
+    }, [isAuthenticated, user?.id, fetchBrowsingHistory])
+  );
+
   const handleProductPress = useCallback((productId: string) => {
     router.push(`/product-detail/${productId}`);
   }, [router]);
@@ -197,16 +250,31 @@ export default function BrowsingHistoryScreen() {
   }, [fetchBrowsingHistory]);
 
   const renderItem = useCallback(({ item }: { item: BrowsingHistoryItem }) => {
+    const productData = item.productId;
     const product = {
-      id: item.productId._id,
-      name: item.productId.name,
-      description: '', // Not provided in browsing history
-      price: item.productId.price,
-      images: item.productId.images,
-      category: item.productId.category,
-      rating: item.productId.rating || 0,
-      reviewCount: 0, // Not provided in browsing history
-      stock: 0, // Not provided in browsing history
+      id: productData._id,
+      name: productData.name,
+      description: productData.description || '',
+      price: productData.price,
+      images: productData.images || [],
+      category: productData.category,
+      rating: productData.rating || 0,
+      reviewCount: productData.reviewCount || 0,
+      stock: productData.stock || 0,
+      viewCount: productData.viewCount || 0,
+      discount: productData.discount || 0,
+      supplier: productData.supplier ? {
+        name: productData.supplier.name,
+        location: productData.supplier.location || '',
+        rating: productData.supplier.rating || 0,
+        verified: productData.supplier.verified || false,
+      } : undefined,
+      supplierId: productData.supplierId ? {
+        name: productData.supplierId.name,
+        location: productData.supplierId.location || '',
+        rating: productData.supplierId.rating || 0,
+        verified: productData.supplierId.verified || false,
+      } : undefined,
     };
     
     return (
@@ -246,6 +314,19 @@ export default function BrowsingHistoryScreen() {
       <Header 
         title="Browsing History" 
         showBack={true}
+        rightAction={
+          <TouchableOpacity
+            onPress={() => handleRefresh()}
+            style={{ padding: 8 }}
+            disabled={refreshing}
+          >
+            <Ionicons 
+              name="refresh" 
+              size={24} 
+              color={refreshing ? colors.textLight : colors.primary} 
+            />
+          </TouchableOpacity>
+        }
       />
 
       {loading && history.length === 0 ? (
@@ -288,6 +369,15 @@ export default function BrowsingHistoryScreen() {
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
           ListFooterComponent={renderFooter}
+          ListHeaderComponent={
+            lastUpdated ? (
+              <View style={styles.lastUpdatedContainer}>
+                <Text style={styles.lastUpdatedText}>
+                  Last updated: {lastUpdated.toLocaleTimeString()}
+                </Text>
+              </View>
+            ) : null
+          }
           onRefresh={handleRefresh}
           refreshing={refreshing}
           removeClippedSubviews={true}

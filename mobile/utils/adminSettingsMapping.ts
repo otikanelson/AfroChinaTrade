@@ -183,7 +183,7 @@ export function createAdminSettingsSections(): SettingsSection[] {
           title: 'Session Timeout',
           subtitle: 'Automatic logout after inactivity',
           type: 'picker',
-          value: '30',
+          value: '60',
           options: [
             { label: '15 minutes', value: '15' },
             { label: '30 minutes', value: '30' },

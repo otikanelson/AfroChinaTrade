@@ -11,9 +11,21 @@ interface WishlistItem {
     _id: string;
     name: string;
     price: number;
+    discount?: number;
+    reviewCount?: number;
+    viewCount?: number;
     images: string[];
     category: string;
     stock: number;
+    supplier?: {
+      _id: string;
+      name: string;
+      email: string;
+      verified: boolean;
+      rating: number;
+      location: string;
+      responseTime: string;
+    };
     supplierId?: {
       _id: string;
       name: string;
@@ -126,9 +138,13 @@ export const WishlistProvider: React.FC<WishlistProviderProps> = ({ children }) 
                 _id: product.id,
                 name: product.name,
                 price: product.price,
+                discount: product.discount,
+                reviewCount: product.reviewCount,
+                viewCount: product.viewCount,
                 images: product.images || [],
                 category: product.category,
                 stock: product.stock,
+                supplier: (typeof product.supplier === 'object' && product.supplier?._id) ? product.supplier as any : undefined,
                 supplierId: (typeof product.supplierId === 'object' && product.supplierId?._id) ? product.supplierId as any : undefined,
               },
               addedAt: new Date().toISOString(),
@@ -230,9 +246,13 @@ export const WishlistProvider: React.FC<WishlistProviderProps> = ({ children }) 
                 _id: product.id,
                 name: product.name,
                 price: product.price,
+                discount: product.discount,
+                reviewCount: product.reviewCount,
+                viewCount: product.viewCount,
                 images: product.images || [],
                 category: product.category,
                 stock: product.stock,
+                supplier: (typeof product.supplier === 'object' && product.supplier?._id) ? product.supplier as any : undefined,
                 supplierId: (typeof product.supplierId === 'object' && product.supplierId?._id) ? product.supplierId as any : undefined,
               },
               addedAt: new Date().toISOString(),

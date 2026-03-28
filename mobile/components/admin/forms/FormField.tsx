@@ -10,7 +10,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../../../theme';
+import { colors, theme } from '../../../theme';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 export interface FormFieldProps {
   /** Field label displayed above the input */
@@ -82,6 +83,7 @@ export const FormField: React.FC<FormFieldProps> = ({
   inputStyle,
   testID,
 }) => {
+  const { colors } = useTheme();
   const [focused, setFocused] = React.useState(false);
   const [secure, setSecure] = React.useState(secureTextEntry);
   const inputRef = useRef<TextInput>(null);
@@ -199,12 +201,12 @@ export const FormField: React.FC<FormFieldProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: theme.spacing.base,
+    marginBottom: theme.spacing.base
   },
   label: {
     ...theme.typography.bodySmall,
     fontWeight: theme.fontWeights.semibold as TextStyle['fontWeight'],
-    color: theme.colors.text,
+    color: colors.text,
     marginBottom: theme.spacing.xs,
   },
   labelDisabled: {

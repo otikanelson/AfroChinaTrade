@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Text, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { View, ScrollView, StyleSheet, StatusBar, Text, ActivityIndicator, Alert, RefreshControl, Dimensions } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Header } from '../../components/Header';
 import { SearchBar } from '../../components/SearchBar';
@@ -9,13 +9,13 @@ import { FeatureCard } from '../../components/FeatureCard';
 import { SectionHeader } from '../../components/SectionHeader';
 import { productService } from '../../services/ProductService';
 import { categoryService } from '../../services/CategoryService';
+import { collectionService } from '../../services/CollectionService';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecommendations } from '../../hooks/useRecommendations';
-import { Product, Category } from '../../types/product';
+import { Product, Category, Collection } from '../../types/product';
 import { NavigationSource } from '../../types/navigation';
-import { API_BASE_URL } from '../../constants/config';
 import { testConnectionWithRetry, getConnectionErrorMessage } from '../../utils/connectionUtils';
 import { spacing } from '../../theme';
 
@@ -24,15 +24,14 @@ export default function HomeTab() {
   const { fonts, fontSizes, colors, isDark } = useTheme();
   const { cartCount } = useCart();
   const { user } = useAuth();
-  const [activeCategory, setActiveCategory] = useState('All');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
-  const [sellerFavorites, setSellerFavorites] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [collectionProducts, setCollectionProducts] = useState<Record<string, Product[]>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [isLoadingCollections, setIsLoadingCollections] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const { width: screenWidth } = Dimensions.get('window');
+  
 
   // Use the recommendations hook
   const { recommendations, hasRecommendations, refreshRecommendations } = useRecommendations();
@@ -61,9 +60,10 @@ export default function HomeTab() {
       paddingVertical: spacing.md,
     },
     featureCardsRow: {
-      paddingHorizontal: spacing.base,
+      width: screenWidth,
+      marginHorizontal: 18,
+      marginTop: spacing.md,
       gap: spacing.xs,
-      marginTop: spacing.sm,
     },
     section: {
       marginBottom: spacing.xs,
@@ -78,7 +78,7 @@ export default function HomeTab() {
     masonryContainer: {
       flexDirection: 'row',
       paddingHorizontal: spacing.base,
-      gap: spacing.lg,
+      gap: spacing.sm,
     },
     masonryColumn: {
       flex: 1,
@@ -131,11 +131,6 @@ export default function HomeTab() {
   useEffect(() => {
     loadInitialData();
   }, []);
-
-  // Load products when category changes
-  useEffect(() => {
-    loadProducts();
-  }, [activeCategory]);
 
   // Refresh data when screen comes into focus (user navigates back to home)
   useFocusEffect(
@@ -190,37 +185,8 @@ export default function HomeTab() {
         setCategories(categoriesResponse.data);
       }
 
-      // Load different product collections in parallel with cache busting
-      const timestamp = Date.now();
-      const [featuredResponse, trendingResponse, sellerFavoritesResponse] = await Promise.all([
-        productService.getProductCollection('featured', { limit: 10, _t: timestamp } as any),
-        productService.getProductCollection('trending', { limit: 10, _t: timestamp } as any),
-        productService.getProductCollection('seller_favorites', { limit: 10, _t: timestamp } as any)
-      ]);
-
-      // Set featured products only if there are any
-      if (featuredResponse.success && featuredResponse.data?.products && featuredResponse.data.products.length > 0) {
-        setFeaturedProducts(featuredResponse.data.products);
-      } else {
-        setFeaturedProducts([]);
-      }
-
-      // Set trending products only if there are any
-      if (trendingResponse.success && trendingResponse.data?.products && trendingResponse.data.products.length > 0) {
-        setTrendingProducts(trendingResponse.data.products);
-      } else {
-        setTrendingProducts([]);
-      }
-
-      // Set seller favorites only if there are any
-      if (sellerFavoritesResponse.success && sellerFavoritesResponse.data?.products && sellerFavoritesResponse.data.products.length > 0) {
-        setSellerFavorites(sellerFavoritesResponse.data.products);
-      } else {
-        setSellerFavorites([]);
-      }
-
-      // Load initial products for the "All Products" section
-      await loadProducts();
+      // Load collections with lazy loading
+      await loadCollections();
     } catch (error) {
       console.error('Failed to load initial data:', error);
       if (!isRefresh) {
@@ -233,33 +199,40 @@ export default function HomeTab() {
     }
   };
 
-  const loadProducts = async () => {
+  const loadCollections = async () => {
     try {
-      setIsLoadingProducts(true);
-
-      const params: any = {
-        limit: 20,
-        page: 1
-      };
-
-      // Add category filter if not "All"
-      if (activeCategory !== 'All') {
-        params.category = activeCategory;
-      }
-
-      const response = await productService.getProducts(params);
-
-      if (response.success && response.data) {
-        const productsData = response.data || [];
-        setProducts(productsData);
-      } else {
-        setProducts([]);
+      setIsLoadingCollections(true);
+      
+      // Load collections
+      const collectionsResponse = await collectionService.getActiveCollections();
+      if (collectionsResponse.success && collectionsResponse.data) {
+        setCollections(collectionsResponse.data);
+        
+        // Load products for each collection (limit to 10 per collection for performance)
+        const collectionProductsMap: Record<string, Product[]> = {};
+        for (const collection of collectionsResponse.data) {
+          const collectionProductsResponse = await collectionService.getCollectionProducts(collection.id, 1, 10);
+          if (collectionProductsResponse.success && collectionProductsResponse.data) {
+            collectionProductsMap[collection.id] = collectionProductsResponse.data.products || [];
+          }
+        }
+        setCollectionProducts(collectionProductsMap);
       }
     } catch (error) {
-      console.error('Failed to load products:', error);
-      setProducts([]);
+      console.error('Failed to load collections:', error);
     } finally {
-      setIsLoadingProducts(false);
+      setIsLoadingCollections(false);
+    }
+  };
+    } catch (error) {
+      console.error('Failed to load initial data:', error);
+      if (!isRefresh) {
+        Alert.alert('Error', 'Failed to load data. Please try again.');
+      }
+    } finally {
+      if (!isRefresh) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -285,22 +258,7 @@ export default function HomeTab() {
     }
   }, [refreshRecommendations]);
 
-  const categoryNames = ['All', ...categories.map(c => c.name)];
-
-  // Split products into three columns for masonry layout
-  const getMasonryColumns = (productList: Product[]) => {
-    const column1: Product[] = [];
-    const column2: Product[] = [];
-    const column3: Product[] = [];
-    productList.forEach((product, index) => {
-      if (index % 3 === 0) column1.push(product);
-      else if (index % 3 === 1) column2.push(product);
-      else column3.push(product);
-    });
-    return { column1, column2, column3 };
-  };
-
-  const { column1, column2, column3 } = getMasonryColumns(products);
+  const categoryNames = ['All', ...(categories || []).map(c => c.name)];
 
   if (isLoading) {
     return (
@@ -335,7 +293,7 @@ export default function HomeTab() {
         onCartPress={() => router.push('/cart')}
       />
 
-      {/* Sticky Search and Tabs Section */}
+      {/* Sticky Search Section */}
       <View style={styles.stickySection}>
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -348,13 +306,6 @@ export default function HomeTab() {
             editable={false}
           />
         </View>
-
-        {/* Category Tabs */}
-        <CategoryTabs
-          categories={categoryNames}
-          activeCategory={activeCategory}
-          onCategoryPress={setActiveCategory}
-        />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}
@@ -396,6 +347,10 @@ export default function HomeTab() {
               title="Categories"
               subtitle="Browse all"
               iconColor={colors.primary}
+              onPress={() => router.push({
+                pathname: '/product-listing',
+                params: { showCategories: 'true', title: 'Categories' }
+              })}
             />
             <FeatureCard
               key="get-quotes"
@@ -535,6 +490,49 @@ export default function HomeTab() {
             </ScrollView>
           </View>
         )}
+
+        {/* Collections Sections - Display all admin-created collections */}
+        {collections.map(collection => {
+          const products = collectionProducts[collection.id] || [];
+          if (products.length === 0) return null;
+          
+          return (
+            <View key={collection.id} style={styles.section}>
+              <SectionHeader
+                title={collection.name}
+                subtitle={collection.description || `${products.length} products`}
+                actionText="See All"
+                navigationSource={NavigationSource.HOME_COLLECTION}
+                collectionType="custom"
+                onActionPress={() => router.push({
+                  pathname: '/product-listing',
+                  params: { 
+                    collectionId: collection.id,
+                    title: collection.name
+                  }
+                })}
+              />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+              >
+                {products.map(product => {
+                  const productId = (product as any)._id || product.id;
+                  return (
+                    <View key={productId} style={styles.featuredCardWrapper}>
+                      <ProductCard
+                        product={product}
+                        onPress={() => handleProductPress(product)}
+                        showViewCount={true}
+                      />
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          );
+        })}
 
         {/* Products Loading Indicator */}
         {isLoadingProducts && (

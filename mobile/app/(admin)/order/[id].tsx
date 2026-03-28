@@ -252,6 +252,27 @@ export default function OrderDetailScreen() {
           ) : null}
         </Card>
 
+        {/* Customer Information */}
+        {typeof order.userId === 'object' && order.userId.name && (
+          <Card style={styles.card}>
+            <SectionTitle title="Customer Information" />
+            <View style={styles.row}>
+              <Text style={styles.label}>Name</Text>
+              <Text style={styles.value}>{order.userId.name}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Email</Text>
+              <Text style={styles.value}>{order.userId.email}</Text>
+            </View>
+            {order.userId.phone && (
+              <View style={styles.row}>
+                <Text style={styles.label}>Phone</Text>
+                <Text style={styles.value}>{order.userId.phone}</Text>
+              </View>
+            )}
+          </Card>
+        )}
+
         {/* Items */}
         <Card style={styles.card}>
           <SectionTitle title="Items" />

@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, Text, ActivityIndicator, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
 import { supplierService } from '../services/SupplierService';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Supplier } from '../types/product';
 import { spacing } from '../theme/spacing';
 
+
 export default function SuppliersScreen() {
   const router = useRouter();
-  const { fonts, fontSizes, colors, fontWeights } = useTheme();
+  const { fonts, fontSizes, colors, fontWeights, borderRadius } = useTheme();
+  const { isAuthenticated } = useAuth();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [ratingModalVisible, setRatingModalVisible] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
 
   const styles = StyleSheet.create({
     container: {
@@ -84,6 +92,39 @@ export default function SuppliersScreen() {
       color: colors.text,
       marginLeft: spacing.xs,
     },
+    actionButtons: {
+      flexDirection: 'row',
+      marginTop: spacing.sm,
+      gap: spacing.sm,
+    },
+    rateButton: {
+      flex: 1,
+      backgroundColor: colors.primary + '20',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.base,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+    },
+    rateButtonText: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium,
+      color: colors.primary,
+    },
+    viewButton: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.base,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    viewButtonText: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium,
+      color: colors.text,
+    },
     loadingContainer: {
       flex: 1,
       justifyContent: 'center',
@@ -113,6 +154,76 @@ export default function SuppliersScreen() {
       fontFamily: fonts.regular,
       color: colors.textLight,
       textAlign: 'center',
+    },
+    // Modal styles
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: colors.background,
+      borderRadius: borderRadius.lg,
+      padding: spacing.lg,
+      margin: spacing.lg,
+      width: '90%',
+      maxWidth: 400,
+    },
+    modalTitle: {
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.semibold,
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: spacing.base,
+    },
+    starsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginBottom: spacing.base,
+      gap: spacing.sm,
+    },
+    star: {
+      padding: spacing.xs,
+    },
+    commentInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: borderRadius.md,
+      padding: spacing.base,
+      fontSize: fontSizes.base,
+      color: colors.text,
+      backgroundColor: colors.surface,
+      minHeight: 80,
+      textAlignVertical: 'top',
+      marginBottom: spacing.base,
+    },
+    modalActions: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    modalButton: {
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: borderRadius.md,
+      flex: 1,
+    },
+    modalButtonSecondary: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    modalButtonText: {
+      color: colors.textInverse,
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold,
+    },
+    modalButtonTextSecondary: {
+      color: colors.text,
     },
   });
 
@@ -151,27 +262,71 @@ export default function SuppliersScreen() {
     });
   };
 
-  const renderStars = (rating: number) => {
+  const handleRateSupplier = (supplier: Supplier) => {
+    if (!isAuthenticated) {
+      Alert.alert('Login Required', 'Please login to rate suppliers');
+      return;
+    }
+    setSelectedSupplier(supplier);
+    setRating(0);
+    setComment('');
+    setRatingModalVisible(true);
+  };
+
+  const submitRating = async () => {
+    if (!selectedSupplier || rating === 0) {
+      Alert.alert('Invalid Rating', 'Please select a rating from 1 to 5 stars');
+      return;
+    }
+
+    try {
+      setSubmittingRating(true);
+      const supplierId = selectedSupplier._id || selectedSupplier.id;
+      
+      if (!supplierId) {
+        Alert.alert('Error', 'Supplier ID not found');
+        return;
+      }
+      
+      const response = await supplierService.createSupplierReview(supplierId, {
+        rating,
+        comment: comment.trim() || undefined,
+      });
+
+      if (response.success) {
+        Alert.alert('Success', 'Thank you for rating this supplier!');
+        setRatingModalVisible(false);
+        // Refresh suppliers to get updated ratings
+        loadSuppliers();
+      } else {
+        Alert.alert('Error', response.error?.message || 'Failed to submit rating');
+      }
+    } catch (error) {
+      console.error('Failed to submit rating:', error);
+      Alert.alert('Error', 'Failed to submit rating. Please try again.');
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
+  const renderStars = (rating: number, interactive = false, onStarPress?: (star: number) => void) => {
     const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 !== 0;
-
-    for (let i = 0; i < fullStars; i++) {
+    
+    for (let i = 1; i <= 5; i++) {
+      const filled = i <= rating;
       stars.push(
-        <Ionicons key={i} name="star" size={14} color={colors.warning} />
-      );
-    }
-
-    if (hasHalfStar) {
-      stars.push(
-        <Ionicons key="half" name="star-half" size={14} color={colors.warning} />
-      );
-    }
-
-    const emptyStars = 5 - Math.ceil(rating);
-    for (let i = 0; i < emptyStars; i++) {
-      stars.push(
-        <Ionicons key={`empty-${i}`} name="star-outline" size={14} color={colors.textLight} />
+        <TouchableOpacity
+          key={i}
+          style={interactive ? styles.star : undefined}
+          onPress={interactive && onStarPress ? () => onStarPress(i) : undefined}
+          disabled={!interactive}
+        >
+          <Ionicons 
+            name={filled ? "star" : "star-outline"} 
+            size={interactive ? 24 : 14} 
+            color={colors.warning} 
+          />
+        </TouchableOpacity>
       );
     }
 
@@ -208,12 +363,7 @@ export default function SuppliersScreen() {
             suppliers.map((supplier) => {
               const supplierId = supplier._id || supplier.id;
               return (
-                <TouchableOpacity
-                  key={supplierId}
-                  style={styles.supplierCard}
-                  onPress={() => handleSupplierPress(supplier)}
-                  activeOpacity={0.7}
-                >
+                <View key={supplierId} style={styles.supplierCard}>
                   <View style={styles.supplierHeader}>
                     <Text style={styles.supplierName}>{supplier.name}</Text>
                     {supplier.verified && (
@@ -240,11 +390,26 @@ export default function SuppliersScreen() {
                     <View style={styles.ratingContainer}>
                       {renderStars(supplier.rating)}
                       <Text style={styles.ratingText}>
-                        {supplier.rating.toFixed(1)} rating
+                        {supplier.rating.toFixed(1)} ({supplier.reviewCount || 0} reviews)
                       </Text>
                     </View>
                   </View>
-                </TouchableOpacity>
+
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                      style={styles.rateButton}
+                      onPress={() => handleRateSupplier(supplier)}
+                    >
+                      <Text style={styles.rateButtonText}>Rate Supplier</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.viewButton}
+                      onPress={() => handleSupplierPress(supplier)}
+                    >
+                      <Text style={styles.viewButtonText}>View Products</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               );
             })
           ) : (
@@ -257,6 +422,56 @@ export default function SuppliersScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Rating Modal */}
+      <Modal
+        visible={ratingModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRatingModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Rate {selectedSupplier?.name}
+            </Text>
+            
+            <View style={styles.starsContainer}>
+              {renderStars(rating, true, setRating)}
+            </View>
+            
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Add a comment (optional)"
+              placeholderTextColor={colors.textLight}
+              value={comment}
+              onChangeText={setComment}
+              multiline
+              numberOfLines={3}
+            />
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={() => setRatingModalVisible(false)}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextSecondary]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={submitRating}
+                disabled={rating === 0 || submittingRating}
+              >
+                {submittingRating ? (
+                  <ActivityIndicator size="small" color={colors.textInverse} />
+                ) : (
+                  <Text style={styles.modalButtonText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

@@ -7,17 +7,27 @@ export const createReview = async (req: Request, res: Response) => {
   try {
     const { productId, rating, comment } = req.body;
 
-    if (!productId || !rating || !comment) {
-      return res.status(400).json({ message: 'Product ID, rating, and comment are required' });
+    if (!productId || !rating) {
+      return res.status(400).json({ message: 'Product ID and rating are required' });
     }
 
     if (rating < 1 || rating > 5) {
       return res.status(400).json({ message: 'Rating must be between 1 and 5' });
     }
 
+    if (comment && comment.trim().length < 10) {
+      return res.status(400).json({ message: 'Comment must be at least 10 characters long' });
+    }
+
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Check if user already reviewed this product
+    const existingReview = await Review.findOne({ productId, userId: req.userId });
+    if (existingReview) {
+      return res.status(400).json({ message: 'You have already reviewed this product' });
     }
 
     const user = await User.findById(req.userId);
@@ -27,7 +37,7 @@ export const createReview = async (req: Request, res: Response) => {
       userId: req.userId,
       userName: user?.name || 'Anonymous',
       rating,
-      comment,
+      comment: comment?.trim() || '',
     });
 
     await updateProductRating(productId);
@@ -71,6 +81,74 @@ export const getProductReviews = async (req: Request, res: Response) => {
   }
 };
 
+export const getUserReviews = async (req: Request, res: Response) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const reviews = await Review.find({ userId: req.userId })
+      .populate('productId', 'name images')
+      .skip(skip)
+      .limit(limitNum)
+      .sort({ createdAt: -1 });
+
+    const total = await Review.countDocuments({ userId: req.userId });
+
+    res.json({
+      status: 'success',
+      data: reviews,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getAllReviews = async (req: Request, res: Response) => {
+  try {
+    const { page = 1, limit = 20, flagged } = req.query;
+
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    const filter: any = {};
+    if (flagged !== undefined) {
+      filter.isFlagged = flagged === 'true';
+    }
+
+    const reviews = await Review.find(filter)
+      .populate('productId', 'name images')
+      .populate('userId', 'name email')
+      .skip(skip)
+      .limit(limitNum)
+      .sort({ createdAt: -1 });
+
+    const total = await Review.countDocuments(filter);
+
+    res.json({
+      status: 'success',
+      data: reviews,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const addAdminResponse = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -102,6 +180,30 @@ export const addAdminResponse = async (req: Request, res: Response) => {
   }
 };
 
+export const flagReview = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { isFlagged } = req.body;
+
+    const review = await Review.findByIdAndUpdate(
+      id,
+      { isFlagged: isFlagged !== undefined ? isFlagged : true },
+      { new: true }
+    );
+
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    res.json({
+      message: `Review ${isFlagged ? 'flagged' : 'unflagged'} successfully`,
+      review,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const deleteReview = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -120,7 +222,7 @@ export const deleteReview = async (req: Request, res: Response) => {
 };
 
 const updateProductRating = async (productId: any) => {
-  const reviews = await Review.find({ productId });
+  const reviews = await Review.find({ productId, isFlagged: false });
   if (reviews.length === 0) {
     await Product.findByIdAndUpdate(productId, { rating: 0, reviewCount: 0 });
     return;

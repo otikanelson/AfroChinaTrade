@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   ScrollView,
   Modal,
-  Dimensions
+  Dimensions,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,11 +45,10 @@ const menuItems: MenuItem[] = [
   { id: 'notifications', title: 'Notifications', icon: 'notifications-outline', route: '/notifications', requiresAuth: true, customerOnly: true },
   
   // Admin-only items
-  { id: 'admin-dashboard', title: 'Dashboard', icon: 'speedometer-outline', route: '/(admin)/(tabs)/products', requiresAuth: true, adminOnly: true },
-  { id: 'admin-orders', title: 'Orders', icon: 'receipt-outline', route: '/(admin)/(tabs)/orders', requiresAuth: true, adminOnly: true },
   { id: 'admin-users', title: 'Users', icon: 'people-outline', route: '/(admin)/users', requiresAuth: true, adminOnly: true },
+  { id: 'admin-collections', title: 'Collections', icon: 'albums-outline', route: '/(admin)/collections', requiresAuth: true, adminOnly: true },
+  { id: 'admin-reviews', title: 'Reviews', icon: 'star-outline', route: '/(admin)/reviews', requiresAuth: true, adminOnly: true },
   { id: 'admin-messages', title: 'Messages', icon: 'chatbubbles-outline', route: '/(admin)/(tabs)/messages', requiresAuth: true, adminOnly: true },
-  { id: 'admin-finance', title: 'Finance', icon: 'analytics-outline', route: '/(admin)/(tabs)/finance', requiresAuth: true, adminOnly: true },
   { id: 'admin-account', title: 'Settings', icon: 'settings-outline', route: '/(admin)/(tabs)/account', requiresAuth: true, adminOnly: true },
 ];
 
@@ -66,7 +66,7 @@ const settingsItems: MenuItem[] = [
 export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
   const router = useRouter();
   const { colors, fontSizes, fontWeights } = useTheme();
-  const { isAuthenticated, isGuestMode, isAdmin, user } = useAuth();
+  const { isAuthenticated, isGuestMode, isAdmin, user, logout } = useAuth();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
 
   // Filter menu items based on user role
@@ -103,6 +103,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      await logout();
+      onClose();
+      router.push('/(tabs)/home');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
   const styles = StyleSheet.create({
     overlay: {
       flex: 1,
@@ -110,7 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
       flexDirection: 'row',
     },
     sidebar: {
-      width: Math.min(320, width * 0.85),
+      width: Math.min(320, width * 0.7),
       height: '100%',
       backgroundColor: colors.background,
       shadowColor: '#000',
@@ -156,6 +166,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
       fontSize: 16,
       fontWeight: '600',
     },
+    userAvatarImage: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+    },
     userDetails: {
       flex: 1,
     },
@@ -187,10 +202,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
     menuItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 24,
-      paddingVertical: 16,
+      paddingHorizontal: 25,
+      paddingVertical: 10,
       borderRadius: 12,
-      marginVertical: 2,
+      marginVertical: 5,
+      marginHorizontal: 5,
     },
     menuItemActive: {
       backgroundColor: colors.surface,
@@ -205,7 +221,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
     },
     menuText: {
       flex: 1,
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.md,
       fontWeight: '500',
       color: colors.text,
     },
@@ -242,6 +258,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
       backgroundColor: colors.primary + '10',
       borderWidth: 1,
       borderColor: colors.primary + '20',
+    },
+    signOutItem: {
+      backgroundColor: colors.error + '10',
+      borderWidth: 1,
+      borderColor: colors.error + '20',
+      marginTop: 8,
+    },
+    signOutText: {
+      color: colors.error,
+      fontWeight: '600',
     },
     quickSwitchItem: {
       backgroundColor: colors.surface,
@@ -285,9 +311,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
     return (
       <View style={styles.userInfo}>
         <View style={styles.userAvatar}>
-          <Text style={styles.userAvatarText}>
-            {getUserInitials(user?.name)}
-          </Text>
+          {user?.avatar ? (
+            <Image 
+              source={{ uri: user.avatar }} 
+              style={styles.userAvatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.userAvatarText}>
+              {getUserInitials(user?.name)}
+            </Text>
+          )}
         </View>
         <View style={styles.userDetails}>
           <Text style={styles.userName}>{user?.name || 'User'}</Text>
@@ -428,6 +462,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                       />
                     </TouchableOpacity>
                   ))}
+                  
+                  {/* Sign Out Button - Only show when authenticated */}
+                  {isAuthenticated && !isGuestMode && (
+                    <TouchableOpacity
+                      style={[styles.menuItem, styles.signOutItem]}
+                      onPress={handleSignOut}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons 
+                        name="log-out-outline" 
+                        size={22} 
+                        color={colors.error} 
+                        style={styles.menuIcon}
+                      />
+                      <Text style={[styles.menuText, styles.signOutText]}>Sign Out</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* Bottom spacing */}

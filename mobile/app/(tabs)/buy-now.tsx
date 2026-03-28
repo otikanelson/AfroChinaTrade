@@ -5,30 +5,50 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Header } from '../../components/Header';
 import { ProductCard } from '../../components/ProductCard';
+import { SectionHeader } from '../../components/SectionHeader';
 import { productService } from '../../services/ProductService';
 import { Product } from '../../types/product';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useRecommendations } from '../../hooks/useRecommendations';
 
 export default function BuyNowTab() {
   const router = useRouter();
   const { colors, spacing, fontSizes, borderRadius, fontWeights } = useTheme();
+  const { user } = useAuth();
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Use recommendations hook for personalized products
+  const { recommendations, hasRecommendations } = useRecommendations();
+
   useEffect(() => {
-    loadFeaturedProducts();
+    loadAllSections();
   }, []);
 
-  const loadFeaturedProducts = async () => {
+  const loadAllSections = async () => {
     try {
       setLoading(true);
-      const response = await productService.getFeaturedProducts(20);
+      
+      // Load featured and trending products
+      const [featuredResponse, trendingResponse] = await Promise.all([
+        productService.getFeaturedProducts(12),
+        productService.getTrendingProducts('7d', 12)
+      ]);
 
-      if (response.success && response.data) {
-        setFeaturedProducts(response.data);
+      if (featuredResponse.success && featuredResponse.data) {
+        setFeaturedProducts(featuredResponse.data);
+      }
+
+      if (trendingResponse.success && trendingResponse.data) {
+        const trendingData = Array.isArray(trendingResponse.data) 
+          ? trendingResponse.data 
+          : trendingResponse.data.products || [];
+        setTrendingProducts(trendingData);
       }
     } catch (error) {
-      console.error('Error loading featured products:', error);
+      console.error('Error loading buy-now sections:', error);
       Alert.alert('Error', 'Failed to load products');
     } finally {
       setLoading(false);
@@ -42,8 +62,51 @@ export default function BuyNowTab() {
     });
   };
 
+  const handleSeeAll = (section: string) => {
+    router.push({
+      pathname: '/product-listing',
+      params: { 
+        collection: section,
+        title: section === 'featured' ? 'Featured Products' : 
+               section === 'trending' ? 'Trending Products' : 'Products'
+      }
+    });
+  };
+
   const handleRefresh = () => {
-    loadFeaturedProducts();
+    loadAllSections();
+  };
+
+  const renderProductSection = (
+    title: string,
+    products: Product[],
+    sectionKey: string
+  ) => {
+    if (products.length === 0) return null;
+
+    return (
+      <View style={styles.section}>
+        <SectionHeader
+          title={title}
+          actionText="See All"
+          onActionPress={() => handleSeeAll(sectionKey)}
+        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalList}
+        >
+          {products.map((product) => (
+            <View key={product.id} style={styles.productCardWrapper}>
+              <ProductCard
+                product={product}
+                onPress={() => handleProductPress(product)}
+              />
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    );
   };
 
   const styles = StyleSheet.create({
@@ -65,6 +128,16 @@ export default function BuyNowTab() {
       fontSize: fontSizes.base,
       color: colors.textSecondary,
       textAlign: 'center',
+    },
+    section: {
+      marginBottom: spacing.lg,
+    },
+    horizontalList: {
+      paddingHorizontal: spacing.base,
+      gap: spacing.sm,
+    },
+    productCardWrapper: {
+      width: 160,
     },
     quickActions: {
       flexDirection: 'row',
@@ -91,27 +164,6 @@ export default function BuyNowTab() {
       color: colors.text,
       textAlign: 'center',
     },
-    section: {
-      paddingHorizontal: spacing.base,
-      paddingBottom: spacing.sm,
-      backgroundColor: colors.surface,
-    },
-    sectionHeader: {
-      marginBottom: spacing.lg,
-      paddingBottom: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-    },
-    sectionTitle: {
-      fontSize: fontSizes.xl,
-      fontWeight: fontWeights.bold,
-      color: colors.text,
-      marginBottom: spacing.xs,
-    },
-    sectionSubtitle: {
-      fontSize: fontSizes.sm,
-      color: colors.textSecondary,
-    },
     emptyContainer: {
       alignItems: 'center',
       paddingVertical: spacing['2xl'],
@@ -119,9 +171,6 @@ export default function BuyNowTab() {
       backgroundColor: colors.surface,
       borderRadius: borderRadius.md,
       marginTop: spacing.md,
-    },
-    emptyIcon: {
-      marginBottom: spacing.sm,
     },
     emptyText: {
       fontSize: fontSizes.base,
@@ -141,32 +190,18 @@ export default function BuyNowTab() {
       fontSize: fontSizes.base,
       fontWeight: fontWeights.semibold,
     },
-    productsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.lg,
-      marginTop: spacing.sm,
-    },
-    productCardContainer: {
-      width: '31%',
-      marginBottom: spacing.sm,
-    },
     bottomSpacing: {
       height: spacing.xl,
     },
   });
 
-  if (loading && featuredProducts.length === 0) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <Header
-          title="Buy Now"
-          showRefresh={true}
-          onRefreshPress={handleRefresh}
-        />
+        <Header title="Buy Now" />
         <View style={styles.loadingContainer}>
-          <Ionicons name="storefront-outline" size={48} color={colors.textSecondary} />
-          <Text style={styles.loadingText}>Loading featured deals...</Text>
+          <Ionicons name="storefront-outline" size={48} color={colors.textLight} />
+          <Text style={styles.loadingText}>Loading products...</Text>
         </View>
       </SafeAreaView>
     );
@@ -174,14 +209,13 @@ export default function BuyNowTab() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <Header
         title="Buy Now"
+        subtitle="Get fast items for you"
         showRefresh={true}
         onRefreshPress={handleRefresh}
       />
 
-      {/* Content */}
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
@@ -192,9 +226,7 @@ export default function BuyNowTab() {
             style={styles.quickActionCard}
             onPress={() => router.push('/search')}
           >
-            <View>
-              <Ionicons name="search" size={24} color={colors.primary} />
-            </View>
+            <Ionicons name="search" size={24} color={colors.primary} />
             <Text style={styles.quickActionText}>Browse All</Text>
           </TouchableOpacity>
 
@@ -202,9 +234,7 @@ export default function BuyNowTab() {
             style={styles.quickActionCard}
             onPress={() => router.push('/wishlist')}
           >
-            <View>
-              <Ionicons name="heart" size={24} color={colors.primary} />
-            </View>
+            <Ionicons name="heart" size={24} color={colors.primary} />
             <Text style={styles.quickActionText}>Wishlist</Text>
           </TouchableOpacity>
 
@@ -212,52 +242,36 @@ export default function BuyNowTab() {
             style={styles.quickActionCard}
             onPress={() => router.push('/orders')}
           >
-            <View>
-              <Ionicons name="receipt" size={24} color={colors.primary} />
-            </View>
+            <Ionicons name="receipt" size={24} color={colors.primary} />
             <Text style={styles.quickActionText}>Orders</Text>
           </TouchableOpacity>
         </View>
 
         {/* Featured Products */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Featured Deals</Text>
-            <Text style={styles.sectionSubtitle}>
-              {featuredProducts.length} products available for quick purchase
+        {renderProductSection('Featured Products', featuredProducts, 'featured')}
+
+        {/* Recommended Products (for authenticated users) */}
+        {user && hasRecommendations && renderProductSection('Recommended for You', recommendations, 'recommended')}
+
+        {/* Trending Products */}
+        {renderProductSection('Trending Products', trendingProducts, 'trending')}
+
+        {/* Empty State */}
+        {featuredProducts.length === 0 && trendingProducts.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="storefront-outline" size={48} color={colors.textSecondary} />
+            <Text style={styles.emptyText}>
+              No products available at the moment. Check back later for exciting deals!
             </Text>
+            <TouchableOpacity
+              style={styles.browseButton}
+              onPress={() => router.push('/(tabs)/home')}
+            >
+              <Text style={styles.browseButtonText}>Browse All Products</Text>
+            </TouchableOpacity>
           </View>
+        )}
 
-          {featuredProducts.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIcon}>
-                <Ionicons name="storefront-outline" size={48} color={colors.textSecondary} />
-              </View>
-              <Text style={styles.emptyText}>
-                No featured products available at the moment. Check back later for exciting deals!
-              </Text>
-              <TouchableOpacity
-                style={styles.browseButton}
-                onPress={() => router.push('/(tabs)/home')}
-              >
-                <Text style={styles.browseButtonText}>Browse All Products</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.productsGrid}>
-              {featuredProducts.map((product) => (
-                <View key={product.id} style={styles.productCardContainer}>
-                  <ProductCard
-                    product={product}
-                    onPress={() => handleProductPress(product)}
-                  />
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Bottom Spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>

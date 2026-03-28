@@ -104,7 +104,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       flex: 1,
       ...theme.typography.body,
       color: colors.text,
-      fontSize: theme.fontSizes.base,
+      fontSize: theme.fontSizes.sm,
       paddingVertical: Platform.OS === 'ios' ? theme.spacing.sm : 0,
     },
     clearButton: {

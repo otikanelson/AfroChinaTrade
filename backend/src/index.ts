@@ -25,10 +25,12 @@ import wishlistRoutes from './routes/wishlist';
 import cartRoutes from './routes/cart';
 import viewTrackingRoutes from './routes/viewTrackingRoutes';
 import productCollectionRoutes from './routes/productCollectionRoutes';
+import collectionRoutes from './routes/collectionRoutes';
 import recommendationRoutes from './routes/recommendationRoutes';
 import deliveryAddressRoutes from './routes/deliveryAddressRoutes';
 import locationRoutes from './routes/locationRoutes';
 import paymentMethodRoutes from './routes/paymentMethodRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -67,6 +69,7 @@ app.get('/api/health', (_req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/product-collections', productCollectionRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/reviews', reviewRoutes);
@@ -83,10 +86,12 @@ app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api', viewTrackingRoutes);
 app.use('/api', productCollectionRoutes);
+app.use('/api/collections', collectionRoutes);
 app.use('/api', recommendationRoutes);
 app.use('/api/addresses', deliveryAddressRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/payment-methods', paymentMethodRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
@@ -97,8 +102,14 @@ app.use(errorHandler);
 // Start server with database connection
 const startServer = async () => {
   try {
-    // Connect to database
+    // Connect to database first
     await connectDatabase();
+    
+    // Only start the server if database connection is successful
+    const dbStatus = getDatabaseStatus();
+    if (dbStatus !== 'connected') {
+      console.warn('⚠️  Database not connected, but starting server anyway for demo mode');
+    }
     
     // Start Express server - listen on all interfaces for development
     app.listen(PORT, '0.0.0.0', () => {
@@ -106,6 +117,7 @@ const startServer = async () => {
       console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`✓ API Base URL: http://localhost:${PORT}/api`);
       console.log(`✓ Accessible from: http://0.0.0.0:${PORT}/api`);
+      console.log(`✓ Database status: ${dbStatus}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

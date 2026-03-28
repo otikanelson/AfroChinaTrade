@@ -1,0 +1,203 @@
+import React, { useRef, useEffect, useState } from 'react';
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ViewStyle,
+  Keyboard,
+  Platform,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
+import { theme } from '../../theme';
+import { ProductFiltersDropdown, FilterOptions, CategoryOption } from './ProductFiltersDropdown';
+
+export interface SearchBarWithFiltersProps {
+  /** Current search value */
+  value: string;
+  /** Called with the debounced search value (300 ms delay) */
+  onChangeText: (text: string) => void;
+  /** Current filter options */
+  filters: FilterOptions;
+  /** Called when filters change */
+  onFiltersChange: (filters: FilterOptions) => void;
+  /** Available categories for filtering */
+  categories: CategoryOption[];
+  /** Placeholder text */
+  placeholder?: string;
+  /** Dismiss the keyboard when the user taps the clear button */
+  dismissKeyboardOnClear?: boolean;
+  /** Container style override */
+  style?: ViewStyle;
+  testID?: string;
+}
+
+const DEBOUNCE_MS = 300;
+
+export const SearchBarWithFilters: React.FC<SearchBarWithFiltersProps> = ({
+  value,
+  onChangeText,
+  filters,
+  onFiltersChange,
+  categories,
+  placeholder = 'Search…',
+  dismissKeyboardOnClear = true,
+  style,
+  testID,
+}) => {
+  const { colors, spacing } = useTheme();
+  // Internal (immediate) value drives the TextInput so it feels responsive.
+  const [inputValue, setInputValue] = useState(value);
+  const [focused, setFocused] = useState(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep internal value in sync when the parent resets it (e.g. clear from outside).
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
+  const handleChange = (text: string) => {
+    setInputValue(text);
+
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    debounceTimer.current = setTimeout(() => {
+      onChangeText(text);
+    }, DEBOUNCE_MS);
+  };
+
+  // Clean up on unmount.
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, []);
+
+  const handleClear = () => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    setInputValue('');
+    onChangeText('');
+    if (dismissKeyboardOnClear) {
+      Keyboard.dismiss();
+    }
+  };
+
+  const showClear = inputValue.length > 0;
+
+  const styles = StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    searchContainer: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: theme.borderRadius.lg,
+      paddingHorizontal: theme.spacing.lg,
+      minHeight: 48,
+      ...theme.shadows.sm,
+    },
+    searchContainerFocused: {
+      borderColor: colors.primary,
+      backgroundColor: colors.background,
+      ...theme.shadows.md,
+    },
+    searchIcon: {
+      marginRight: theme.spacing.md,
+    },
+    input: {
+      flex: 1,
+      ...theme.typography.body,
+      color: colors.text,
+      fontSize: theme.fontSizes.base,
+      paddingVertical: Platform.OS === 'ios' ? theme.spacing.sm : 0,
+    },
+    clearButton: {
+      marginLeft: theme.spacing.sm,
+      minWidth: 44,
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });
+
+  return (
+    <View style={[styles.container, style]} testID={testID}>
+      {/* Search Bar */}
+      <View
+        style={[
+          styles.searchContainer,
+          focused && styles.searchContainerFocused,
+        ]}
+      >
+        {/* Search icon */}
+        <Ionicons
+          name="search-outline"
+          size={18}
+          color={focused ? colors.primary : colors.textSecondary}
+          style={styles.searchIcon}
+          testID={testID ? `${testID}-icon` : undefined}
+        />
+
+        {/* Text input */}
+        <TextInput
+          style={styles.input}
+          value={inputValue}
+          onChangeText={handleChange}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textLight}
+          returnKeyType="search"
+          onSubmitEditing={Keyboard.dismiss}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="never"
+          accessibilityLabel="Search"
+          accessibilityHint={placeholder}
+          accessibilityRole="search"
+          testID={testID ? `${testID}-input` : undefined}
+        />
+
+        {/* Clear button */}
+        {showClear && (
+          <TouchableOpacity
+            onPress={handleClear}
+            style={styles.clearButton}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            testID={testID ? `${testID}-clear` : undefined}
+          >
+            <Ionicons
+              name="close-circle"
+              size={18}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Compact Filter Button */}
+      <ProductFiltersDropdown
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        categories={categories}
+        style={{ marginBottom: 0 }} // Override the default margin
+        compact={true} // Use compact mode
+        testID={testID ? `${testID}-filters` : undefined}
+      />
+    </View>
+  );
+};

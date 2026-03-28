@@ -101,7 +101,7 @@ export default function CheckoutScreen() {
       const paymentData = await paymentResponse.json();
       const addressData = await addressResponse.json();
 
-      if (paymentData.success) {
+      if (paymentData.success && paymentData.data) {
         setPaymentMethods(paymentData.data);
         const defaultPayment = paymentData.data.find((p: PaymentMethod) => p.isDefault);
         if (defaultPayment) setSelectedPayment(defaultPayment._id);

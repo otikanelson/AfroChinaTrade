@@ -1,62 +1,131 @@
-import apiClient, { ApiResponse } from './api/apiClient';
-
-export interface Ticket {
-  id: string;
-  subject: string;
-  description: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'open' | 'in_progress' | 'resolved' | 'closed';
-  userId: string;
-  userName: string;
-  userEmail: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type TicketPriority = Ticket['priority'];
-export type TicketStatus = Ticket['status'];
+import { API_BASE_URL } from '../constants/config';
 
 export interface CreateTicketData {
   subject: string;
+  category: string;
+  priority: string;
   description: string;
-  priority?: Ticket['priority'];
+  isSuspensionAppeal?: boolean;
+  appealReason?: string;
+}
+
+export interface UpdateTicketData {
+  status?: string;
+  adminResponse?: string;
+  unsuspendUser?: boolean;
+}
+
+export interface TicketFilters {
+  status?: string;
+  category?: string;
+  priority?: string;
+  page?: number;
+  limit?: number;
 }
 
 class TicketService {
-  private readonly basePath = '/tickets';
+  private getAuthHeaders(token: string) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
+  }
 
-  async getTickets(params: { 
-    page?: number; 
-    limit?: number;
-    status?: Ticket['status'];
-    priority?: Ticket['priority'];
-  } = {}): Promise<ApiResponse<Ticket[]>> {
+  async createTicket(token: string, ticketData: CreateTicketData) {
+    const response = await fetch(`${API_BASE_URL}/api/tickets`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(ticketData),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to create ticket');
+    }
+
+    return data;
+  }
+
+  async getUserTickets(token: string) {
+    const response = await fetch(`${API_BASE_URL}/api/tickets/my-tickets`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch tickets');
+    }
+
+    return data;
+  }
+
+  async getTicketById(token: string, ticketId: string) {
+    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch ticket details');
+    }
+
+    return data;
+  }
+
+  async getAllTickets(token: string, filters: TicketFilters = {}) {
     const queryParams = new URLSearchParams();
-    if (params.page) queryParams.append('page', params.page.toString());
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-    if (params.status) queryParams.append('status', params.status);
-    if (params.priority) queryParams.append('priority', params.priority);
-    const queryString = queryParams.toString();
-    const url = queryString ? `${this.basePath}?${queryString}` : this.basePath;
-    return apiClient.get<Ticket[]>(url);
+    
+    if (filters.status) queryParams.append('status', filters.status);
+    if (filters.category) queryParams.append('category', filters.category);
+    if (filters.priority) queryParams.append('priority', filters.priority);
+    if (filters.page) queryParams.append('page', filters.page.toString());
+    if (filters.limit) queryParams.append('limit', filters.limit.toString());
+
+    const response = await fetch(`${API_BASE_URL}/api/tickets?${queryParams}`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch tickets');
+    }
+
+    return data;
   }
 
-  async getTicketById(id: string): Promise<ApiResponse<Ticket>> {
-    return apiClient.get<Ticket>(`${this.basePath}/${id}`);
+  async updateTicket(token: string, ticketId: string, updateData: UpdateTicketData) {
+    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(updateData),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to update ticket');
+    }
+
+    return data;
   }
 
-  async createTicket(ticketData: CreateTicketData): Promise<ApiResponse<Ticket>> {
-    return apiClient.post<Ticket>(this.basePath, ticketData);
-  }
+  async getUserSuspensionAppeals(token: string, userId: string) {
+    const response = await fetch(`${API_BASE_URL}/api/tickets/user/${userId}/appeals`, {
+      headers: this.getAuthHeaders(token),
+    });
 
-  async updateTicketStatus(id: string, status: Ticket['status']): Promise<ApiResponse<Ticket>> {
-    return apiClient.patch<Ticket>(`${this.basePath}/${id}/status`, { status });
-  }
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch suspension appeals');
+    }
 
-  async updateTicketPriority(id: string, priority: Ticket['priority']): Promise<ApiResponse<Ticket>> {
-    return apiClient.patch<Ticket>(`${this.basePath}/${id}/priority`, { priority });
+    return data;
   }
 }
 
-export const ticketService = new TicketService();
-export default ticketService;
+export default new TicketService();

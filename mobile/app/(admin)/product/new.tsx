@@ -9,11 +9,12 @@ import { PickerField, PickerOption } from '../../../components/admin/forms/Picke
 import { TagSelector } from '../../../components/admin/forms/TagSelector';
 import { SpecificationsTable } from '../../../components/admin/forms/SpecificationsTable';
 import { PolicyFields } from '../../../components/admin/forms/PolicyFields';
+import { Header } from '../../../components/Header';
 import { mobileToastManager } from '../../../utils/toast';
 import { productService } from '../../../services/ProductService';
 import { supplierService } from '../../../services/SupplierService';
 import { categoryService } from '../../../services/CategoryService';
-import { theme } from '../../../theme';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -109,6 +110,7 @@ function validate(form: FormState): FormErrors {
 
 export default function NewProductScreen() {
   const router = useRouter();
+  const { colors, spacing, fontSizes, borderRadius, fontWeights } = useTheme();
   const [saving, setSaving] = useState(false);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [loadingCategories, setLoadingCategories] = useState(true);
@@ -315,13 +317,89 @@ export default function NewProductScreen() {
   // Render
   // ---------------------------------------------------------------------------
 
+  const styles = StyleSheet.create({
+    scroll: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: spacing.base,
+      paddingBottom: spacing['2xl'],
+    },
+    errorContainer: {
+      backgroundColor: colors.error || '#fee2e2',
+      borderColor: colors.error || '#fca5a5',
+      borderWidth: 1,
+      borderRadius: borderRadius.base,
+      padding: spacing.sm,
+      marginBottom: spacing.base,
+    },
+    errorText: {
+      color: colors.error || '#dc2626',
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium,
+    },
+    actions: {
+      marginTop: spacing.lg,
+      gap: spacing.sm,
+    },
+    saveButton: {
+      width: '100%',
+    },
+    cancelButton: {
+      width: '100%',
+    },
+    discountPreview: {
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.md,
+      padding: spacing.base,
+      marginBottom: spacing.base,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    discountPreviewLabel: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium,
+      color: colors.text,
+      marginBottom: spacing.sm,
+    },
+    pricePreviewContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    originalPricePreview: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+      textDecorationLine: 'line-through',
+    },
+    discountedPricePreview: {
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.bold,
+      color: colors.error || '#FF3B30',
+    },
+    discountBadgePreview: {
+      backgroundColor: colors.error || '#FF3B30',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.base,
+    },
+    discountBadgeTextPreview: {
+      color: colors.textInverse || 'white',
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.medium,
+    },
+  });
+
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* General Error Display */}
         {errors.general && (
           <View style={styles.errorContainer}>
@@ -522,80 +600,6 @@ export default function NewProductScreen() {
           />
         </View>
       </ScrollView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  content: {
-    padding: theme.spacing.base,
-    paddingBottom: theme.spacing['2xl'],
-  },
-  errorContainer: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#fca5a5',
-    borderWidth: 1,
-    borderRadius: theme.borderRadius.base,
-    padding: theme.spacing.sm,
-    marginBottom: theme.spacing.base,
-  },
-  errorText: {
-    color: '#dc2626',
-    fontSize: theme.fontSizes.sm,
-    fontWeight: theme.fontWeights.medium,
-  },
-  actions: {
-    marginTop: theme.spacing.lg,
-    gap: theme.spacing.sm,
-  },
-  saveButton: {
-    width: '100%',
-  },
-  cancelButton: {
-    width: '100%',
-  },
-  discountPreview: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.base,
-    marginBottom: theme.spacing.base,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  discountPreviewLabel: {
-    fontSize: theme.fontSizes.sm,
-    fontWeight: theme.fontWeights.medium,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.sm,
-  },
-  pricePreviewContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-  },
-  originalPricePreview: {
-    fontSize: theme.fontSizes.base,
-    color: theme.colors.textSecondary,
-    textDecorationLine: 'line-through',
-  },
-  discountedPricePreview: {
-    fontSize: theme.fontSizes.lg,
-    fontWeight: theme.fontWeights.bold,
-    color: '#FF3B30',
-  },
-  discountBadgePreview: {
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.base,
-  },
-  discountBadgeTextPreview: {
-    color: 'white',
-    fontSize: theme.fontSizes.xs,
-    fontWeight: theme.fontWeights.medium,
-  },
-});

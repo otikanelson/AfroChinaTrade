@@ -39,37 +39,45 @@ export class ViewTrackingService {
       // Check if this is a unique view (prevent spam)
       const isUniqueView = await this.isUniqueView(productId, userId, sessionId);
       
-      if (!isUniqueView) {
+      let newViewCount = 0;
+      let tracked = false;
+      
+      if (isUniqueView) {
+        // Update product view count atomically
+        const updatedProduct = await Product.findByIdAndUpdate(
+          productId,
+          { 
+            $inc: { viewCount: 1 },
+            $set: { lastViewedAt: new Date() }
+          },
+          { new: true }
+        );
+
+        if (!updatedProduct) {
+          throw new Error('Product not found');
+        }
+
+        newViewCount = updatedProduct.viewCount;
+        tracked = true;
+
+        // Update view cache for trending calculations
+        await this.updateViewCache(productId);
+
+        // Invalidate relevant caches
+        await this.invalidateProductCaches(productId, updatedProduct.category);
+      } else {
+        // Even if view count doesn't increase, get current count
         const currentCount = await this.getViewCount(productId);
-        return { success: false, newViewCount: currentCount, tracked: false };
+        newViewCount = currentCount;
+        tracked = false;
       }
 
-      // Update product view count atomically
-      const updatedProduct = await Product.findByIdAndUpdate(
-        productId,
-        { 
-          $inc: { viewCount: 1 },
-          $set: { lastViewedAt: new Date() }
-        },
-        { new: true }
-      );
-
-      if (!updatedProduct) {
-        throw new Error('Product not found');
-      }
-
-      // Update view cache for trending calculations
-      await this.updateViewCache(productId);
-
-      // Record browsing history if user is authenticated
+      // Always record browsing history for authenticated users (even if view count doesn't increase)
       if (userId) {
         await this.recordBrowsingHistory(userId, productId, 'view', sessionId, metadata);
       }
 
-      // Invalidate relevant caches
-      await this.invalidateProductCaches(productId, updatedProduct.category);
-
-      return { success: true, newViewCount: updatedProduct.viewCount, tracked: true };
+      return { success: true, newViewCount, tracked };
     } catch (error) {
       console.error('Error tracking product view:', error);
       throw error;
@@ -77,21 +85,24 @@ export class ViewTrackingService {
   }
 
   /**
-   * Check if this is a unique view (user has never viewed this product before)
+   * Check if this is a unique view (prevent spam, but allow updating existing entries)
    * @param productId - Product ID
    * @param userId - User ID (optional)
    * @param sessionId - Session ID (optional)
-   * @returns Promise<boolean> - true if unique view
+   * @returns Promise<boolean> - true if view should be tracked (not viewed in last 5 minutes)
    */
   private async isUniqueView(
     productId: string,
     userId?: string,
     sessionId?: string
   ): Promise<boolean> {
+    // Allow re-viewing products, but prevent spam by checking if viewed in last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
     const query: any = {
       productId: new mongoose.Types.ObjectId(productId),
-      interactionType: 'view'
-      // No timestamp filter - check if user has EVER viewed this product
+      interactionType: 'view',
+      timestamp: { $gte: fiveMinutesAgo } // Only check very recent views to prevent spam
     };
 
     if (userId) {
@@ -103,8 +114,8 @@ export class ViewTrackingService {
       return true;
     }
 
-    const existingView = await BrowsingHistory.findOne(query);
-    return !existingView;
+    const recentView = await BrowsingHistory.findOne(query);
+    return !recentView; // Return true if no recent view found (allow if last view was >5 minutes ago)
   }
 
   /**
@@ -134,6 +145,7 @@ export class ViewTrackingService {
 
   /**
    * Record browsing history for authenticated users
+   * If the user has already viewed this product, update the existing entry instead of creating a duplicate
    * @param userId - User ID
    * @param productId - Product ID
    * @param interactionType - Type of interaction
@@ -147,14 +159,35 @@ export class ViewTrackingService {
     sessionId?: string,
     metadata?: ViewMetadata
   ): Promise<void> {
-    await BrowsingHistory.create({
+    // Check if user has already viewed this product
+    const existingEntry = await BrowsingHistory.findOne({
       userId: new mongoose.Types.ObjectId(userId),
       productId: new mongoose.Types.ObjectId(productId),
-      interactionType,
-      sessionId,
-      timestamp: new Date(),
-      metadata
+      interactionType: interactionType // Use the actual interaction type, not hardcoded 'view'
     });
+
+    if (existingEntry) {
+      // Update existing entry with new timestamp and metadata
+      console.log(`📝 Updating existing browsing history entry for user ${userId}, product ${productId}`);
+      await BrowsingHistory.findByIdAndUpdate(existingEntry._id, {
+        timestamp: new Date(),
+        sessionId,
+        metadata
+      });
+      console.log(`✅ Updated existing entry with new timestamp: ${new Date().toISOString()}`);
+    } else {
+      // Create new entry
+      console.log(`📝 Creating new browsing history entry for user ${userId}, product ${productId}`);
+      const newEntry = await BrowsingHistory.create({
+        userId: new mongoose.Types.ObjectId(userId),
+        productId: new mongoose.Types.ObjectId(productId),
+        interactionType,
+        sessionId,
+        timestamp: new Date(),
+        metadata
+      });
+      console.log(`✅ Created new entry with timestamp: ${newEntry.timestamp.toISOString()}`);
+    }
   }
 
   /**

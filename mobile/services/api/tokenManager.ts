@@ -175,8 +175,8 @@ class TokenManager {
         return;
       }
 
-      // Show warning at 5 minutes (300 seconds)
-      if (remaining <= 300 && !this.warningShown) {
+      // Show warning at 10 minutes (600 seconds) for 1-hour tokens
+      if (remaining <= 600 && !this.warningShown) {
         console.warn(`⏰ Token expiring in ${remaining} seconds`);
         this.warningShown = true;
         if (this.expiryWarningCallback) {
@@ -187,7 +187,7 @@ class TokenManager {
 
     // Also do an immediate check
     const immediateRemaining = this.getTimeUntilExpiry();
-    if (immediateRemaining !== null && immediateRemaining <= 300 && !this.warningShown) {
+    if (immediateRemaining !== null && immediateRemaining <= 600 && !this.warningShown) {
       console.warn(`⏰ Token expiring in ${immediateRemaining} seconds (immediate check)`);
       this.warningShown = true;
       if (this.expiryWarningCallback) {

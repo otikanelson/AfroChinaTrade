@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../theme';
+import { useTheme } from '../../../contexts/ThemeContext';
 import { useToast } from '../../../hooks/useToast';
 import { Toast } from '../../ui/Toast';
 
@@ -34,8 +35,17 @@ export const SpecificationsTable: React.FC<SpecificationsTableProps> = ({
   helperText,
   testID,
 }) => {
+  const { colors } = useTheme();
   const [editingId, setEditingId] = useState<string | null>(null);
   const toast = useToast();
+
+  const dynamicStyles = {
+    label: {
+      fontSize: theme.fontSizes.base,
+      fontWeight: theme.fontWeights.semibold,
+      color: colors.text,
+    },
+  };
 
   const addSpecification = () => {
     const newSpec: Specification = {
@@ -84,7 +94,7 @@ export const SpecificationsTable: React.FC<SpecificationsTableProps> = ({
   return (
     <View style={styles.container} testID={testID}>
       <View style={styles.labelContainer}>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={dynamicStyles.label}>{label}</Text>
         <TouchableOpacity onPress={addSpecification} style={styles.addButton}>
           <Ionicons name="add" size={20} color={theme.colors.primary} />
           <Text style={styles.addButtonText}>Add Spec</Text>
@@ -178,11 +188,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
-  },
-  label: {
-    fontSize: theme.fontSizes.base,
-    fontWeight: theme.fontWeights.semibold,
-    color: theme.colors.text,
   },
   addButton: {
     flexDirection: 'row',

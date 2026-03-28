@@ -88,6 +88,15 @@ const CompactOrderItem: React.FC<CompactOrderItemProps> = ({ order, onPress }) =
           }}>
             #{order.orderId.slice(-8).toUpperCase()}
           </Text>
+          {typeof order.userId === 'object' && order.userId.name && (
+            <Text style={{
+              fontSize: fontSizes.xs,
+              color: colors.text,
+              marginBottom: 2,
+            }}>
+              {order.userId.name}
+            </Text>
+          )}
           <Text style={{
             fontSize: fontSizes.xs,
             color: colors.textSecondary,
@@ -201,26 +210,28 @@ export default function OrdersScreen() {
     statsContainer: {
       flexDirection: 'row',
       paddingHorizontal: spacing.base,
-      paddingVertical: spacing.sm,
+      paddingVertical: spacing.md,
       gap: spacing.xs,
     },
     statCard: {
       flex: 1,
       borderLeftWidth: 1.5,
       borderRadius: 5,
-      padding: spacing.sm,
+      padding: spacing.xs,
       alignItems: 'center',
+      minWidth: 80,
     },
     statValue: {
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.xs,
       fontWeight: fontWeights.bold,
       color: colors.text,
     },
     statLabel: {
-      fontSize: fontSizes.xs,
+      fontSize: 8,
       fontWeight: fontWeights.semibold,
       color: colors.textLight,
       textAlign: 'center',
+      lineHeight: 12,
     },
     filtersContainer: {
       paddingHorizontal: spacing.base,
@@ -378,10 +389,18 @@ export default function OrdersScreen() {
     const periodOrders = ordersArray.filter((o) => isWithinPeriod(o.createdAt, timePeriod));
     const total = periodOrders.length;
     const pending = periodOrders.filter((o) => o.status === 'pending').length;
-    const revenue = periodOrders
-      .filter((o) => o.status !== 'cancelled')
+    
+    // Pending revenue: orders that are pending, processing, or shipped (not yet delivered)
+    const pendingRevenue = periodOrders
+      .filter((o) => ['pending', 'processing', 'shipped'].includes(o.status))
       .reduce((sum, o) => sum + o.totalAmount, 0);
-    return { total, pending, revenue };
+    
+    // Net revenue: only delivered orders
+    const netRevenue = periodOrders
+      .filter((o) => o.status === 'delivered')
+      .reduce((sum, o) => sum + o.totalAmount, 0);
+    
+    return { total, pending, pendingRevenue, netRevenue };
   }, [orders, timePeriod]);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -460,9 +479,13 @@ export default function OrdersScreen() {
           <Text style={styles.statLabel}>Pending</Text>
           <Text style={styles.statValue}>{stats.pending}</Text>
         </View>
+        <View style={[styles.statCard, { borderLeftColor: '#8b5cf6' }]}>
+          <Text style={styles.statLabel}>Pending Revenue</Text>
+          <Text style={styles.statValue}>₦{stats.pendingRevenue.toLocaleString()}</Text>
+        </View>
         <View style={[styles.statCard, { borderLeftColor: '#10b981' }]}>
-          <Text style={styles.statLabel}>Revenue</Text>
-          <Text style={styles.statValue}>₦{stats.revenue.toLocaleString()}</Text>
+          <Text style={styles.statLabel}>Net Revenue</Text>
+          <Text style={styles.statValue}>₦{stats.netRevenue.toLocaleString()}</Text>
         </View>
       </View>
 

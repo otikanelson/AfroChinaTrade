@@ -6,8 +6,10 @@ export enum NavigationSource {
   HOME_ALL = 'home_all',
   HOME_TRENDING = 'home_trending',
   HOME_SELLER_FAVORITES = 'home_seller_favorites',
+  HOME_COLLECTION = 'home_collection',
   SEARCH_RESULTS = 'search_results',
-  CATEGORY_BROWSE = 'category_browse'
+  CATEGORY_BROWSE = 'category_browse',
+  MESSAGE_TAGGING = 'message_tagging'
 }
 
 export type CollectionType = 
@@ -15,7 +17,8 @@ export type CollectionType =
   | 'recommended' 
   | 'all' 
   | 'trending' 
-  | 'seller_favorites';
+  | 'seller_favorites'
+  | 'custom';
 
 export interface ProductFilters {
   category?: string;

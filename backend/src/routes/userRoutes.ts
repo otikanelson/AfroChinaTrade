@@ -10,8 +10,11 @@ import {
   changePassword,
   updateAddress,
   deleteAccount,
+  getNotificationSettings,
+  updateNotificationSettings,
 } from '../controllers/userController';
 import { verifyToken, authorize, AuthRequest } from '../middleware/auth';
+import { checkUserStatus } from '../middleware/userStatus';
 
 const router = Router();
 
@@ -19,14 +22,18 @@ const router = Router();
 const asyncHandler = (fn: (req: AuthRequest, res: Response) => Promise<any>) => 
   (req: Request, res: Response, next: NextFunction) => fn(req as AuthRequest, res).catch(next);
 
-// Profile management routes (for authenticated users)
-router.get('/profile', verifyToken, asyncHandler(getProfile));
-router.put('/profile', verifyToken, asyncHandler(updateProfile));
-router.put('/profile/password', verifyToken, asyncHandler(changePassword));
-router.put('/profile/addresses', verifyToken, asyncHandler(updateAddress));
-router.delete('/profile', verifyToken, asyncHandler(deleteAccount));
+// Profile management routes (for authenticated users) - apply user status check
+router.get('/profile', verifyToken, checkUserStatus, asyncHandler(getProfile));
+router.put('/profile', verifyToken, checkUserStatus, asyncHandler(updateProfile));
+router.put('/profile/password', verifyToken, checkUserStatus, asyncHandler(changePassword));
+router.put('/profile/addresses', verifyToken, checkUserStatus, asyncHandler(updateAddress));
+router.delete('/profile', verifyToken, checkUserStatus, asyncHandler(deleteAccount));
 
-// Admin routes
+// Notification settings routes
+router.get('/notification-settings', verifyToken, checkUserStatus, asyncHandler(getNotificationSettings));
+router.put('/notification-settings', verifyToken, checkUserStatus, asyncHandler(updateNotificationSettings));
+
+// Admin routes - no user status check needed for admins managing other users
 router.get('/', verifyToken, authorize('admin'), asyncHandler(getUsers));
 router.get('/:id', verifyToken, authorize('admin'), asyncHandler(getUserById));
 router.patch('/:id/status', verifyToken, authorize('admin'), asyncHandler(updateUserStatus));

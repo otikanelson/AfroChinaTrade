@@ -68,7 +68,7 @@ const getApiUrl = () => {
         'Please create .env.local file with your local API URL. ' +
         'Using fallback URL for now.'
       );
-      return 'http://192.168.1.7:3000/api'; // Fallback for development
+      return 'http://192.168.100.14:3000/api'; // Fallback for development
     }
     
     // In production, this is a critical error

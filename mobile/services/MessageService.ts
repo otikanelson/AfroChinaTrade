@@ -2,9 +2,14 @@ import { apiClient as api, ApiResponse } from './api/apiClient';
 import { Message, MessageThread, SendMessageRequest } from '../types/message';
 
 class MessageService {
-  async getThreads(page = 1, limit = 20): Promise<ApiResponse<MessageThread[]>> {
+  async getThreads(page = 1, limit = 20, threadType?: string): Promise<ApiResponse<MessageThread[]>> {
+    const params: any = { page, limit };
+    if (threadType) {
+      params.threadType = threadType;
+    }
+    
     const response = await api.get('/messages/threads', {
-      params: { page, limit }
+      params
     });
     return response;
   }
@@ -45,7 +50,7 @@ class MessageService {
   }
 
   async markAsRead(messageId: string): Promise<ApiResponse<Message>> {
-    const response = await api.patch(`/messages/${messageId}/read`);
+    const response = await api.patch(`/messages/${messageId}/read`, {});
     return response;
   }
 

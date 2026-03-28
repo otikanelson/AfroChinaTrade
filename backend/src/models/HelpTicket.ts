@@ -4,7 +4,7 @@ export interface IHelpTicket extends Document {
   userId: mongoose.Types.ObjectId;
   ticketNumber: string;
   subject: string;
-  category: 'order' | 'payment' | 'product' | 'account' | 'technical' | 'other';
+  category: 'order' | 'payment' | 'product' | 'account' | 'technical' | 'suspension_appeal' | 'other';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'open' | 'in_progress' | 'resolved' | 'closed';
   description: string;
@@ -14,6 +14,10 @@ export interface IHelpTicket extends Document {
   adminResponse?: string;
   adminId?: mongoose.Types.ObjectId;
   resolvedAt?: Date;
+  
+  // Suspension appeal specific
+  isSuspensionAppeal?: boolean;
+  appealReason?: string;
   
   createdAt: Date;
   updatedAt: Date;
@@ -40,7 +44,7 @@ const helpTicketSchema = new Schema<IHelpTicket>({
   },
   category: {
     type: String,
-    enum: ['order', 'payment', 'product', 'account', 'technical', 'other'],
+    enum: ['order', 'payment', 'product', 'account', 'technical', 'suspension_appeal', 'other'],
     required: true
   },
   priority: {
@@ -70,7 +74,17 @@ const helpTicketSchema = new Schema<IHelpTicket>({
     type: Schema.Types.ObjectId,
     ref: 'User'
   },
-  resolvedAt: Date
+  resolvedAt: Date,
+  
+  // Suspension appeal specific
+  isSuspensionAppeal: {
+    type: Boolean,
+    default: false
+  },
+  appealReason: {
+    type: String,
+    maxlength: 1000
+  }
 }, {
   timestamps: true
 });

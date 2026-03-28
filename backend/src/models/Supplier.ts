@@ -7,6 +7,9 @@ export interface ISupplier extends Document {
   phone: string;
   address: string;
   location: string;
+  logo?: string; // URL to supplier logo image
+  description?: string; // Brief description of the supplier
+  website?: string; // Supplier website URL
   verified: boolean;
   rating: number;
   reviewCount: number;
@@ -47,6 +50,19 @@ const SupplierSchema = new Schema<ISupplier>(
     location: {
       type: String,
       required: [true, 'Supplier location is required'],
+      trim: true,
+    },
+    logo: {
+      type: String,
+      trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Description cannot exceed 500 characters'],
+    },
+    website: {
+      type: String,
       trim: true,
     },
     verified: {

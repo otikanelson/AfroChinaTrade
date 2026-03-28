@@ -7,8 +7,9 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../contexts/ThemeContext';
@@ -16,13 +17,19 @@ import { useToast } from '../hooks/useToast';
 import { Header } from '../components/Header';
 import { Toast } from '../components/ui/Toast';
 import { messageService } from '../services/MessageService';
+import { NavigationSource } from '../types/navigation';
 
 export default function NewMessageScreen() {
   const router = useRouter();
+  const { productId, productName, productImage } = useLocalSearchParams<{
+    productId?: string;
+    productName?: string;
+    productImage?: string;
+  }>();
   const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius } = useTheme();
   const toast = useToast();
 
-  const [messageType, setMessageType] = useState<'general' | 'quote_request'>('general');
+  const [messageType, setMessageType] = useState<'inquiry' | 'quotation'>('inquiry');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -114,20 +121,63 @@ export default function NewMessageScreen() {
       color: themeColors.text,
       lineHeight: 20,
     },
+    taggedProductContainer: {
+      backgroundColor: themeColors.surface,
+      borderRadius: borderRadius.base,
+      padding: themeSpacing.sm,
+      marginBottom: themeSpacing.base,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: themeColors.primary,
+    },
+    productImage: {
+      width: 50,
+      height: 50,
+      borderRadius: borderRadius.base,
+      marginRight: themeSpacing.sm,
+    },
+    productInfo: {
+      flex: 1,
+    },
+    productName: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.semibold,
+      color: themeColors.text,
+    },
+    removeTagButton: {
+      padding: themeSpacing.xs,
+    },
+    tagProductButton: {
+      backgroundColor: themeColors.surface,
+      borderWidth: 1,
+      borderColor: themeColors.primary,
+      borderStyle: 'dashed',
+      borderRadius: borderRadius.base,
+      padding: themeSpacing.base,
+      alignItems: 'center',
+      marginBottom: themeSpacing.base,
+    },
+    tagProductText: {
+      fontSize: fontSizes.sm,
+      color: themeColors.primary,
+      fontWeight: fontWeights.medium,
+      marginTop: themeSpacing.xs,
+    },
   });
 
   const messageTypes = [
     {
-      id: 'general' as const,
-      icon: 'chatbubble-outline',
-      title: 'General Support',
-      description: 'Ask questions or get help',
+      id: 'inquiry' as const,
+      icon: 'help-circle-outline',
+      title: 'Inquiry',
+      description: 'Ask questions or get information',
     },
     {
-      id: 'quote_request' as const,
+      id: 'quotation' as const,
       icon: 'document-text-outline',
-      title: 'Request Quote',
-      description: 'Get pricing for bulk orders',
+      title: 'Quotation',
+      description: 'Request pricing for bulk orders',
     },
   ];
 
@@ -137,28 +187,43 @@ export default function NewMessageScreen() {
     try {
       setSending(true);
       
-      // For new general messages, we'll use a different approach
-      // Generate a unique thread ID
-      const threadId = `general_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      // Generate a unique thread ID based on message type
+      const threadId = `${messageType}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       
-      console.log('Creating new general message thread:', { threadId, messageType, messageLength: message.trim().length });
-      
-      // We need to find an admin user to send the message to
-      // For now, let's use the sendMessage with a special flag or create a separate endpoint
+      console.log('Creating new message thread:', { 
+        threadId, 
+        messageType, 
+        messageLength: message.trim().length,
+        hasProduct: !!productId 
+      });
+
+      // Send message with product info if available
       const response = await messageService.sendMessage({
         threadId,
         text: message.trim(),
-        threadType: messageType,
-        // We'll let the backend handle finding an admin user
+        threadType: messageType === 'inquiry' ? 'product_inquiry' : 'quote_request',
+        productId: productId || undefined,
+        productName: productName || undefined,
+        productImage: productImage || undefined,
       });
 
       console.log('New message response:', response);
 
       if (response.success) {
-        toast.success('Message sent successfully. Our support team will respond soon.');
+        toast.success('Message sent successfully!');
+        
+        // Navigate to the chat conversation instead of messages list
         setTimeout(() => {
-          router.replace('/(tabs)/messages');
-        }, 1500);
+          router.replace({
+            pathname: `/message-thread/${threadId}`,
+            params: {
+              productImage: productImage || '',
+              productName: productName || '',
+              productId: productId || '',
+              threadType: messageType === 'inquiry' ? 'product_inquiry' : 'quote_request',
+            }
+          });
+        }, 800);
       } else {
         console.error('Failed to send message:', response.error);
         toast.error(response.error?.message || 'Failed to send message. Please try again.');
@@ -171,6 +236,27 @@ export default function NewMessageScreen() {
     }
   };
 
+  const handleTagProduct = () => {
+    router.push({
+      pathname: '/product-listing',
+      params: {
+        source: NavigationSource.MESSAGE_TAGGING,
+        collectionType: 'all',
+        title: 'Select Product to Tag',
+        returnTo: '/new-message',
+        messageType: messageType,
+      }
+    });
+  };
+
+  const handleRemoveTag = () => {
+    router.setParams({
+      productId: undefined,
+      productName: undefined,
+      productImage: undefined,
+    });
+  };
+
   const canSend = message.trim().length > 0 && !sending;
 
   return (
@@ -180,7 +266,10 @@ export default function NewMessageScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
-            Send a message to our support team. We'll respond as soon as possible to help you with your inquiry.
+            {messageType === 'inquiry' 
+              ? 'Send an inquiry to get information about products or services. Our support team will respond as soon as possible.'
+              : 'Request a quotation for bulk orders or custom pricing. Include details about quantities and specific requirements.'
+            }
           </Text>
         </View>
 
@@ -214,6 +303,49 @@ export default function NewMessageScreen() {
           </View>
         </View>
 
+        {/* Tagged Product Display */}
+        {productId && productName && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tagged Product</Text>
+            <View style={styles.taggedProductContainer}>
+              {productImage && (
+                <Image
+                  source={{ uri: productImage }}
+                  style={styles.productImage}
+                  resizeMode="cover"
+                />
+              )}
+              <View style={styles.productInfo}>
+                <Text style={styles.productName} numberOfLines={2}>
+                  {productName}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.removeTagButton}
+                onPress={handleRemoveTag}
+              >
+                <Ionicons name="close-circle" size={24} color={themeColors.error} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Tag Product Button */}
+        {!productId && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tag a Product (Optional)</Text>
+            <TouchableOpacity
+              style={styles.tagProductButton}
+              onPress={handleTagProduct}
+            >
+              <Ionicons name="pricetag-outline" size={24} color={themeColors.primary} />
+              <Text style={styles.tagProductText}>
+                Select a product to tag in your {messageType}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Your Message</Text>
           <TextInput
@@ -221,9 +353,13 @@ export default function NewMessageScreen() {
             value={message}
             onChangeText={setMessage}
             placeholder={
-              messageType === 'quote_request'
-                ? 'Please describe the products you need, quantities, and any specific requirements...'
-                : 'How can we help you today?'
+              messageType === 'quotation'
+                ? productId 
+                  ? `I'm interested in getting a quote for ${productName}. Please provide pricing details and availability information...`
+                  : 'Please describe the products you need, quantities, and any specific requirements...'
+                : productId
+                  ? `I have a question about ${productName}. Can you help me with more information?`
+                  : 'How can we help you today?'
             }
             placeholderTextColor={themeColors.textSecondary}
             multiline
@@ -242,7 +378,7 @@ export default function NewMessageScreen() {
           {sending ? (
             <ActivityIndicator size="small" color={themeColors.textInverse} />
           ) : (
-            <Text style={styles.sendButtonText}>Send Message</Text>
+            <Text style={styles.sendButtonText}>Send & Open Chat</Text>
           )}
         </TouchableOpacity>
       </ScrollView>

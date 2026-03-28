@@ -9,68 +9,18 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-
 import { Product } from '../../../types/product';
 import { productService } from '../../../services/ProductService';
+import { collectionService } from '../../../services/CollectionService';
 import { categoryService } from '../../../services/CategoryService';
 import { Card } from '../../../components/admin/Card';
 import { DataList } from '../../../components/admin/DataList';
-import { SearchBar } from '../../../components/admin/SearchBar';
+import { SearchBarWithFilters } from '../../../components/admin/SearchBarWithFilters';
 import { StatusBadge } from '../../../components/admin/StatusBadge';
-import { CategoryFilterModal } from '../../../components/admin/CategoryFilterModal';
+import { FilterOptions } from '../../../components/admin/ProductFiltersDropdown';
 import { Header } from '../../../components/Header';
 import { CustomModal } from '../../../components/ui/CustomModal';
 import { useTheme } from '../../../contexts/ThemeContext';
-
-// ─── Filter chips ─────────────────────────────────────────────────────────────
-
-type StatusFilter = 'all' | 'active' | 'inactive';
-type DiscountFilter = 'all' | 'discounted' | 'regular';
-
-interface FilterChipProps {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}
-
-const FilterChip: React.FC<FilterChipProps> = ({ label, active, onPress }) => {
-  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        {
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.xs,
-          borderRadius: borderRadius.full,
-          borderWidth: 1.5,
-          borderColor: colors.border,
-          backgroundColor: colors.background,
-        },
-        active && {
-          borderColor: colors.primary,
-          backgroundColor: colors.primary,
-        }
-      ]}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-    >
-      <Text style={[
-        {
-          fontSize: fontSizes.sm,
-          fontWeight: fontWeights.medium as any,
-          color: colors.textSecondary,
-        },
-        active && {
-          color: colors.background,
-        }
-      ]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-};
 
 // ─── Product card ─────────────────────────────────────────────────────────────
 
@@ -247,6 +197,7 @@ export default function ProductsScreen() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Array<{ label: string, value: string }>>([]);
+  const [collectionsCount, setCollectionsCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -254,12 +205,13 @@ export default function ProductsScreen() {
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [discountFilter, setDiscountFilter] = useState<DiscountFilter>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [featuredOnly, setFeaturedOnly] = useState(false);
-  const [sellerFavoriteOnly, setSellerFavoriteOnly] = useState(false);
-  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>({
+    statusFilter: 'all',
+    discountFilter: 'all',
+    categoryFilter: 'all',
+    featuredOnly: false,
+    sellerFavoriteOnly: false,
+  });
   
   // Status toggle modal state
   const [statusModalVisible, setStatusModalVisible] = useState(false);
@@ -271,6 +223,41 @@ export default function ProductsScreen() {
       backgroundColor: themeColors.surface,
     },
 
+    // Quick Actions
+    quickActionsContainer: {
+      flexDirection: 'row',
+      paddingHorizontal: themeSpacing.base,
+      paddingVertical: themeSpacing.md,
+      gap: themeSpacing.sm,
+      backgroundColor: themeColors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: themeColors.borderLight,
+    },
+    quickActionButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: themeColors.primary,
+      paddingVertical: themeSpacing.md,
+      paddingHorizontal: themeSpacing.lg,
+      borderRadius: borderRadius.md,
+      gap: themeSpacing.sm,
+    },
+    quickActionButtonSecondary: {
+      backgroundColor: themeColors.background,
+      borderWidth: 1,
+      borderColor: themeColors.primary,
+    },
+    quickActionText: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold as any,
+      color: themeColors.textInverse,
+    },
+    quickActionTextSecondary: {
+      color: themeColors.primary,
+    },
+
     // List
     listContent: {
       paddingBottom: themeSpacing.xl,
@@ -280,21 +267,6 @@ export default function ProductsScreen() {
       paddingTop: themeSpacing.md,
       paddingBottom: themeSpacing.sm,
       gap: themeSpacing.sm,
-    },
-    searchBar: {
-      marginBottom: themeSpacing.xs,
-    },
-    filterRow: {
-      flexDirection: 'row',
-      gap: themeSpacing.sm,
-      flexWrap: 'wrap',
-    },
-    filterSectionLabel: {
-      fontSize: fontSizes.sm,
-      fontWeight: fontWeights.medium as any,
-      color: themeColors.text,
-      marginBottom: themeSpacing.xs,
-      marginTop: themeSpacing.sm,
     },
     clearFiltersButton: {
       flexDirection: 'row',
@@ -313,28 +285,6 @@ export default function ProductsScreen() {
       fontWeight: fontWeights.medium as any,
       color: themeColors.textSecondary,
       marginLeft: themeSpacing.xs,
-    },
-
-    // Filter chips
-    chip: {
-      paddingHorizontal: themeSpacing.md,
-      paddingVertical: themeSpacing.xs,
-      borderRadius: borderRadius.full,
-      borderWidth: 1.5,
-      borderColor: themeColors.border,
-      backgroundColor: themeColors.background,
-    },
-    chipActive: {
-      borderColor: themeColors.primary,
-      backgroundColor: themeColors.primary,
-    },
-    chipText: {
-      fontSize: fontSizes.sm,
-      fontWeight: fontWeights.medium as any,
-      color: themeColors.textSecondary,
-    },
-    chipTextActive: {
-      color: themeColors.background,
     },
 
     // Product card
@@ -497,14 +447,21 @@ export default function ProductsScreen() {
   const loadCategories = useCallback(async () => {
     try {
       setLoadingCategories(true);
-      const response = await categoryService.getCategories();
+      const [categoriesResponse, collectionsResponse] = await Promise.all([
+        categoryService.getCategories(),
+        collectionService.getActiveCollections()
+      ]);
 
-      if (response.success && response.data) {
-        const categoryOptions = response.data.map((category: any) => ({
+      if (categoriesResponse.success && categoriesResponse.data) {
+        const categoryOptions = categoriesResponse.data.map((category: any) => ({
           label: category.name,
           value: category.name
         }));
         setCategories(categoryOptions);
+      }
+
+      if (collectionsResponse.success && collectionsResponse.data) {
+        setCollectionsCount(collectionsResponse.data.length);
       }
     } catch (error: any) {
       console.error('Failed to load categories:', error);
@@ -526,7 +483,7 @@ export default function ProductsScreen() {
       const response = await productService.getAdminProducts({
         page: 1,
         limit: 100, // Get all products for now
-        status: statusFilter === 'all' ? undefined : statusFilter,
+        status: filters.statusFilter === 'all' ? undefined : filters.statusFilter,
       });
 
       if (response.success && response.data) {
@@ -541,7 +498,7 @@ export default function ProductsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [statusFilter]);
+  }, [filters.statusFilter]);
 
   useEffect(() => {
     fetchProducts();
@@ -565,52 +522,58 @@ export default function ProductsScreen() {
     }
 
     // Status filter is now handled by the API call, but we can still filter client-side for immediate feedback
-    if (statusFilter === 'active') {
+    if (filters.statusFilter === 'active') {
       result = result.filter((p) => p.isActive ?? true);
-    } else if (statusFilter === 'inactive') {
+    } else if (filters.statusFilter === 'inactive') {
       result = result.filter((p) => !(p.isActive ?? true));
     }
 
     // Discount filter
-    if (discountFilter === 'discounted') {
+    if (filters.discountFilter === 'discounted') {
       result = result.filter((p) => p.discount && p.discount > 0);
-    } else if (discountFilter === 'regular') {
+    } else if (filters.discountFilter === 'regular') {
       result = result.filter((p) => !p.discount || p.discount === 0);
     }
 
     // Category filter
-    if (categoryFilter !== 'all') {
-      result = result.filter((p) => p.category === categoryFilter);
+    if (filters.categoryFilter !== 'all') {
+      result = result.filter((p) => p.category === filters.categoryFilter);
     }
 
     // Featured filter
-    if (featuredOnly) {
+    if (filters.featuredOnly) {
       result = result.filter((p) => p.isFeatured);
     }
 
     // Seller Favorite filter
-    if (sellerFavoriteOnly) {
+    if (filters.sellerFavoriteOnly) {
       result = result.filter((p) => (p as any).isSellerFavorite);
     }
 
     return result;
-  }, [products, searchQuery, statusFilter, discountFilter, categoryFilter, featuredOnly, sellerFavoriteOnly]);
+  }, [products, searchQuery, filters]);
 
-  const hasActiveFilters = statusFilter !== 'all' || discountFilter !== 'all' || categoryFilter !== 'all' || featuredOnly || sellerFavoriteOnly || searchQuery.trim();
+  const hasActiveFilters = filters.statusFilter !== 'all' || filters.discountFilter !== 'all' || filters.categoryFilter !== 'all' || filters.featuredOnly || filters.sellerFavoriteOnly || searchQuery.trim();
 
   const clearAllFilters = () => {
     setSearchQuery('');
-    setStatusFilter('all');
-    setDiscountFilter('all');
-    setCategoryFilter('all');
-    setFeaturedOnly(false);
-    setSellerFavoriteOnly(false);
+    setFilters({
+      statusFilter: 'all',
+      discountFilter: 'all',
+      categoryFilter: 'all',
+      featuredOnly: false,
+      sellerFavoriteOnly: false,
+    });
   };
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
   const handleAddProduct = useCallback(() => {
     router.push('/(admin)/product/new');
+  }, [router]);
+
+  const handleManageCollections = useCallback(() => {
+    router.push('/(admin)/collections');
   }, [router]);
 
   const handleProductPress = useCallback(
@@ -675,105 +638,54 @@ export default function ProductsScreen() {
   const keyExtractor = useCallback((item: Product) => (item as any)._id || item.id, []);
 
   const ListHeader = (
-    <View style={styles.listHeader}>
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search products…"
-        style={styles.searchBar}
-        testID="products-search"
-      />
-
-      {/* Status Filters */}
-      <Text style={styles.filterSectionLabel}>Status & Features</Text>
-      <View style={styles.filterRow}>
-        <FilterChip
-          label="All"
-          active={statusFilter === 'all'}
-          onPress={() => setStatusFilter('all')}
-        />
-        <FilterChip
-          label="Active"
-          active={statusFilter === 'active'}
-          onPress={() => setStatusFilter('active')}
-        />
-        <FilterChip
-          label="Inactive"
-          active={statusFilter === 'inactive'}
-          onPress={() => setStatusFilter('inactive')}
-        />
-        <FilterChip
-          label="Featured"
-          active={featuredOnly}
-          onPress={() => setFeaturedOnly((v) => !v)}
-        />
-        <FilterChip
-          label="Seller Favorite"
-          active={sellerFavoriteOnly}
-          onPress={() => setSellerFavoriteOnly((v) => !v)}
-        />
-      </View>
-
-      {/* Discount Filters */}
-      <Text style={styles.filterSectionLabel}>Pricing</Text>
-      <View style={styles.filterRow}>
-        <FilterChip
-          label="All Prices"
-          active={discountFilter === 'all'}
-          onPress={() => setDiscountFilter('all')}
-        />
-        <FilterChip
-          label="Discounted"
-          active={discountFilter === 'discounted'}
-          onPress={() => setDiscountFilter('discounted')}
-        />
-        <FilterChip
-          label="Regular Price"
-          active={discountFilter === 'regular'}
-          onPress={() => setDiscountFilter('regular')}
-        />
-      </View>
-
-      {/* Category Filters */}
-      {!loadingCategories && categories.length > 0 && (
-        <>
-          <Text style={styles.filterSectionLabel}>Categories</Text>
-          <View style={styles.filterRow}>
-            <FilterChip
-              label="All Categories"
-              active={categoryFilter === 'all'}
-              onPress={() => setCategoryFilter('all')}
-            />
-            {categories.slice(0, 4).map((category) => (
-              <FilterChip
-                key={category.value}
-                label={category.label}
-                active={categoryFilter === category.value}
-                onPress={() => setCategoryFilter(category.value)}
-              />
-            ))}
-            {categories.length > 4 && (
-              <FilterChip
-                label={`+${categories.length - 4} more`}
-                active={false}
-                onPress={() => setCategoryModalVisible(true)}
-              />
-            )}
-          </View>
-        </>
-      )}
-
-      {/* Clear Filters Button */}
-      {hasActiveFilters && (
+    <>
+      {/* Quick Actions */}
+      <View style={styles.quickActionsContainer}>
         <TouchableOpacity
-          style={styles.clearFiltersButton}
-          onPress={clearAllFilters}
+          style={styles.quickActionButton}
+          onPress={handleAddProduct}
+          activeOpacity={0.8}
         >
-          <Ionicons name="close-circle-outline" size={16} color={themeColors.textSecondary} />
-          <Text style={styles.clearFiltersText}>Clear Filters</Text>
+          <Ionicons name="add" size={20} color={themeColors.textInverse} />
+          <Text style={styles.quickActionText}>Add Product</Text>
         </TouchableOpacity>
-      )}
-    </View>
+        
+        <TouchableOpacity
+          style={[styles.quickActionButton, styles.quickActionButtonSecondary]}
+          onPress={handleManageCollections}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="albums-outline" size={20} color={themeColors.primary} />
+          <Text style={[styles.quickActionText, styles.quickActionTextSecondary]}>
+            Collections {collectionsCount > 0 && `(${collectionsCount})`}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Search and Filters */}
+      <View style={styles.listHeader}>
+        <SearchBarWithFilters
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          filters={filters}
+          onFiltersChange={setFilters}
+          categories={categories}
+          placeholder="Search products…"
+          testID="products-search"
+        />
+
+        {/* Clear Filters Button */}
+        {hasActiveFilters && searchQuery.trim() && (
+          <TouchableOpacity
+            style={styles.clearFiltersButton}
+            onPress={clearAllFilters}
+          >
+            <Ionicons name="close-circle-outline" size={16} color={themeColors.textSecondary} />
+            <Text style={styles.clearFiltersText}>Clear All Filters</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </>
   );
 
   // ── Error state ────────────────────────────────────────────────────────────
@@ -800,7 +712,7 @@ export default function ProductsScreen() {
     <View style={styles.screen}>
       <Header
         title="Products"
-        subtitle={`Manage your inventory${hasActiveFilters ? ` • ${filteredProducts.length} filtered` : ` • ${products.length} total`}`}
+        subtitle={`Manage your inventory\n${hasActiveFilters ? `• ${filteredProducts.length} filtered` : `• ${products.length} total`}`}
       />
 
       {/* List */}
@@ -812,7 +724,7 @@ export default function ProductsScreen() {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         emptyMessage={
-          searchQuery || statusFilter !== 'all' || discountFilter !== 'all' || categoryFilter !== 'all' || featuredOnly || sellerFavoriteOnly
+          searchQuery || filters.statusFilter !== 'all' || filters.discountFilter !== 'all' || filters.categoryFilter !== 'all' || filters.featuredOnly || filters.sellerFavoriteOnly
             ? 'No products match your filters.'
             : 'No products yet. Tap + to add one.'
         }
@@ -821,15 +733,6 @@ export default function ProductsScreen() {
         skeletonCount={8}
       />
 
-      {/* Category Filter Modal */}
-      <CategoryFilterModal
-        visible={categoryModalVisible}
-        onClose={() => setCategoryModalVisible(false)}
-        categories={categories}
-        selectedCategory={categoryFilter}
-        onSelectCategory={setCategoryFilter}
-      />
-      
       {/* Status Toggle Modal */}
       <CustomModal
         visible={statusModalVisible}

@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter, useNavigation } from 'expo-router';
+import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 
 import { messageService } from '../../../services/MessageService';
 import { MessageThread } from '../../../types/message';
@@ -16,6 +16,7 @@ import { SearchBar } from '../../../components/admin/SearchBar';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Header } from '../../../components/Header';
 import { Ionicons } from '@expo/vector-icons';
+import { useMessages } from '../../../contexts/MessagesContext';
 
 
 
@@ -185,15 +186,18 @@ const ThreadCard: React.FC<ThreadCardProps> = ({ thread, onPress }) => {
 export default function MessagesScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
+  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
+  const { refreshUnreadCount } = useMessages();
 
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
+  const [activeTab, setActiveTab] = useState<'inquiry' | 'quotation'>('inquiry');
 
   // ── Notification permissions ───────────────────────────────────────────────
 
@@ -203,18 +207,17 @@ export default function MessagesScreen() {
 
   // ── Polling for new messages ───────────────────────────────────────────────
 
-  const handleThreadsUpdated = useCallback((updated: MessageThread[]) => {
-    setThreads(updated);
-  }, []);
-
   // useMessagePolling({ onThreadsUpdated: handleThreadsUpdated }); // Commented out for now
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
-  const fetchThreads = useCallback(async (isRefresh = false) => {
+  const fetchThreads = useCallback(async (isRefresh = false, isAutoRefresh = false) => {
     try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else if (!isAutoRefresh) {
+        setLoading(true);
+      }
       setError(null);
 
       const response = await messageService.getThreads(1, 100);
@@ -237,6 +240,34 @@ export default function MessagesScreen() {
     fetchThreads();
   }, [fetchThreads]);
 
+  // Auto-refresh when screen comes into focus (e.g., returning from a thread)
+  // This ensures that when admins navigate back from conversation threads,
+  // the message list and unread counts are updated to reflect any messages
+  // that were marked as read while viewing the conversation
+  useFocusEffect(
+    React.useCallback(() => {
+      // Set auto-refreshing state for visual feedback
+      setIsAutoRefreshing(true);
+      
+      // Add a small delay to ensure any read status updates are processed
+      const refreshTimeout = setTimeout(() => {
+        // Refresh both unread count and message threads
+        Promise.all([
+          refreshUnreadCount(),
+          fetchThreads(false, true) // isAutoRefresh = true
+        ]).finally(() => {
+          setIsAutoRefreshing(false);
+        });
+      }, 300); // 300ms delay
+      
+      // Cleanup timeout if component unmounts
+      return () => {
+        clearTimeout(refreshTimeout);
+        setIsAutoRefreshing(false);
+      };
+    }, [refreshUnreadCount, fetchThreads])
+  );
+
   const handleRefresh = useCallback(() => fetchThreads(true), [fetchThreads]);
 
   // ── Filtering ──────────────────────────────────────────────────────────────
@@ -244,6 +275,13 @@ export default function MessagesScreen() {
   const filteredThreads = useMemo(() => {
     const threadsArray = Array.isArray(threads) ? threads : [];
     let result = threadsArray;
+
+    // Filter by tab (thread type)
+    if (activeTab === 'inquiry') {
+      result = result.filter((t) => t.threadType === 'product_inquiry');
+    } else if (activeTab === 'quotation') {
+      result = result.filter((t) => t.threadType === 'quote_request');
+    }
 
     if (filter === 'unread') {
       result = result.filter((t) => t.unreadCount > 0);
@@ -255,12 +293,32 @@ export default function MessagesScreen() {
     }
 
     return result;
-  }, [threads, filter, searchQuery]);
+  }, [threads, filter, searchQuery, activeTab]);
 
   const totalUnread = useMemo(
     () => {
       const threadsArray = Array.isArray(threads) ? threads : [];
       return threadsArray.reduce((sum, t) => sum + t.unreadCount, 0);
+    },
+    [threads],
+  );
+
+  const inquiryUnread = useMemo(
+    () => {
+      const threadsArray = Array.isArray(threads) ? threads : [];
+      return threadsArray
+        .filter((t) => t.threadType === 'product_inquiry')
+        .reduce((sum, t) => sum + t.unreadCount, 0);
+    },
+    [threads],
+  );
+
+  const quotationUnread = useMemo(
+    () => {
+      const threadsArray = Array.isArray(threads) ? threads : [];
+      return threadsArray
+        .filter((t) => t.threadType === 'quote_request')
+        .reduce((sum, t) => sum + t.unreadCount, 0);
     },
     [threads],
   );
@@ -340,6 +398,53 @@ export default function MessagesScreen() {
       color: colors.textSecondary,
     },
     chipTextActive: {
+      color: colors.background,
+    },
+
+    // Tab styles
+    tabContainer: {
+      flexDirection: 'row',
+      marginHorizontal: spacing.base,
+      marginBottom: spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.md,
+      padding: spacing.xs,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    tabActive: {
+      backgroundColor: colors.primary,
+    },
+    tabText: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium as any,
+      color: colors.textSecondary,
+    },
+    tabTextActive: {
+      color: colors.background,
+      fontWeight: fontWeights.semibold as any,
+    },
+    tabBadge: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      backgroundColor: colors.error,
+      borderRadius: borderRadius.full,
+      minWidth: 16,
+      height: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 4,
+    },
+    tabBadgeText: {
+      fontSize: 10,
+      fontWeight: fontWeights.bold as any,
       color: colors.background,
     },
 
@@ -456,6 +561,40 @@ export default function MessagesScreen() {
 
   const ListHeader = (
     <View style={styles.listHeader}>
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'inquiry' && styles.tabActive]}
+          onPress={() => setActiveTab('inquiry')}
+        >
+          <Text style={[styles.tabText, activeTab === 'inquiry' && styles.tabTextActive]}>
+            Inquiries
+          </Text>
+          {inquiryUnread > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>
+                {inquiryUnread > 99 ? '99+' : inquiryUnread}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'quotation' && styles.tabActive]}
+          onPress={() => setActiveTab('quotation')}
+        >
+          <Text style={[styles.tabText, activeTab === 'quotation' && styles.tabTextActive]}>
+            Quotations
+          </Text>
+          {quotationUnread > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>
+                {quotationUnread > 99 ? '99+' : quotationUnread}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
@@ -487,7 +626,12 @@ export default function MessagesScreen() {
       <View style={styles.screen}>
         <Header 
           title="Messages"
-          subtitle="Customer communications"
+          subtitle={isAutoRefreshing ? "Refreshing..." : `${activeTab === 'inquiry' ? 'Customer inquiries' : 'Quote requests'}`}
+          rightAction={
+            isAutoRefreshing ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : undefined
+          }
         />
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
@@ -506,7 +650,12 @@ export default function MessagesScreen() {
     <View style={styles.screen}>
       <Header 
         title="Messages"
-        subtitle="Customer communications"
+        subtitle={isAutoRefreshing ? "Refreshing..." : `${activeTab === 'inquiry' ? 'Customer inquiries' : 'Quote requests'}`}
+        rightAction={
+          isAutoRefreshing ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : undefined
+        }
       />
 
       <DataList<MessageThread>
@@ -518,8 +667,8 @@ export default function MessagesScreen() {
         onRefresh={handleRefresh}
         emptyMessage={
           searchQuery || filter === 'unread'
-            ? 'No messages match your filters.'
-            : 'No messages yet.'
+            ? `No ${activeTab === 'inquiry' ? 'inquiries' : 'quotations'} match your filters.`
+            : `No ${activeTab === 'inquiry' ? 'inquiries' : 'quotations'} yet.`
         }
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={ListHeader}

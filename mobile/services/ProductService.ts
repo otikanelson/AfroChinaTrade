@@ -438,6 +438,24 @@ class ProductService {
     
     return apiClient.get<{ products: Product[]; pagination: any; metadata: any }>(url);
   }
+
+  /**
+   * Get most sold products based on order data
+   */
+  async getMostSoldProducts(
+    limit: number = 20,
+    timeframe: '7d' | '30d' | '90d' | 'all' = '30d'
+  ): Promise<ApiResponse<Product[]>> {
+    const queryParams = new URLSearchParams();
+    
+    queryParams.append('limit', limit.toString());
+    queryParams.append('timeframe', timeframe);
+
+    const queryString = queryParams.toString();
+    const url = `/analytics/most-sold-products?${queryString}`;
+    
+    return apiClient.get<Product[]>(url);
+  }
 }
 
 // Export singleton instance

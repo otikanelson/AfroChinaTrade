@@ -12,6 +12,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../theme';
+import { useTheme } from '../../../contexts/ThemeContext';
 import { useToast } from '../../../hooks/useToast';
 import { Toast } from '../../ui/Toast';
 import { apiClient } from '../../../services/api/apiClient';
@@ -66,6 +67,7 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
   style,
   testID,
 }) => {
+  const { colors } = useTheme();
   const [loading, setLoading] = React.useState(false);
   const [uploadingImages, setUploadingImages] = React.useState<Set<string>>(new Set());
   const toast = useToast();

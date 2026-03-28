@@ -18,10 +18,12 @@ const router = Router();
 router.get('/', getProducts);
 router.get('/featured', getFeaturedProducts);
 router.get('/category/:categoryId', getProductsByCategory);
-router.get('/:id', getProductById);
 
-// Admin routes
+// Admin routes (must come before /:id to avoid conflicts)
 router.get('/admin/all', verifyToken, authorize('admin', 'super_admin'), getAdminProducts);
+
+// Dynamic routes (must come last)
+router.get('/:id', getProductById);
 router.patch('/:id/status', verifyToken, authorize('admin', 'super_admin'), toggleProductStatus);
 router.post('/', verifyToken, authorize('admin', 'super_admin'), createProduct);
 router.put('/:id', verifyToken, authorize('admin', 'super_admin'), updateProduct);

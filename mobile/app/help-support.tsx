@@ -10,6 +10,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+
 import { Header } from '../components/Header';
 import { spacing } from '../theme/spacing';
 
@@ -44,6 +46,8 @@ const FAQ_ITEMS: FAQItem[] = [
 export default function HelpSupportScreen() {
   const router = useRouter();
   const { colors, fontSizes, fontWeights, borderRadius } = useTheme();
+  const { isAdmin } = useAuth();
+
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const styles = StyleSheet.create({
@@ -221,6 +225,50 @@ export default function HelpSupportScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contact Us</Text>
           <View style={styles.contactOptions}>
+            {isAdmin && (
+              <TouchableOpacity 
+                style={styles.contactCard}
+                onPress={() => router.push('/(admin)/moderation/tickets')}
+              >
+                <View style={styles.contactIcon}>
+                  <Ionicons name="shield-outline" size={24} color={colors.primary} />
+                </View>
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactTitle}>Admin Support Dashboard</Text>
+                  <Text style={styles.contactSubtitle}>Manage all support tickets</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity 
+              style={styles.contactCard}
+              onPress={() => router.push('/my-tickets')}
+            >
+              <View style={styles.contactIcon}>
+                <Ionicons name="list-outline" size={24} color={colors.primary} />
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactTitle}>My Support Tickets</Text>
+                <Text style={styles.contactSubtitle}>View your submitted tickets</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.contactCard}
+              onPress={() => router.push('/create-ticket')}
+            >
+              <View style={styles.contactIcon}>
+                <Ionicons name="document-text-outline" size={24} color={colors.primary} />
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactTitle}>Create Support Ticket</Text>
+                <Text style={styles.contactSubtitle}>Submit a detailed support request</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+            </TouchableOpacity>
+
             <TouchableOpacity 
               style={styles.contactCard}
               onPress={() => handleContactPress('email')}
@@ -259,34 +307,6 @@ export default function HelpSupportScreen() {
               <View style={styles.contactInfo}>
                 <Text style={styles.contactTitle}>WhatsApp</Text>
                 <Text style={styles.contactSubtitle}>Chat with us on WhatsApp</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.contactCard}
-              onPress={() => handleContactPress('chat')}
-            >
-              <View style={styles.contactIcon}>
-                <Ionicons name="chatbubbles-outline" size={24} color={colors.primary} />
-              </View>
-              <View style={styles.contactInfo}>
-                <Text style={styles.contactTitle}>Live Chat</Text>
-                <Text style={styles.contactSubtitle}>Available 9 AM - 6 PM</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.contactCard}
-              onPress={() => handleContactPress('chat')}
-            >
-              <View style={styles.contactIcon}>
-                <Ionicons name="flag-outline" size={24} color={colors.primary} />
-              </View>
-              <View style={styles.contactInfo}>
-                <Text style={styles.contactTitle}>Report a problem</Text>
-                <Text style={styles.contactSubtitle}>Available 9 AM - 6 PM</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
             </TouchableOpacity>

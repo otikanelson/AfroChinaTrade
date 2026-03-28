@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -18,16 +19,21 @@ import { API_BASE_URL } from '../constants/config';
 import { tokenManager } from '../services/api/tokenManager';
 import { spacing } from '../theme/spacing';
 
-interface Inquiry {
+interface MessageThread {
   _id: string;
-  productId: string;
-  productName: string;
-  subject: string;
-  message: string;
-  status: 'pending' | 'responded' | 'closed';
+  threadId: string;
+  customerId: string;
+  customerName: string;
+  productId?: string;
+  productName?: string;
+  productImage?: string;
+  threadType: 'product_inquiry';
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  status: 'active' | 'archived';
   createdAt: string;
-  response?: string;
-  respondedAt?: string;
+  updatedAt: string;
 }
 
 export default function InquiriesScreen() {
@@ -36,7 +42,7 @@ export default function InquiriesScreen() {
   const { colors, fontSizes, fontWeights, borderRadius } = useTheme();
   const { user } = useAuth();
   
-  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [inquiries, setInquiries] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,12 +85,35 @@ export default function InquiriesScreen() {
       borderRadius: borderRadius.md,
       padding: spacing.base,
       marginBottom: spacing.sm,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary,
     },
     inquiryHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       marginBottom: spacing.sm,
+    },
+    inquiryInfo: {
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    inquiryTitle: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.bold,
+      color: colors.text,
+      marginBottom: spacing.xs,
+    },
+    productInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+    },
+    productImage: {
+      width: 30,
+      height: 30,
+      borderRadius: borderRadius.sm,
+      marginRight: spacing.sm,
     },
     productName: {
       fontSize: fontSizes.sm,
@@ -95,26 +124,41 @@ export default function InquiriesScreen() {
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs,
       borderRadius: borderRadius.base,
+      backgroundColor: colors.primary,
     },
     statusText: {
       fontSize: fontSizes.xs,
       fontWeight: fontWeights.bold,
       color: colors.textInverse,
     },
-    subject: {
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.bold,
-      color: colors.text,
-      marginBottom: spacing.xs,
-    },
-    message: {
+    lastMessage: {
       fontSize: fontSizes.sm,
       color: colors.textSecondary,
       marginBottom: spacing.xs,
+      lineHeight: 18,
+    },
+    inquiryFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
     },
     date: {
       fontSize: fontSizes.xs,
       color: colors.textLight,
+    },
+    unreadBadge: {
+      backgroundColor: colors.error,
+      borderRadius: borderRadius.full,
+      minWidth: 20,
+      height: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: spacing.xs,
+    },
+    unreadText: {
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.bold,
+      color: colors.textInverse,
     },
     errorText: {
       fontSize: fontSizes.base,
@@ -153,7 +197,7 @@ export default function InquiriesScreen() {
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(
-        `${API_BASE_URL}/inquiries`,
+        `${API_BASE_URL}/messages/threads?threadType=product_inquiry`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -164,12 +208,17 @@ export default function InquiriesScreen() {
       );
 
       clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
 
-      if (data.status === 'success') {
+      if (data.success) {
         setInquiries(data.data || []);
       } else {
-        setError(data.message || 'Failed to load inquiries');
+        setError(data.error?.message || data.message || 'Failed to load inquiries');
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -192,48 +241,86 @@ export default function InquiriesScreen() {
     fetchInquiries(true);
   }, [fetchInquiries]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return '#f59e0b';
-      case 'responded':
-        return '#10b981';
-      case 'closed':
-        return '#6b7280';
-      default:
-        return colors.textSecondary;
-    }
+  const handleInquiryPress = (inquiry: MessageThread) => {
+    router.push(`/message-thread/${inquiry.threadId}`);
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } else if (diffInHours < 168) { // 7 days
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+      });
+    } else {
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+    }
   };
 
-  const renderItem = useCallback(({ item }: { item: Inquiry }) => (
-    <View style={styles.inquiryCard}>
+  const renderItem = useCallback(({ item }: { item: MessageThread }) => (
+    <TouchableOpacity
+      style={styles.inquiryCard}
+      onPress={() => handleInquiryPress(item)}
+      activeOpacity={0.7}
+    >
       <View style={styles.inquiryHeader}>
-        <Text style={styles.productName} numberOfLines={1}>{item.productName}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+        <View style={styles.inquiryInfo}>
+          <Text style={styles.inquiryTitle}>
+            {item.productName ? `Inquiry about ${item.productName}` : 'General Inquiry'}
+          </Text>
+          
+          {item.productName && (
+            <View style={styles.productInfo}>
+              {item.productImage && (
+                <Image
+                  source={{ uri: item.productImage }}
+                  style={styles.productImage}
+                  resizeMode="cover"
+                />
+              )}
+              <Text style={styles.productName} numberOfLines={1}>
+                {item.productName}
+              </Text>
+            </View>
+          )}
+        </View>
+        
+        <View style={styles.statusBadge}>
           <Text style={styles.statusText}>
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+            {item.status === 'active' ? 'Active' : 'Archived'}
           </Text>
         </View>
       </View>
-      <Text style={styles.subject}>{item.subject}</Text>
-      <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
-      <Text style={styles.date}>Sent on {formatDate(item.createdAt)}</Text>
-      {item.respondedAt && (
-        <Text style={styles.date}>Responded on {formatDate(item.respondedAt)}</Text>
-      )}
-    </View>
+      
+      <Text style={styles.lastMessage} numberOfLines={2}>
+        {item.lastMessage}
+      </Text>
+      
+      <View style={styles.inquiryFooter}>
+        <Text style={styles.date}>{formatDate(item.lastMessageAt)}</Text>
+        {item.unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadText}>
+              {item.unreadCount > 99 ? '99+' : item.unreadCount}
+            </Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
   ), [styles, colors]);
 
-  const keyExtractor = useCallback((item: Inquiry) => item._id, []);
+  const keyExtractor = useCallback((item: MessageThread) => item._id, []);
 
   if (!isAuthenticated) {
     return null;
@@ -264,10 +351,10 @@ export default function InquiriesScreen() {
         </View>
       ) : inquiries.length === 0 ? (
         <View style={styles.centerContainer}>
-          <Ionicons name="mail-outline" size={64} color={colors.textLight} />
+          <Ionicons name="help-circle-outline" size={64} color={colors.textLight} />
           <Text style={styles.emptyTitle}>No inquiries</Text>
           <Text style={styles.emptySubtitle}>
-            Your product inquiries will appear here
+            Your product inquiries and questions will appear here
           </Text>
         </View>
       ) : (

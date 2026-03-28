@@ -1,17 +1,20 @@
-import apiClient, { ApiResponse } from './api/apiClient';
+import { API_BASE_URL } from '../constants/config';
+import { tokenManager } from './api/tokenManager';
 
 export interface Review {
-  id: string;
-  productId: string;
+  _id: string;
+  productId: {
+    _id: string;
+    name: string;
+    images: string[];
+  };
   userId: string;
   userName: string;
   rating: number;
   comment: string;
-  response?: {
-    text: string;
-    adminName: string;
-    createdAt: string;
-  };
+  response?: string;
+  responseAt?: string;
+  isFlagged: boolean;
   createdAt: string;
 }
 
@@ -21,39 +24,77 @@ export interface CreateReviewData {
   comment: string;
 }
 
+export interface ReviewResponse {
+  reviews?: Review[];
+  data?: Review[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
 class ReviewService {
-  private readonly basePath = '/reviews';
+  private async makeRequest(endpoint: string, options: RequestInit = {}) {
+    const token = await tokenManager.getAccessToken();
+    
+    const response = await fetch(`${API_BASE_URL}/reviews${endpoint}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options.headers,
+      },
+    });
 
-  async getReviews(params: { page?: number; limit?: number } = {}): Promise<ApiResponse<Review[]>> {
-    const queryParams = new URLSearchParams();
-    if (params.page) queryParams.append('page', params.page.toString());
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-    const queryString = queryParams.toString();
-    const url = queryString ? `${this.basePath}?${queryString}` : this.basePath;
-    return apiClient.get<Review[]>(url);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Request failed');
+    }
+
+    return response.json();
   }
 
-  async getProductReviews(productId: string, params: { page?: number; limit?: number } = {}): Promise<ApiResponse<Review[]>> {
-    const queryParams = new URLSearchParams();
-    if (params.page) queryParams.append('page', params.page.toString());
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-    const queryString = queryParams.toString();
-    const url = queryString ? `${this.basePath}/product/${productId}?${queryString}` : `${this.basePath}/product/${productId}`;
-    return apiClient.get<Review[]>(url);
+  async createReview(reviewData: CreateReviewData): Promise<{ message: string; review: Review }> {
+    return this.makeRequest('/', {
+      method: 'POST',
+      body: JSON.stringify(reviewData),
+    });
   }
 
-  async createReview(reviewData: CreateReviewData): Promise<ApiResponse<Review>> {
-    return apiClient.post<Review>(this.basePath, reviewData);
+  async getProductReviews(productId: string, page = 1, limit = 10): Promise<ReviewResponse> {
+    return this.makeRequest(`/product/${productId}?page=${page}&limit=${limit}`);
   }
 
-  async addAdminResponse(reviewId: string, response: string): Promise<ApiResponse<Review>> {
-    return apiClient.post<Review>(`${this.basePath}/${reviewId}/response`, { response });
+  async getUserReviews(page = 1, limit = 10): Promise<ReviewResponse> {
+    return this.makeRequest(`/user?page=${page}&limit=${limit}`);
   }
 
-  async deleteReview(reviewId: string): Promise<ApiResponse<void>> {
-    return apiClient.delete<void>(`${this.basePath}/${reviewId}`);
+  async getAllReviews(page = 1, limit = 20, flagged?: boolean): Promise<ReviewResponse> {
+    const flaggedParam = flagged !== undefined ? `&flagged=${flagged}` : '';
+    return this.makeRequest(`/admin/all?page=${page}&limit=${limit}${flaggedParam}`);
+  }
+
+  async addAdminResponse(reviewId: string, response: string): Promise<{ message: string; review: Review }> {
+    return this.makeRequest(`/${reviewId}/response`, {
+      method: 'POST',
+      body: JSON.stringify({ response }),
+    });
+  }
+
+  async flagReview(reviewId: string, isFlagged = true): Promise<{ message: string; review: Review }> {
+    return this.makeRequest(`/${reviewId}/flag`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isFlagged }),
+    });
+  }
+
+  async deleteReview(reviewId: string): Promise<{ message: string }> {
+    return this.makeRequest(`/${reviewId}`, {
+      method: 'DELETE',
+    });
   }
 }
 
 export const reviewService = new ReviewService();
-export default reviewService;

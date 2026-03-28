@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useNotifications } from '../../hooks/useNotifications';
 import { Header } from '../../components/Header';
 import { ThemeModal } from '../../components/ThemeModal';
 import { spacing } from '../../theme/spacing';
@@ -18,9 +19,13 @@ interface MenuItemProps {
   showChevron?: boolean;
   variant?: 'default' | 'grid';
   disabled?: boolean;
+  badge?: {
+    count: number;
+    color?: string;
+  };
 }
 
-const MenuItem: React.FC<MenuItemProps> = ({ icon, title, subtitle, onPress, showChevron = true, variant = 'default', disabled = false }) => {
+const MenuItem: React.FC<MenuItemProps> = ({ icon, title, subtitle, onPress, showChevron = true, variant = 'default', disabled = false, badge }) => {
   const { colors, fontSizes, fonts } = useTheme();
   
   const styles = StyleSheet.create({
@@ -49,6 +54,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, title, subtitle, onPress, sho
       alignItems: 'center',
       marginRight: variant === 'grid' ? 0 : spacing.sm,
       marginBottom: variant === 'grid' ? spacing.xs : 0,
+      position: 'relative',
     },
     menuContent: {
       flex: variant === 'grid' ? 0 : 1,
@@ -64,6 +70,24 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, title, subtitle, onPress, sho
       textAlign: variant === 'grid' ? 'center' : 'left',
       fontSize: fontSizes.xs,
     },
+    badge: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      backgroundColor: colors.error,
+      borderRadius: 8,
+      minWidth: 16,
+      height: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.background,
+    },
+    badgeText: {
+      color: colors.textInverse,
+      fontSize: 10,
+      fontWeight: '600',
+    },
   });
   
   return (
@@ -75,6 +99,13 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, title, subtitle, onPress, sho
     >
       <View style={[styles.iconContainer, { backgroundColor: colors.surface }]}>
         <Ionicons name={icon as any} size={variant === 'grid' ? 16 : 18} color={disabled ? colors.textLight : colors.primary} />
+        {badge && badge.count > 0 && (
+          <View style={[styles.badge, { backgroundColor: badge.color || colors.error }]}>
+            <Text style={styles.badgeText}>
+              {badge.count > 99 ? '99+' : badge.count}
+            </Text>
+          </View>
+        )}
       </View>
       <View style={styles.menuContent}>
         <Text style={[styles.menuTitle, { color: disabled ? colors.textLight : colors.text, fontFamily: fonts.medium }]}>
@@ -97,6 +128,7 @@ export default function AccountTab() {
   const router = useRouter();
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const { colors, fonts, fontSizes } = useTheme();
+  const { unreadCount } = useNotifications();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
 
   // Check if admin is viewing customer app
@@ -176,9 +208,9 @@ export default function AccountTab() {
       borderRadius: 12,
     },
     signInText: {
-      color: colors.textInverse,
+      color: colors.text,
       fontSize: fontSizes.base,
-      fontFamily: fonts.bold,
+      fontWeight: fontWeights.bold,
     },
     adminButton: {
       flexDirection: 'row',
@@ -273,7 +305,7 @@ export default function AccountTab() {
       <View style={styles.container}>
         <Header
           title="Account"
-          subtitle="Manage your profile and settings"
+          subtitle="Manage profile and settings"
         />
         <View style={styles.guestContainer}>
           <View style={styles.guestIcon}>
@@ -318,7 +350,7 @@ export default function AccountTab() {
     <View style={styles.container}>
       <Header
         title="My Account"
-        subtitle="Manage your profile and settings"
+        subtitle="Manage profile and settings"
       />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -385,7 +417,7 @@ export default function AccountTab() {
           <View style={styles.gridItem}>
             <MenuItem
               icon="heart"
-              title="Favorites"
+              title="Wishlist"
               subtitle=""
               onPress={() => router.push('/wishlist')}
               variant="grid"
@@ -495,6 +527,7 @@ export default function AccountTab() {
           title="Notifications"
           subtitle="Manage notification preferences"
           onPress={() => router.push('/notifications')}
+          badge={unreadCount > 0 ? { count: unreadCount } : undefined}
         />
         
         <MenuItem

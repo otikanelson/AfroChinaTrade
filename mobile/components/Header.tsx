@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -51,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
   const styles = StyleSheet.create({
     container: {
       backgroundColor: colors.background,
-      paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) - 10 : 0,
+      paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) - 30 : 0,
     },
     safeArea: {
       backgroundColor: colors.background,
@@ -97,6 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
       borderRadius: 20,
       alignItems: 'center',
       justifyContent: 'center',
+
     },
     backButton: {
       width: 40,
@@ -111,12 +112,16 @@ export const Header: React.FC<HeaderProps> = ({
       borderRadius: 20,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.surface,
       position: 'relative',
     },
+    logo: {
+      width: 60,
+      height: 60,
+    },
     logoContainer: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'space-around',
     },
     logoText: {
       fontSize: 20,
@@ -137,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({
       justifyContent: 'center',
     },
     title: {
-      fontSize: fontSizes.xl,
+      fontSize: fontSizes.lg,
       fontWeight: fontWeights.bold,
       color: colors.text,
       textAlign: 'center',
@@ -170,6 +175,10 @@ export const Header: React.FC<HeaderProps> = ({
 
   const renderLogo = () => (
     <View style={styles.logoContainer}>
+      <Image 
+      source={require('../assets/images/Logo.png')} 
+      style={styles.logo}
+      resizeMode="contain"/>
       <Text style={styles.logoText}>
         <Text style={styles.afroText}>Afro</Text>
         <Text style={styles.chinaText}>China</Text>

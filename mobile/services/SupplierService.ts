@@ -5,15 +5,32 @@ export interface CreateSupplierData {
   name: string;
   email: string;
   phone?: string;
-  address?: {
-    street: string;
-    city: string;
-    state: string;
-    country: string;
-    postalCode: string;
-  };
+  address?: string;
+  location?: string;
+  logo?: string;
+  description?: string;
+  website?: string;
+  responseTime?: string;
   verified?: boolean;
-  isActive?: boolean;
+}
+
+export interface SupplierReview {
+  _id: string;
+  supplierId: string;
+  userId: {
+    _id: string;
+    name: string;
+    avatar?: string;
+  };
+  rating: number;
+  comment?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSupplierReviewData {
+  rating: number;
+  comment?: string;
 }
 
 class SupplierService {
@@ -43,6 +60,24 @@ class SupplierService {
 
   async deleteSupplier(id: string): Promise<ApiResponse<void>> {
     return apiClient.delete<void>(`${this.basePath}/${id}`);
+  }
+
+  // Supplier Reviews
+  async createSupplierReview(supplierId: string, reviewData: CreateSupplierReviewData): Promise<ApiResponse<SupplierReview>> {
+    return apiClient.post<SupplierReview>(`${this.basePath}/${supplierId}/reviews`, reviewData);
+  }
+
+  async getSupplierReviews(supplierId: string, params: { page?: number; limit?: number } = {}): Promise<ApiResponse<SupplierReview[]>> {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    const queryString = queryParams.toString();
+    const url = queryString ? `${this.basePath}/${supplierId}/reviews?${queryString}` : `${this.basePath}/${supplierId}/reviews`;
+    return apiClient.get<SupplierReview[]>(url);
+  }
+
+  async updateSupplierReview(supplierId: string, reviewId: string, reviewData: CreateSupplierReviewData): Promise<ApiResponse<SupplierReview>> {
+    return apiClient.put<SupplierReview>(`${this.basePath}/${supplierId}/reviews/${reviewId}`, reviewData);
   }
 }
 

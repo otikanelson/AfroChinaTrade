@@ -13,6 +13,18 @@ export interface IAddress {
   locationSummary?: string;
 }
 
+// Notification settings interface
+export interface INotificationSettings {
+  orderUpdates: boolean;
+  promotions: boolean;
+  newProducts: boolean;
+  priceDrops: boolean;
+  newsletter: boolean;
+  pushNotifications: boolean;
+  emailNotifications: boolean;
+  smsNotifications: boolean;
+}
+
 // User document interface
 export interface IUser extends Document {
   name: string;
@@ -23,8 +35,11 @@ export interface IUser extends Document {
   status: 'active' | 'suspended' | 'blocked';
   suspensionReason?: string;
   suspensionDuration?: Date;
+  blockReason?: string;
+  supportTickets?: mongoose.Types.ObjectId[];
   addresses: IAddress[];
   avatar?: string;
+  notificationSettings: INotificationSettings;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -61,6 +76,42 @@ const AddressSchema = new Schema<IAddress>({
   },
   locationSummary: {
     type: String,
+  },
+}, { _id: false });
+
+// Notification settings schema
+const NotificationSettingsSchema = new Schema<INotificationSettings>({
+  orderUpdates: {
+    type: Boolean,
+    default: true,
+  },
+  promotions: {
+    type: Boolean,
+    default: true,
+  },
+  newProducts: {
+    type: Boolean,
+    default: false,
+  },
+  priceDrops: {
+    type: Boolean,
+    default: true,
+  },
+  newsletter: {
+    type: Boolean,
+    default: false,
+  },
+  pushNotifications: {
+    type: Boolean,
+    default: true,
+  },
+  emailNotifications: {
+    type: Boolean,
+    default: true,
+  },
+  smsNotifications: {
+    type: Boolean,
+    default: false,
   },
 }, { _id: false });
 
@@ -125,12 +176,24 @@ const UserSchema = new Schema<IUser>(
     suspensionDuration: {
       type: Date,
     },
+    blockReason: {
+      type: String,
+      trim: true,
+    },
+    supportTickets: [{
+      type: Schema.Types.ObjectId,
+      ref: 'HelpTicket'
+    }],
     addresses: {
       type: [AddressSchema],
       default: [],
     },
     avatar: {
       type: String,
+    },
+    notificationSettings: {
+      type: NotificationSettingsSchema,
+      default: () => ({}), // Will use schema defaults
     },
   },
   {

@@ -80,6 +80,12 @@ export default function AdminLayout() {
           }}
         />
         <Stack.Screen
+          name="collections"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="order"
           options={{
             headerShown: false,
@@ -99,6 +105,24 @@ export default function AdminLayout() {
         />
         <Stack.Screen
           name="users"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="suppliers"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="ticket"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="refunds"
           options={{
             headerShown: false,
           }}

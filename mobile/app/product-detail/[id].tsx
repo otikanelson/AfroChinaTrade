@@ -15,7 +15,6 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Product } from '../../types/product';
 import { productService } from '../../services/ProductService';
-import { messageService } from '../../services/MessageService';
 import { useWishlist } from '../../contexts/WishlistContext';
 import { useCart } from '../../contexts/CartContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -25,8 +24,8 @@ import { useModal } from '../../hooks/useModal';
 import { Header } from '../../components/Header';
 import { ViewTracker } from '../../components/ViewTracker';
 import { ChatOptionsModal } from '../../components/ChatOptionsModal';
+import { ProductReviews } from '../../components/ProductReviews';
 import { Toast } from '../../components/ui/Toast';
-import { tokenManager } from '../../services/api/tokenManager';
 import { spacing } from '../../theme/spacing';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -36,7 +35,7 @@ export default function ProductDetailScreen() {
   const router = useRouter();
   const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
-  const { addToCart, isOperationPending } = useCart();
+  const { addToCart } = useCart();
   const { user } = useAuth();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -826,6 +825,9 @@ export default function ProductDetailScreen() {
               ))}
             </View>
           )}
+
+          {/* Product Reviews */}
+          <ProductReviews productId={product.id} productName={product.name} />
         </View>
       </ScrollView>
 

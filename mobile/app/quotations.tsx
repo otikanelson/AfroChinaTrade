@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -18,18 +19,21 @@ import { API_BASE_URL } from '../constants/config';
 import { tokenManager } from '../services/api/tokenManager';
 import { spacing } from '../theme/spacing';
 
-interface Quotation {
+interface MessageThread {
   _id: string;
-  productId: string;
-  productName: string;
-  quantity: number;
-  requestedPrice?: number;
-  quotedPrice?: number;
-  status: 'pending' | 'quoted' | 'accepted' | 'rejected' | 'expired';
+  threadId: string;
+  customerId: string;
+  customerName: string;
+  productId?: string;
+  productName?: string;
+  productImage?: string;
+  threadType: 'quote_request';
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  status: 'active' | 'archived';
   createdAt: string;
-  quotedAt?: string;
-  expiresAt?: string;
-  notes?: string;
+  updatedAt: string;
 }
 
 export default function QuotationsScreen() {
@@ -38,7 +42,7 @@ export default function QuotationsScreen() {
   const { colors, fontSizes, fontWeights, borderRadius } = useTheme();
   const { user } = useAuth();
   
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [quotations, setQuotations] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,61 +85,80 @@ export default function QuotationsScreen() {
       borderRadius: borderRadius.md,
       padding: spacing.base,
       marginBottom: spacing.sm,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.secondary,
     },
     quotationHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       marginBottom: spacing.sm,
     },
-    productName: {
+    quotationInfo: {
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    quotationTitle: {
       fontSize: fontSizes.base,
       fontWeight: fontWeights.bold,
       color: colors.text,
+      marginBottom: spacing.xs,
+    },
+    productInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+    },
+    productImage: {
+      width: 30,
+      height: 30,
+      borderRadius: borderRadius.sm,
+      marginRight: spacing.sm,
+    },
+    productName: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
       flex: 1,
     },
     statusBadge: {
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs,
       borderRadius: borderRadius.base,
+      backgroundColor: colors.secondary,
     },
     statusText: {
       fontSize: fontSizes.xs,
       fontWeight: fontWeights.bold,
       color: colors.textInverse,
     },
-    quotationDetails: {
-      gap: spacing.xs,
+    lastMessage: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+      marginBottom: spacing.xs,
+      lineHeight: 18,
     },
-    detailRow: {
+    quotationFooter: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    detailLabel: {
-      fontSize: fontSizes.sm,
-      color: colors.textSecondary,
-    },
-    detailValue: {
-      fontSize: fontSizes.sm,
-      fontWeight: fontWeights.semibold,
-      color: colors.text,
-    },
-    priceValue: {
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.bold,
-      color: colors.primary,
-    },
     date: {
       fontSize: fontSizes.xs,
       color: colors.textLight,
-      marginTop: spacing.xs,
     },
-    notes: {
-      fontSize: fontSizes.sm,
-      color: colors.textSecondary,
-      fontStyle: 'italic',
-      marginTop: spacing.xs,
+    unreadBadge: {
+      backgroundColor: colors.error,
+      borderRadius: borderRadius.full,
+      minWidth: 20,
+      height: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: spacing.xs,
+    },
+    unreadText: {
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.bold,
+      color: colors.textInverse,
     },
     errorText: {
       fontSize: fontSizes.base,
@@ -174,7 +197,7 @@ export default function QuotationsScreen() {
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(
-        `${API_BASE_URL}/quotations`,
+        `${API_BASE_URL}/messages/threads?threadType=quote_request`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -185,12 +208,17 @@ export default function QuotationsScreen() {
       );
 
       clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
 
-      if (data.status === 'success') {
+      if (data.success) {
         setQuotations(data.data || []);
       } else {
-        setError(data.message || 'Failed to load quotations');
+        setError(data.error?.message || data.message || 'Failed to load quotations');
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -213,79 +241,86 @@ export default function QuotationsScreen() {
     fetchQuotations(true);
   }, [fetchQuotations]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return '#f59e0b';
-      case 'quoted':
-        return '#3b82f6';
-      case 'accepted':
-        return '#10b981';
-      case 'rejected':
-        return '#ef4444';
-      case 'expired':
-        return '#6b7280';
-      default:
-        return colors.textSecondary;
-    }
+  const handleQuotationPress = (quotation: MessageThread) => {
+    router.push(`/message-thread/${quotation.threadId}`);
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } else if (diffInHours < 168) { // 7 days
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+      });
+    } else {
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+    }
   };
 
-  const renderItem = useCallback(({ item }: { item: Quotation }) => (
-    <View style={styles.quotationCard}>
+  const renderItem = useCallback(({ item }: { item: MessageThread }) => (
+    <TouchableOpacity
+      style={styles.quotationCard}
+      onPress={() => handleQuotationPress(item)}
+      activeOpacity={0.7}
+    >
       <View style={styles.quotationHeader}>
-        <Text style={styles.productName} numberOfLines={1}>{item.productName}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+        <View style={styles.quotationInfo}>
+          <Text style={styles.quotationTitle}>
+            {item.productName ? `Quote for ${item.productName}` : 'General Quote Request'}
+          </Text>
+          
+          {item.productName && (
+            <View style={styles.productInfo}>
+              {item.productImage && (
+                <Image
+                  source={{ uri: item.productImage }}
+                  style={styles.productImage}
+                  resizeMode="cover"
+                />
+              )}
+              <Text style={styles.productName} numberOfLines={1}>
+                {item.productName}
+              </Text>
+            </View>
+          )}
+        </View>
+        
+        <View style={styles.statusBadge}>
           <Text style={styles.statusText}>
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+            {item.status === 'active' ? 'Active' : 'Archived'}
           </Text>
         </View>
       </View>
       
-      <View style={styles.quotationDetails}>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Quantity:</Text>
-          <Text style={styles.detailValue}>{item.quantity} units</Text>
-        </View>
-        
-        {item.requestedPrice !== undefined && (
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Requested Price:</Text>
-            <Text style={styles.detailValue}>₦{item.requestedPrice.toLocaleString()}</Text>
-          </View>
-        )}
-        
-        {item.quotedPrice !== undefined && (
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Quoted Price:</Text>
-            <Text style={styles.priceValue}>₦{item.quotedPrice.toLocaleString()}</Text>
+      <Text style={styles.lastMessage} numberOfLines={2}>
+        {item.lastMessage}
+      </Text>
+      
+      <View style={styles.quotationFooter}>
+        <Text style={styles.date}>{formatDate(item.lastMessageAt)}</Text>
+        {item.unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadText}>
+              {item.unreadCount > 99 ? '99+' : item.unreadCount}
+            </Text>
           </View>
         )}
       </View>
-      
-      {item.notes && (
-        <Text style={styles.notes}>"{item.notes}"</Text>
-      )}
-      
-      <Text style={styles.date}>Requested on {formatDate(item.createdAt)}</Text>
-      {item.quotedAt && (
-        <Text style={styles.date}>Quoted on {formatDate(item.quotedAt)}</Text>
-      )}
-      {item.expiresAt && (
-        <Text style={styles.date}>Expires on {formatDate(item.expiresAt)}</Text>
-      )}
-    </View>
+    </TouchableOpacity>
   ), [styles, colors]);
 
-  const keyExtractor = useCallback((item: Quotation) => item._id, []);
+  const keyExtractor = useCallback((item: MessageThread) => item._id, []);
 
   if (!isAuthenticated) {
     return null;
@@ -316,10 +351,10 @@ export default function QuotationsScreen() {
         </View>
       ) : quotations.length === 0 ? (
         <View style={styles.centerContainer}>
-          <Ionicons name="chatbubble-outline" size={64} color={colors.textLight} />
+          <Ionicons name="document-text-outline" size={64} color={colors.textLight} />
           <Text style={styles.emptyTitle}>No quotations</Text>
           <Text style={styles.emptySubtitle}>
-            Your price quotation requests will appear here
+            Your quotation requests and price quotes will appear here
           </Text>
         </View>
       ) : (

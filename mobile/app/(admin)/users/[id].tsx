@@ -9,12 +9,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { Order } from '../../../types/product';
 import { userService, UserProfile } from '../../../services/UserService';
 import { orderService } from '../../../services/OrderService';
+import { ticketService } from '../../../services/TicketService';
 import { Card } from '../../../components/admin/Card';
 import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
 import { Button } from '../../../components/admin/Button';
 import { Header } from '../../../components/Header';
 import { mobileToastManager } from '../../../utils/toast';
 import { theme } from '../../../theme';
+import { useAuth } from '../../../contexts/AuthContext';
 
 
 
@@ -33,6 +35,54 @@ interface SuspendModalProps {
   onConfirm: (reason: string, duration: string) => void;
 }
 
+interface BlockModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+}
+
+const BlockModal: React.FC<BlockModalProps> = ({ visible, onClose, onConfirm }) => {
+  const [reason, setReason] = useState('');
+
+  const handleConfirm = () => {
+    if (!reason.trim()) { Alert.alert('Required', 'Please provide a reason.'); return; }
+    onConfirm(reason.trim());
+    setReason('');
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalSheet}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Block Account</Text>
+            <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
+              <Ionicons name="close" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.warningText}>
+            Blocking will restrict all account access, including guest features. This is a serious action.
+          </Text>
+          <Text style={styles.fieldLabel}>Reason</Text>
+          <TextInput
+            style={styles.input}
+            value={reason}
+            onChangeText={setReason}
+            placeholder="Reason for blocking…"
+            placeholderTextColor={theme.colors.textLight}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
+          <View style={styles.modalActions}>
+            <Button label="Cancel" variant="secondary" onPress={onClose} style={styles.modalBtn} />
+            <Button label="Block" variant="destructive" onPress={handleConfirm} style={styles.modalBtn} />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 const SuspendModal: React.FC<SuspendModalProps> = ({ visible, onClose, onConfirm }) => {
   const [reason, setReason] = useState('');
   const [duration, setDuration] = useState('7');
@@ -54,6 +104,9 @@ const SuspendModal: React.FC<SuspendModalProps> = ({ visible, onClose, onConfirm
               <Ionicons name="close" size={24} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
+          <Text style={styles.infoText}>
+            Suspension restricts account usage but allows guest features. User can submit appeals.
+          </Text>
           <Text style={styles.fieldLabel}>Reason</Text>
           <TextInput
             style={styles.input}
@@ -96,12 +149,15 @@ function userStatusToBadge(status: UserProfile['status']): StatusType {
 export default function UserDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { user: currentUser } = useAuth();
 
   const [user, setUser] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
+  const [suspensionAppeals, setSuspensionAppeals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [suspendVisible, setSuspendVisible] = useState(false);
+  const [blockVisible, setBlockVisible] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,6 +169,18 @@ export default function UserDetailScreen() {
       
       if (userResponse.success && userResponse.data) {
         setUser(userResponse.data);
+        
+        // Load suspension appeals if user is suspended
+        if (userResponse.data.status === 'suspended') {
+          try {
+            const appealsResponse = await ticketService.getUserSuspensionAppeals(id);
+            if (appealsResponse.success && appealsResponse.data) {
+              setSuspensionAppeals(appealsResponse.data);
+            }
+          } catch (error) {
+            console.warn('Failed to load suspension appeals:', error);
+          }
+        }
       } else {
         setUser(null);
       }
@@ -137,10 +205,18 @@ export default function UserDetailScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const updateUserStatus = useCallback(async (newStatus: UserProfile['status'], auditAction: string, reason?: string) => {
+  const updateUserStatus = useCallback(async (newStatus: UserProfile['status'], auditAction: string, reason?: string, duration?: string) => {
     if (!user) return;
     try {
-      const response = await userService.updateUserStatus(id, { status: newStatus });
+      const updateData: any = { status: newStatus };
+      if (reason) updateData.reason = reason;
+      if (duration && newStatus === 'suspended') {
+        const durationDate = new Date();
+        durationDate.setDate(durationDate.getDate() + parseInt(duration));
+        updateData.suspensionDuration = durationDate.toISOString();
+      }
+
+      const response = await userService.updateUserStatus(id, updateData);
       
       if (response.success && response.data) {
         setUser(response.data);
@@ -156,30 +232,40 @@ export default function UserDetailScreen() {
         setAuditLog((prev) => [entry, ...prev]);
         
         mobileToastManager.success(`Account ${auditAction.toLowerCase()}`, 'Done');
+        
+        // Reload to get updated appeals if needed
+        if (newStatus === 'suspended' || user.status === 'suspended') {
+          setTimeout(load, 500);
+        }
       } else {
         throw new Error(response.error?.message || 'Failed to update user status');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating user status:', error);
-      Alert.alert('Error', 'Failed to update account.');
+      Alert.alert('Error', error.message || 'Failed to update account.');
     }
-  }, [user, id]);
+  }, [user, id, load]);
 
   const handleSuspend = useCallback(async (reason: string, duration: string) => {
     setSuspendVisible(false);
-    await updateUserStatus('blocked', `Suspended for ${duration} days`, reason);
+    await updateUserStatus('suspended', `Suspended for ${duration} days`, reason, duration);
   }, [updateUserStatus]);
 
-  const handleBlock = useCallback(() => {
+  const handleBlock = useCallback(async (reason: string) => {
+    setBlockVisible(false);
+    await updateUserStatus('blocked', 'Account blocked', reason);
+  }, [updateUserStatus]);
+
+  const handleBlockConfirm = useCallback(() => {
     Alert.alert(
       'Block Account',
-      'This will permanently block the user. Continue?',
+      'This will permanently block the user from all features. Continue?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Block', style: 'destructive', onPress: () => updateUserStatus('blocked', 'Account blocked') },
+        { text: 'Block', style: 'destructive', onPress: () => setBlockVisible(true) },
       ],
     );
-  }, [updateUserStatus]);
+  }, []);
 
   const handleReactivate = useCallback(() => {
     Alert.alert(
@@ -191,6 +277,25 @@ export default function UserDetailScreen() {
       ],
     );
   }, [updateUserStatus]);
+
+  // Check admin restrictions
+  const canManageUser = useCallback(() => {
+    if (!currentUser || !user) return false;
+    
+    // Admin cannot manage their own account
+    if (currentUser.id === user._id) return false;
+    
+    return true;
+  }, [currentUser, user]);
+
+  const canBlockUser = useCallback(() => {
+    if (!currentUser || !user) return false;
+    
+    // Only super_admin can block admin accounts
+    if (user.role === 'admin' && currentUser.role !== 'super_admin') return false;
+    
+    return canManageUser();
+  }, [currentUser, user, canManageUser]);
 
   if (loading) {
     return (
@@ -266,15 +371,56 @@ export default function UserDetailScreen() {
         {/* Account actions */}
         <Text style={styles.sectionTitle}>Account Actions</Text>
         <Card style={styles.actionsCard}>
-          {user.status === 'active' ? (
+          {!canManageUser() ? (
+            <View style={styles.restrictionNotice}>
+              <Ionicons name="information-circle-outline" size={20} color={theme.colors.warning} />
+              <Text style={styles.restrictionText}>
+                {currentUser?.id === user._id 
+                  ? "You cannot manage your own account" 
+                  : "You can view this admin's information but cannot modify their account"}
+              </Text>
+            </View>
+          ) : user.status === 'active' ? (
             <View style={styles.actionButtons}>
               <Button label="Suspend" variant="secondary" onPress={() => setSuspendVisible(true)} style={styles.actionBtn} />
-              <Button label="Block" variant="destructive" onPress={handleBlock} style={styles.actionBtn} />
+              {canBlockUser() ? (
+                <Button label="Block" variant="destructive" onPress={handleBlockConfirm} style={styles.actionBtn} />
+              ) : (
+                <View style={styles.disabledActionContainer}>
+                  <Button label="Block" variant="destructive" disabled style={styles.actionBtn} />
+                  <Text style={styles.disabledActionText}>Only super admins can block admin accounts</Text>
+                </View>
+              )}
             </View>
           ) : (
             <Button label="Reactivate Account" onPress={handleReactivate} />
           )}
         </Card>
+
+        {/* Suspension Appeals */}
+        {user.status === 'suspended' && suspensionAppeals.length > 0 && (
+          <View>
+            <Text style={styles.sectionTitle}>Suspension Appeals ({suspensionAppeals.length})</Text>
+            {suspensionAppeals.map((appeal) => (
+              <Card key={appeal._id} style={styles.appealCard}>
+                <View style={styles.appealHeader}>
+                  <Text style={styles.appealTitle}>{appeal.subject}</Text>
+                  <StatusBadge status={appeal.status as StatusType} size="sm" />
+                </View>
+                <Text style={styles.appealReason}>{appeal.appealReason}</Text>
+                <Text style={styles.appealDate}>
+                  Submitted {new Date(appeal.createdAt).toLocaleDateString()}
+                </Text>
+                {appeal.adminResponse && (
+                  <View style={styles.appealResponse}>
+                    <Text style={styles.appealResponseLabel}>Admin Response:</Text>
+                    <Text style={styles.appealResponseText}>{appeal.adminResponse}</Text>
+                  </View>
+                )}
+              </Card>
+            ))}
+          </View>
+        )}
 
         {/* Order history */}
         <Text style={styles.sectionTitle}>Order History ({orders.length})</Text>
@@ -320,6 +466,12 @@ export default function UserDetailScreen() {
         visible={suspendVisible}
         onClose={() => setSuspendVisible(false)}
         onConfirm={handleSuspend}
+      />
+      
+      <BlockModal
+        visible={blockVisible}
+        onClose={() => setBlockVisible(false)}
+        onConfirm={handleBlock}
       />
     </View>
   );
@@ -370,6 +522,75 @@ const styles = StyleSheet.create({
   auditAction: { fontSize: theme.fontSizes.base, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.text },
   auditReason: { fontSize: theme.fontSizes.sm, color: theme.colors.textSecondary, marginTop: 2 },
   auditDate: { fontSize: theme.fontSizes.xs, color: theme.colors.textLight, marginTop: 4 },
+  // Restriction notice
+  restrictionNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.warning + '20',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.sm,
+  },
+  restrictionText: {
+    flex: 1,
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.warning,
+    lineHeight: 18,
+  },
+  disabledActionContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  disabledActionText: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.textLight,
+    marginTop: theme.spacing.xs,
+    textAlign: 'center',
+  },
+  // Appeal styles
+  appealCard: { marginBottom: theme.spacing.xs },
+  appealHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  appealTitle: {
+    flex: 1,
+    fontSize: theme.fontSizes.base,
+    fontWeight: theme.fontWeights.semibold as any,
+    color: theme.colors.text,
+    marginRight: theme.spacing.sm,
+  },
+  appealReason: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: theme.spacing.xs,
+  },
+  appealDate: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.textLight,
+    marginBottom: theme.spacing.sm,
+  },
+  appealResponse: {
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.primary,
+  },
+  appealResponseLabel: {
+    fontSize: theme.fontSizes.xs,
+    fontWeight: theme.fontWeights.semibold as any,
+    color: theme.colors.primary,
+    marginBottom: theme.spacing.xs,
+  },
+  appealResponseText: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.text,
+    lineHeight: 18,
+  },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalSheet: {
@@ -388,4 +609,19 @@ const styles = StyleSheet.create({
   inputSingle: { minHeight: 0 },
   modalActions: { flexDirection: 'row', gap: theme.spacing.sm },
   modalBtn: { flex: 1 },
+  infoText: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.md,
+    lineHeight: 18,
+  },
+  warningText: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.error,
+    backgroundColor: theme.colors.error + '20',
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    marginBottom: theme.spacing.md,
+    lineHeight: 18,
+  },
 });

@@ -6,7 +6,6 @@ import { useCart } from '../contexts/CartContext';
 import { useWishlist } from '../contexts/WishlistContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlertContext } from '../contexts/AlertContext';
-import { tokenManager } from '../services/api/tokenManager';
 import { colors } from '../theme/colors';
 import { spacing, borderRadius, shadows } from '../theme/spacing';
 import { typography, fontSizes, fontWeights } from '../theme/typography';
@@ -203,6 +202,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {supplier && supplier.name && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs }}>
               {supplier.verified && <Ionicons name='shield-checkmark-outline' size={12} color={colors.primary} style={{ marginRight: 4 }} />}
+              {supplier.logo && (
+                <Image 
+                  source={{ uri: supplier.logo }} 
+                  style={{ width: 14, height: 14, borderRadius: 7, marginRight: 4 }} 
+                  resizeMode="cover"
+                />
+              )}
               <Text style={[styles.listSupplier, { fontSize: fontSizes.xs, color: colors.primary }]} numberOfLines={1}>
                 {String(supplier.name || '')}
               </Text>
@@ -303,9 +309,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </TouchableOpacity>
 
         {/* Custom Badge (like "Seller Pick") - positioned on the left */}
-        {badge && (
+        {badge && typeof badge === 'string' && badge.trim() && (
           <View style={[styles.badge, { backgroundColor: colors.primary, paddingHorizontal: 4, paddingVertical: 2, borderTopRightRadius: borderRadius.sm, borderBottomRightRadius: borderRadius.sm }]}>
-            <Text style={[styles.badgeText, { color: colors.textInverse, fontSize: 10, fontWeight: fontWeights.semibold }]}>{String(badge)}</Text>
+            <Text style={[styles.badgeText, { color: colors.textInverse, fontSize: 10, fontWeight: fontWeights.semibold }]}>{badge}</Text>
           </View>
         )}
 
@@ -393,6 +399,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {supplier && supplier.name && (
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               {supplier.verified && <Ionicons name='shield-checkmark-outline' size={10} color={colors.primary} style={{ marginRight: 2 }} />}
+              {supplier.logo && (
+                <Image 
+                  source={{ uri: supplier.logo }} 
+                  style={{ width: 12, height: 12, borderRadius: 6, marginRight: 2 }} 
+                  resizeMode="cover"
+                />
+              )}
               <Text style={[styles.supplier, { fontSize: 10, color: colors.primary }]} numberOfLines={1}>
                 {String(supplier.name || '')}
               </Text>

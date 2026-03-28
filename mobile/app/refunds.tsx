@@ -14,20 +14,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { Header } from '../components/Header';
-import { API_BASE_URL } from '../constants/config';
-import { tokenManager } from '../services/api/tokenManager';
+import { refundService, Refund } from '../services/RefundService';
 import { spacing } from '../theme/spacing';
-
-interface Refund {
-  _id: string;
-  orderId: string;
-  orderNumber: string;
-  amount: number;
-  reason: string;
-  status: 'pending' | 'approved' | 'rejected' | 'completed';
-  createdAt: string;
-  processedAt?: string;
-}
 
 export default function RefundsScreen() {
   const { isAuthenticated } = useRequireAuth('Please sign in to view your refunds');
@@ -137,9 +125,6 @@ export default function RefundsScreen() {
   const fetchRefunds = useCallback(async (isRefresh: boolean = false) => {
     if (!user?.id) return;
 
-    const token = await tokenManager.getAccessToken();
-    if (!token) return;
-
     try {
       if (!isRefresh) {
         setLoading(true);
@@ -148,33 +133,19 @@ export default function RefundsScreen() {
       }
       setError(null);
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const response = await refundService.getUserRefunds({
+        page: 1,
+        limit: 100,
+      });
 
-      const response = await fetch(
-        `${API_BASE_URL}/refunds`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          signal: controller.signal,
-        }
-      );
-
-      clearTimeout(timeoutId);
-      const data = await response.json();
-
-      if (data.status === 'success') {
-        setRefunds(data.data || []);
+      if (response.success && response.data) {
+        setRefunds(response.data);
       } else {
-        setError(data.message || 'Failed to load refunds');
+        setError(response.error?.message || 'Failed to load refunds');
       }
     } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        console.error('Error fetching refunds:', err);
-        setError('Failed to load refunds. Please try again.');
-      }
+      console.error('Error fetching refunds:', err);
+      setError('Failed to load refunds. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -197,7 +168,7 @@ export default function RefundsScreen() {
         return '#f59e0b';
       case 'approved':
         return '#3b82f6';
-      case 'completed':
+      case 'processed':
         return '#10b981';
       case 'rejected':
         return '#ef4444';
@@ -218,7 +189,7 @@ export default function RefundsScreen() {
   const renderItem = useCallback(({ item }: { item: Refund }) => (
     <View style={styles.refundCard}>
       <View style={styles.refundHeader}>
-        <Text style={styles.orderNumber}>Order #{item.orderNumber}</Text>
+        <Text style={styles.orderNumber}>Order #{item.orderId.slice(-8).toUpperCase()}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>
             {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
@@ -234,7 +205,7 @@ export default function RefundsScreen() {
     </View>
   ), [styles, colors]);
 
-  const keyExtractor = useCallback((item: Refund) => item._id, []);
+  const keyExtractor = useCallback((item: Refund) => item.id, []);
 
   if (!isAuthenticated) {
     return null;

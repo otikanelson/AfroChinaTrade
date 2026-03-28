@@ -73,10 +73,12 @@ function buildCsv(orders: Order[], refunds: Refund[], period: TimePeriod): strin
 
   // Orders section
   lines.push('ORDERS');
-  lines.push(['Order ID', 'Date', 'Status', 'Amount'].map(escapeCsv).join(','));
+  lines.push(['Order ID', 'Customer', 'Date', 'Status', 'Amount'].map(escapeCsv).join(','));
   for (const o of orders) {
+    const customerName = typeof o.userId === 'object' && o.userId.name ? o.userId.name : 'N/A';
     lines.push([
       o.orderId,
+      customerName,
       formatDate(o.createdAt),
       o.status,
       o.totalAmount.toFixed(2),
@@ -241,7 +243,7 @@ export default function FinanceScreen() {
       color: colors.text,
     },
     statLabel: {
-      fontSize: fontSizes.xs,
+      fontSize: 8,
       fontWeight: fontWeights.semibold,
       color: colors.textLight,
       textAlign: 'center',
@@ -272,15 +274,12 @@ export default function FinanceScreen() {
     periodButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.base,
-      borderWidth: 1,
-      borderColor: colors.primary,
+      gap: 2,
+      paddingHorizontal: spacing.xs,
+      paddingVertical: 4,
     },
     periodButtonText: {
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.xs,
       color: colors.primary,
       fontWeight: fontWeights.medium,
     },
@@ -536,14 +535,25 @@ export default function FinanceScreen() {
     
     // Ensure refunds is an array before filtering
     const refundsArray = Array.isArray(refunds) ? refunds : [];
-    const refunded = refundsArray
-      .filter((r) => isWithinPeriod(r.createdAt, period))
-      .reduce((s, r) => s + (r.amount || 0), 0);
+    const periodRefunds = refundsArray.filter((r) => isWithinPeriod(r.createdAt, period));
+    const refunded = periodRefunds.reduce((s, r) => s + (r.amount || 0), 0);
+    
+    // Refund statistics
+    const pendingRefunds = periodRefunds.filter(r => r.status === 'pending').length;
+    const processedRefunds = periodRefunds.filter(r => r.status === 'processed').length;
+    const totalRefundRequests = periodRefunds.length;
     
     // Net revenue = delivered orders - refunds
     const netRevenue = revenue - refunded;
       
-    return { revenue: netRevenue, pending, refunded };
+    return { 
+      revenue: netRevenue, 
+      pending, 
+      refunded,
+      pendingRefunds,
+      processedRefunds,
+      totalRefundRequests,
+    };
   }, [periodOrders, refunds, period]);
 
   const recentOrders = useMemo(
@@ -614,21 +624,21 @@ export default function FinanceScreen() {
     <View style={styles.screen}>
       <Header 
         title="Finance"
-        subtitle="Track revenue, and refunds"
+        subtitle="Track revenue"
         rightAction={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-            <TouchableOpacity
-              style={{ padding: 6, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary }}
-              onPress={handleExport}
-            >
-              <Ionicons name="download-outline" size={18} color={colors.primary} />
-            </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary, }}>
             <TouchableOpacity
               style={styles.periodButton}
               onPress={() => setPeriodMenuVisible(true)}
             >
               <Text style={styles.periodButtonText}>{periodLabel}</Text>
-              <Ionicons name="chevron-down" size={14} color={colors.primary} />
+              <Ionicons name="chevron-down" size={10} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ padding: 2, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary, margin: 2, }}
+              onPress={handleExport}
+            >
+              <Ionicons name="download-outline" size={14} color={colors.primary} />
             </TouchableOpacity>
           </View>
         }
@@ -641,12 +651,28 @@ export default function FinanceScreen() {
           <Text style={styles.statValue}>₦{stats.revenue.toFixed(0)}</Text>
         </View>
         <View style={[styles.statCard, { borderLeftColor: '#f59e0b' }]}>
-          <Text style={styles.statLabel}>Pending</Text>
+          <Text style={styles.statLabel}>Pending Orders</Text>
           <Text style={styles.statValue}>₦{stats.pending.toFixed(0)}</Text>
         </View>
         <View style={[styles.statCard, { borderLeftColor: colors.error }]}>
           <Text style={styles.statLabel}>Refunded</Text>
           <Text style={styles.statValue}>₦{stats.refunded.toFixed(0)}</Text>
+        </View>
+      </View>
+
+      {/* Refund Stats */}
+      <View style={styles.statsContainer}>
+        <View style={[styles.statCard, { borderLeftColor: '#8b5cf6' }]}>
+          <Text style={styles.statLabel}>Pending Refunds</Text>
+          <Text style={styles.statValue}>{stats.pendingRefunds}</Text>
+        </View>
+        <View style={[styles.statCard, { borderLeftColor: '#06b6d4' }]}>
+          <Text style={styles.statLabel}>Processed</Text>
+          <Text style={styles.statValue}>{stats.processedRefunds}</Text>
+        </View>
+        <View style={[styles.statCard, { borderLeftColor: '#64748b' }]}>
+          <Text style={styles.statLabel}>Total Requests</Text>
+          <Text style={styles.statValue}>{stats.totalRefundRequests}</Text>
         </View>
       </View>
 
@@ -657,7 +683,26 @@ export default function FinanceScreen() {
           onPress={() => router.push('/(admin)/finance/refunds')}
         >
           <Ionicons name="list-outline" size={16} color={colors.primary} />
-          <Text style={styles.actionButtonText}>Refund History</Text>
+          <Text style={styles.actionButtonText}>
+            Refund History {stats.pendingRefunds > 0 && `(${stats.pendingRefunds} pending)`}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push('/(admin)/refunds')}
+        >
+          <Ionicons name="settings-outline" size={16} color={colors.primary} />
+          <Text style={styles.actionButtonText}>Manage Refunds</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.actionRow}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push('/(admin)/refunds/analytics')}
+        >
+          <Ionicons name="analytics-outline" size={16} color={colors.primary} />
+          <Text style={styles.actionButtonText}>Refund Analytics</Text>
         </TouchableOpacity>
       </View>
 

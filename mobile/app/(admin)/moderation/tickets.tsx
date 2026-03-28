@@ -1,209 +1,603 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Alert, Modal, ScrollView, StyleSheet,
-  Text, TouchableOpacity, View,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useAlertContext } from '../../../contexts/AlertContext';
+import { tokenManager } from '../../../services/api/tokenManager';
+import { Header } from '../../../components/Header';
+import { spacing } from '../../../theme/spacing';
+import TicketService from '../../../services/TicketService';
+import { Ticket, TicketsResponse } from '../../../types/ticket';
 
-import { ticketService, Ticket, TicketPriority, TicketStatus } from '../../../services/TicketService';
-import { Card } from '../../../components/admin/Card';
-import { DataList } from '../../../components/admin/DataList';
-import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
-import { Button } from '../../../components/admin/Button';
-import { mobileToastManager } from '../../../utils/toast';
-import { theme } from '../../../theme';
+interface TicketFilters {
+  status?: string;
+  category?: string;
+  priority?: string;
+}
 
-
-
-const PRIORITY_COLORS: Record<TicketPriority, { bg: string; text: string }> = {
-  low:    { bg: '#E2E3E5', text: '#383D41' },
-  medium: { bg: '#FFF3CD', text: '#856404' },
-  high:   { bg: '#FFE5B4', text: '#7D4E00' },
-  urgent: { bg: '#F8D7DA', text: '#721C24' },
+const FILTER_OPTIONS = {
+  status: [
+    { value: '', label: 'All Status' },
+    { value: 'open', label: 'Open' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'resolved', label: 'Resolved' },
+    { value: 'closed', label: 'Closed' },
+  ],
+  category: [
+    { value: '', label: 'All Categories' },
+    { value: 'order', label: 'Order Issues' },
+    { value: 'payment', label: 'Payment Problems' },
+    { value: 'product', label: 'Product Questions' },
+    { value: 'account', label: 'Account Issues' },
+    { value: 'technical', label: 'Technical Support' },
+    { value: 'suspension_appeal', label: 'Suspension Appeals' },
+    { value: 'other', label: 'Other' },
+  ],
+  priority: [
+    { value: '', label: 'All Priorities' },
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' },
+    { value: 'urgent', label: 'Urgent' },
+  ],
 };
 
-function PriorityBadge({ priority }: { priority: TicketPriority }) {
-  const c = PRIORITY_COLORS[priority];
-  return (
-    <View style={[styles.priorityBadge, { backgroundColor: c.bg }]}>
-      <Text style={[styles.priorityText, { color: c.text }]}>{priority.toUpperCase()}</Text>
-    </View>
-  );
-}
-
-function ticketStatusToBadge(status: TicketStatus): StatusType {
-  switch (status) {
-    case 'resolved': return 'resolved';
-    case 'in_progress': return 'in_fulfillment';
-    default: return 'pending';
-  }
-}
-
-interface TicketDetailModalProps {
-  ticket: Ticket | null;
-  onClose: () => void;
-  onAction: (id: string, status: TicketStatus) => void;
-}
-
-const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticket, onClose, onAction }) => (
-  <Modal visible={!!ticket} transparent animationType="slide" onRequestClose={onClose}>
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalSheet}>
-        {ticket && (
-          <>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Ticket Detail</Text>
-              <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
-                <Ionicons name="close" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Subject</Text>
-                <Text style={styles.detailValue}>{ticket.subject}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Description</Text>
-                <Text style={styles.detailValue}>{ticket.description}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>User</Text>
-                <Text style={styles.detailValue}>{ticket.userName} · {ticket.userEmail}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Priority</Text>
-                <PriorityBadge priority={ticket.priority} />
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Status</Text>
-                <StatusBadge status={ticketStatusToBadge(ticket.status)} size="sm" />
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Created</Text>
-                <Text style={styles.detailValue}>{new Date(ticket.createdAt).toLocaleString()}</Text>
-              </View>
-            </ScrollView>
-            {ticket.status !== 'resolved' && (
-              <View style={styles.modalActions}>
-                {ticket.status === 'open' && (
-                  <Button label="Start Working" variant="secondary" onPress={() => onAction(ticket.id, 'in_progress')} style={styles.modalBtn} />
-                )}
-                <Button label="Resolve" onPress={() => onAction(ticket.id, 'resolved')} style={styles.modalBtn} />
-              </View>
-            )}
-          </>
-        )}
-      </View>
-    </View>
-  </Modal>
-);
-
-interface Props { embedded?: boolean }
-
-export default function TicketsScreen({ embedded }: Props) {
+export default function AdminHelpSupportScreen() {
+  const router = useRouter();
+  const { colors, fontSizes, fontWeights, borderRadius } = useTheme();
+  const { user } = useAuth();
+  const { showError } = useAlertContext();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selected, setSelected] = useState<Ticket | null>(null);
+  const [filters, setFilters] = useState<TicketFilters>({
+    status: '',
+    category: '',
+    priority: '',
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    pages: 0,
+  });
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true); else setLoading(true);
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.surface,
+    },
+    content: {
+      flex: 1,
+    },
+    headerCard: {
+      backgroundColor: colors.background,
+      margin: spacing.base,
+      borderRadius: borderRadius.md,
+      padding: spacing.base,
+    },
+    headerTitle: {
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.bold,
+      color: colors.text,
+      marginBottom: spacing.sm,
+    },
+    headerDescription: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+      lineHeight: 22,
+      marginBottom: spacing.base,
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginBottom: spacing.base,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: colors.primaryLight,
+      padding: spacing.sm,
+      borderRadius: borderRadius.sm,
+      alignItems: 'center',
+    },
+    statNumber: {
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.bold,
+      color: colors.primary,
+    },
+    statLabel: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    filterButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.md,
+      alignSelf: 'flex-start',
+    },
+    filterButtonText: {
+      color: colors.textInverse,
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.semibold,
+      marginRight: spacing.xs,
+    },
+    filtersContainer: {
+      backgroundColor: colors.background,
+      margin: spacing.base,
+      marginTop: 0,
+      borderRadius: borderRadius.md,
+      padding: spacing.base,
+    },
+    filterRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginBottom: spacing.sm,
+    },
+    filterSelect: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    filterSelectButton: {
+      padding: spacing.sm,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    filterSelectText: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+    },
+    filterOptions: {
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    filterOption: {
+      padding: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    filterOptionText: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+    },
+    selectedOption: {
+      backgroundColor: colors.primaryLight,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    ticketsList: {
+      padding: spacing.base,
+      gap: spacing.base,
+    },
+    ticketCard: {
+      backgroundColor: colors.background,
+      borderRadius: borderRadius.md,
+      padding: spacing.base,
+      borderLeftWidth: 4,
+    },
+    ticketHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: spacing.sm,
+    },
+    ticketInfo: {
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    ticketNumber: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.semibold,
+      color: colors.primary,
+    },
+    ticketSubject: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold,
+      color: colors.text,
+      marginTop: 2,
+    },
+    userInfo: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    statusBadge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
+      borderRadius: borderRadius.sm,
+      alignSelf: 'flex-start',
+    },
+    statusText: {
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.semibold,
+      textTransform: 'uppercase',
+    },
+    ticketMeta: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: spacing.sm,
+    },
+    ticketCategory: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+      textTransform: 'capitalize',
+    },
+    ticketDate: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+    },
+    priorityBadge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: borderRadius.sm,
+      marginLeft: spacing.sm,
+    },
+    priorityText: {
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.medium,
+      textTransform: 'uppercase',
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+    },
+    emptyText: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: spacing.base,
+    },
+  });
+
+  const [showStatusFilter, setShowStatusFilter] = useState(false);
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false);
+  const [showPriorityFilter, setShowPriorityFilter] = useState(false);
+
+  const fetchTickets = async (showRefreshing = false) => {
+    if (showRefreshing) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
     try {
-      const response = await ticketService.getTickets({
-        page: 1,
-        limit: 100, // Get all tickets for now
+      const token = await tokenManager.getAccessToken();
+      if (!token) {
+        showError('Authentication required');
+        return;
+      }
+      
+      const data = await TicketService.getAllTickets(token, {
+        page: pagination.page,
+        limit: pagination.limit,
+        ...filters,
       });
-      
-      if (response.success && response.data) {
-        setTickets(response.data);
-      } else {
-        setTickets([]);
-      }
-    } catch (error) {
+
+      setTickets(data.data.tickets);
+      setPagination(data.data.pagination);
+    } catch (error: any) {
       console.error('Error fetching tickets:', error);
-      setTickets([]);
-    } finally { 
-      setLoading(false); 
-      setRefreshing(false); 
+      showError(error.message || 'Failed to fetch tickets');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  };
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchTickets();
+    }, [filters, pagination.page])
+  );
 
-  const handleAction = useCallback(async (id: string, status: TicketStatus) => {
-    try {
-      const response = await ticketService.updateTicketStatus(id, status);
-      
-      if (response.success && response.data) {
-        setTickets(prev => prev.map(t => t.id === id ? response.data! : t));
-        setSelected(null);
-        mobileToastManager.success(`Ticket ${status === 'resolved' ? 'resolved' : 'updated'}`, 'Updated');
-      } else {
-        throw new Error(response.error?.message || 'Failed to update ticket');
-      }
-    } catch (error) {
-      console.error('Error updating ticket:', error);
-      Alert.alert('Error', 'Failed to update ticket.');
+  const onRefresh = () => {
+    fetchTickets(true);
+  };
+
+  const handleFilterChange = (filterType: keyof TicketFilters, value: string) => {
+    setFilters(prev => ({ ...prev, [filterType]: value }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+    setShowStatusFilter(false);
+    setShowCategoryFilter(false);
+    setShowPriorityFilter(false);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open':
+        return { backgroundColor: colors.warning + '20', color: colors.warning };
+      case 'in_progress':
+        return { backgroundColor: colors.info + '20', color: colors.info };
+      case 'resolved':
+        return { backgroundColor: colors.success + '20', color: colors.success };
+      case 'closed':
+        return { backgroundColor: colors.textLight + '20', color: colors.textSecondary };
+      default:
+        return { backgroundColor: colors.textLight + '20', color: colors.textSecondary };
     }
-  }, []);
+  };
 
-  const Wrapper = embedded ? View : SafeAreaView;
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent':
+        return { backgroundColor: colors.error + '20', color: colors.error };
+      case 'high':
+        return { backgroundColor: colors.warning + '20', color: colors.warning };
+      case 'medium':
+        return { backgroundColor: colors.info + '20', color: colors.info };
+      case 'low':
+        return { backgroundColor: colors.success + '20', color: colors.success };
+      default:
+        return { backgroundColor: colors.textLight + '20', color: colors.textSecondary };
+    }
+  };
+
+  const getTicketBorderColor = (status: string) => {
+    switch (status) {
+      case 'open':
+        return colors.warning;
+      case 'in_progress':
+        return colors.info;
+      case 'resolved':
+        return colors.success;
+      case 'closed':
+        return colors.textLight;
+      default:
+        return colors.textLight;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const handleTicketPress = (ticket: Ticket) => {
+    router.push(`/(admin)/ticket/${ticket._id}`);
+  };
+
+  const getTicketStats = () => {
+    const open = tickets.filter(t => t.status === 'open').length;
+    const inProgress = tickets.filter(t => t.status === 'in_progress').length;
+    const resolved = tickets.filter(t => t.status === 'resolved').length;
+    const urgent = tickets.filter(t => t.priority === 'urgent').length;
+    
+    return { open, inProgress, resolved, urgent };
+  };
+
+  const stats = getTicketStats();
+
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.container}>
+        <Header title="Help & Support" showBack={true} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <Wrapper style={styles.screen}>
-      <DataList<Ticket>
-        data={tickets}
-        renderItem={({ item }) => (
-          <Card onPress={() => setSelected(item)} style={styles.card}>
-            <View style={styles.cardRow}>
-              <View style={styles.cardInfo}>
-                <View style={styles.cardTopRow}>
-                  <PriorityBadge priority={item.priority} />
-                  <StatusBadge status={ticketStatusToBadge(item.status)} size="sm" />
-                </View>
-                <Text style={styles.subject} numberOfLines={1}>{item.subject}</Text>
-                <Text style={styles.meta}>{item.userName} · {new Date(item.createdAt).toLocaleDateString()}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.textLight} />
+    <View style={styles.container}>
+      <Header title="Help & Support" showBack={true} />
+
+      <ScrollView
+        style={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.headerCard}>
+          <Text style={styles.headerTitle}>Support Ticket Management</Text>
+          <Text style={styles.headerDescription}>
+            Manage customer support tickets, respond to inquiries, and track resolution status.
+          </Text>
+
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.open}</Text>
+              <Text style={styles.statLabel}>Open</Text>
             </View>
-          </Card>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.inProgress}</Text>
+              <Text style={styles.statLabel}>In Progress</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.urgent}</Text>
+              <Text style={styles.statLabel}>Urgent</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{pagination.total}</Text>
+              <Text style={styles.statLabel}>Total</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setShowFilters(!showFilters)}
+          >
+            <Text style={styles.filterButtonText}>Filters</Text>
+            <Ionicons 
+              name={showFilters ? 'chevron-up' : 'chevron-down'} 
+              size={16} 
+              color={colors.textInverse} 
+            />
+          </TouchableOpacity>
+        </View>
+
+        {showFilters && (
+          <View style={styles.filtersContainer}>
+            <View style={styles.filterRow}>
+              <View style={styles.filterSelect}>
+                <TouchableOpacity
+                  style={styles.filterSelectButton}
+                  onPress={() => setShowStatusFilter(!showStatusFilter)}
+                >
+                  <Text style={styles.filterSelectText}>
+                    {FILTER_OPTIONS.status.find(s => s.value === filters.status)?.label}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {showStatusFilter && (
+                  <View style={styles.filterOptions}>
+                    {FILTER_OPTIONS.status.map((option) => (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[
+                          styles.filterOption,
+                          filters.status === option.value && styles.selectedOption
+                        ]}
+                        onPress={() => handleFilterChange('status', option.value)}
+                      >
+                        <Text style={styles.filterOptionText}>{option.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.filterSelect}>
+                <TouchableOpacity
+                  style={styles.filterSelectButton}
+                  onPress={() => setShowCategoryFilter(!showCategoryFilter)}
+                >
+                  <Text style={styles.filterSelectText}>
+                    {FILTER_OPTIONS.category.find(c => c.value === filters.category)?.label}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {showCategoryFilter && (
+                  <View style={styles.filterOptions}>
+                    {FILTER_OPTIONS.category.map((option) => (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[
+                          styles.filterOption,
+                          filters.category === option.value && styles.selectedOption
+                        ]}
+                        onPress={() => handleFilterChange('category', option.value)}
+                      >
+                        <Text style={styles.filterOptionText}>{option.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.filterRow}>
+              <View style={styles.filterSelect}>
+                <TouchableOpacity
+                  style={styles.filterSelectButton}
+                  onPress={() => setShowPriorityFilter(!showPriorityFilter)}
+                >
+                  <Text style={styles.filterSelectText}>
+                    {FILTER_OPTIONS.priority.find(p => p.value === filters.priority)?.label}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {showPriorityFilter && (
+                  <View style={styles.filterOptions}>
+                    {FILTER_OPTIONS.priority.map((option) => (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[
+                          styles.filterOption,
+                          filters.priority === option.value && styles.selectedOption
+                        ]}
+                        onPress={() => handleFilterChange('priority', option.value)}
+                      >
+                        <Text style={styles.filterOptionText}>{option.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+              <View style={{ flex: 1 }} />
+            </View>
+          </View>
         )}
-        keyExtractor={(item) => item.id}
-        loading={loading}
-        refreshing={refreshing}
-        onRefresh={() => load(true)}
-        emptyMessage="No tickets."
-        contentContainerStyle={styles.listContent}
-      />
-      <TicketDetailModal ticket={selected} onClose={() => setSelected(null)} onAction={handleAction} />
-    </Wrapper>
+
+        {tickets.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="document-text-outline" size={64} color={colors.textLight} />
+            <Text style={styles.emptyText}>No support tickets found</Text>
+          </View>
+        ) : (
+          <View style={styles.ticketsList}>
+            {tickets.map((ticket) => (
+              <TouchableOpacity
+                key={ticket._id}
+                style={[
+                  styles.ticketCard,
+                  { borderLeftColor: getTicketBorderColor(ticket.status) }
+                ]}
+                onPress={() => handleTicketPress(ticket)}
+              >
+                <View style={styles.ticketHeader}>
+                  <View style={styles.ticketInfo}>
+                    <Text style={styles.ticketNumber}>#{ticket.ticketNumber}</Text>
+                    <Text style={styles.ticketSubject} numberOfLines={2}>
+                      {ticket.subject}
+                    </Text>
+                    <Text style={styles.userInfo}>
+                      {typeof ticket.userId === 'object' ? ticket.userId.name : 'Unknown User'} • {typeof ticket.userId === 'object' ? ticket.userId.email : ''}
+                    </Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(ticket.status).backgroundColor }]}>
+                    <Text style={[styles.statusText, { color: getStatusColor(ticket.status).color }]}>
+                      {ticket.status.replace('_', ' ')}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.ticketMeta}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.ticketCategory}>{ticket.category}</Text>
+                    <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(ticket.priority).backgroundColor }]}>
+                      <Text style={[styles.priorityText, { color: getPriorityColor(ticket.priority).color }]}>
+                        {ticket.priority}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.ticketDate}>{formatDate(ticket.createdAt)}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.surface },
-  listContent: { paddingBottom: theme.spacing['2xl'] },
-  card: { marginHorizontal: theme.spacing.base, marginVertical: theme.spacing.xs },
-  cardRow: { flexDirection: 'row', alignItems: 'center' },
-  cardInfo: { flex: 1, gap: 4, marginRight: theme.spacing.sm },
-  cardTopRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
-  subject: { fontSize: theme.fontSizes.base, color: theme.colors.text, fontWeight: theme.fontWeights.medium as any },
-  meta: { fontSize: theme.fontSizes.xs, color: theme.colors.textSecondary },
-  priorityBadge: { paddingHorizontal: theme.spacing.sm, paddingVertical: 2, borderRadius: theme.borderRadius.full },
-  priorityText: { fontSize: theme.fontSizes.xs, fontWeight: theme.fontWeights.bold as any, letterSpacing: 0.5 },
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: theme.colors.background, maxHeight: '80%',
-    borderTopLeftRadius: theme.borderRadius.xl, borderTopRightRadius: theme.borderRadius.xl,
-    padding: theme.spacing.xl, gap: theme.spacing.md,
-  },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  modalTitle: { fontSize: theme.fontSizes.lg, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.text },
-  detailRow: { paddingVertical: theme.spacing.sm, borderBottomWidth: 1, borderBottomColor: theme.colors.borderLight, gap: 4 },
-  detailLabel: { fontSize: theme.fontSizes.xs, color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
-  detailValue: { fontSize: theme.fontSizes.base, color: theme.colors.text },
-  modalActions: { flexDirection: 'row', gap: theme.spacing.sm, marginTop: theme.spacing.sm },
-  modalBtn: { flex: 1 },
-});

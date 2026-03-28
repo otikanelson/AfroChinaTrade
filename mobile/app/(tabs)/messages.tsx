@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Header } from '../../components/Header';
 import { messageService } from '../../services/MessageService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -34,6 +34,7 @@ export default function MessagesTab() {
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const { isAuthenticated, user } = useAuth();
   const { unreadCount, refreshUnreadCount } = useMessages();
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
@@ -47,11 +48,41 @@ export default function MessagesTab() {
     }
   }, [isAuthenticated, isAdmin]);
 
-  const loadMessageThreads = async (showRefreshIndicator = false) => {
+  // Auto-refresh when screen comes into focus (e.g., returning from a thread)
+  // This ensures that when users navigate back from conversation threads,
+  // the message list and unread counts are updated to reflect any messages
+  // that were marked as read while viewing the conversation
+  useFocusEffect(
+    React.useCallback(() => {
+      if (isAuthenticated && !isAdmin) {
+        // Set auto-refreshing state for visual feedback
+        setIsAutoRefreshing(true);
+        
+        // Add a small delay to ensure any read status updates are processed
+        const refreshTimeout = setTimeout(() => {
+          // Refresh both unread count and message threads
+          Promise.all([
+            refreshUnreadCount(),
+            loadMessageThreads(false, true) // isAutoRefresh = true
+          ]).finally(() => {
+            setIsAutoRefreshing(false);
+          });
+        }, 300); // 300ms delay
+        
+        // Cleanup timeout if component unmounts
+        return () => {
+          clearTimeout(refreshTimeout);
+          setIsAutoRefreshing(false);
+        };
+      }
+    }, [isAuthenticated, isAdmin, refreshUnreadCount])
+  );
+
+  const loadMessageThreads = async (showRefreshIndicator = false, isAutoRefresh = false) => {
     try {
       if (showRefreshIndicator) {
         setRefreshing(true);
-      } else {
+      } else if (!isAutoRefresh) {
         setIsLoading(true);
       }
       
@@ -59,8 +90,10 @@ export default function MessagesTab() {
       
       if (response.success && response.data) {
         setThreads(response.data);
-        // Also refresh unread count
-        await refreshUnreadCount();
+        // Also refresh unread count if not auto-refresh (to avoid double calls)
+        if (!isAutoRefresh) {
+          await refreshUnreadCount();
+        }
       }
     } catch (error: any) {
       console.error('Failed to load message threads:', error);
@@ -141,11 +174,11 @@ export default function MessagesTab() {
       onPress={() => handleThreadPress(thread.threadId)}
     >
       <View style={styles.threadAvatar}>
-        <Ionicons name="headset" size={24} color={colors.textInverse} />
+        <Ionicons name="chatbubble" size={24} color={colors.textInverse} />
       </View>
       <View style={styles.threadContent}>
         <View style={styles.threadHeader}>
-          <Text style={styles.threadName}>Support</Text>
+          <Text style={styles.threadName}>AfroVendor</Text>
           <Text style={styles.threadTime}>{formatDate(thread.lastMessageAt)}</Text>
         </View>
         <Text style={styles.threadMessage} numberOfLines={2}>
@@ -220,7 +253,7 @@ export default function MessagesTab() {
       marginTop: spacing.lg,
     },
     signInButtonText: {
-      color: colors.background,
+      color: colors.text,
       fontSize: fontSizes.base,
       fontWeight: fontWeights.semibold,
     },
@@ -393,17 +426,22 @@ export default function MessagesTab() {
     <View style={styles.container}>
       <Header
         title="Messages"
-        subtitle="Start chatting to get quotes"
+        subtitle={isAutoRefreshing ? "Refreshing..." : "Start chatting to get quotes"}
         rightAction={
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={handleClearHistory}
-            accessibilityLabel="Clear message history"
-            accessibilityHint="Removes all message threads from your account"
-          >
-            <Ionicons name="trash-outline" size={20} color={colors.error} />
-            <Text style={styles.clearButtonText}>Clear</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            {isAutoRefreshing && (
+              <ActivityIndicator size="small" color={colors.primary} />
+            )}
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={handleClearHistory}
+              accessibilityLabel="Clear message history"
+              accessibilityHint="Removes all message threads from your account"
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
+              <Text style={styles.clearButtonText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
         }
       />
 

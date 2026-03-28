@@ -13,11 +13,11 @@ const MessagesContext = createContext<MessagesContextType | undefined>(undefined
 
 export function MessagesProvider({ children }: { children: React.ReactNode }) {
   const [unreadCount, setUnreadCount] = useState(0);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
 
-  // Load unread count when user is authenticated
+  // Load unread count when user is authenticated (but not for admins)
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !isAdmin) {
       refreshUnreadCount();
       
       // Set up polling for unread count every 10 minutes
@@ -26,10 +26,10 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     } else {
       setUnreadCount(0);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isAdmin]);
 
   const refreshUnreadCount = async () => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || isAdmin) {
       setUnreadCount(0);
       return;
     }

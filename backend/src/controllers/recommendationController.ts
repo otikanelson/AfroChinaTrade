@@ -116,14 +116,14 @@ export const getUserBrowsingHistory = async (req: Request, res: Response): Promi
     // Build cache key
     const cacheKey = `browsing_history:${userId}:${pageNum}:${limitNum}:${interactionType || 'all'}:${startDate || ''}:${endDate || ''}`;
     
-    // Try to get from cache (only for first page without date filters)
-    if (pageNum === 1 && !startDate && !endDate) {
-      const cached = await cacheService.get(cacheKey);
-      if (cached) {
-        res.status(200).json(cached);
-        return;
-      }
-    }
+    // Disable caching for browsing history to ensure fresh data
+    // if (pageNum === 1 && !startDate && !endDate) {
+    //   const cached = await cacheService.get(cacheKey);
+    //   if (cached) {
+    //     res.status(200).json(cached);
+    //     return;
+    //   }
+    // }
 
     // Build filter
     const filter: any = { userId: new mongoose.Types.ObjectId(userId) };
@@ -150,8 +150,13 @@ export const getUserBrowsingHistory = async (req: Request, res: Response): Promi
       BrowsingHistory.find(filter)
         .populate({
           path: 'productId',
-          select: 'name price images category rating',
-          options: { lean: true }
+          select: 'name price images category rating stock viewCount reviewCount description discount supplier supplierId',
+          options: { lean: true },
+          populate: {
+            path: 'supplierId',
+            select: 'name location rating verified',
+            options: { lean: true }
+          }
         })
         .sort({ timestamp: -1 })
         .skip(skip)
@@ -179,10 +184,10 @@ export const getUserBrowsingHistory = async (req: Request, res: Response): Promi
       }
     };
 
-    // Cache first page results for 5 minutes
-    if (pageNum === 1 && !startDate && !endDate) {
-      await cacheService.set(cacheKey, response, 300); // 5 minutes TTL
-    }
+    // Don't cache browsing history to ensure fresh data
+    // if (pageNum === 1 && !startDate && !endDate) {
+    //   await cacheService.set(cacheKey, response, 300); // 5 minutes TTL
+    // }
 
     res.status(200).json(response);
 

@@ -7,6 +7,7 @@ export interface IMessage extends Document {
   senderName: string;
   senderRole: 'customer' | 'admin';
   text: string;
+  productId?: mongoose.Types.ObjectId;
   productImage?: string;
   productName?: string;
   isRead: boolean;
@@ -44,6 +45,11 @@ const MessageSchema = new Schema<IMessage>(
       required: [true, 'Message text is required'],
       trim: true,
       maxlength: [1000, 'Message text must not exceed 1000 characters'],
+    },
+    productId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Product',
+      required: false,
     },
     productImage: {
       type: String,

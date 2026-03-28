@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +15,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { tokenManager } from '../../services/api/tokenManager';
 import { API_BASE_URL } from '../../constants/config';
 import { useTheme } from '../../contexts/ThemeContext';
+import { Button } from '../../components/admin/Button';
 
 interface OrderItem {
   productId: string;
@@ -118,6 +120,30 @@ export default function OrderDetailScreen() {
       default:
         return 'help-circle-outline';
     }
+  };
+
+  const handleRequestRefund = () => {
+    if (!order) return;
+    
+    if (order.status !== 'delivered') {
+      Alert.alert(
+        'Refund Not Available',
+        'Refunds can only be requested for delivered orders.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    if (order.paymentStatus === 'refunded') {
+      Alert.alert(
+        'Already Refunded',
+        'This order has already been refunded.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    router.push(`/refund-request/${order._id}`);
   };
 
   const formatDate = (dateString: string) => {
@@ -308,6 +334,18 @@ export default function OrderDetailScreen() {
       color: colors.text,
       lineHeight: 22,
     },
+    actionButtons: {
+      padding: spacing.base,
+      gap: spacing.sm,
+    },
+    refundButton: {
+      backgroundColor: colors.error + '15',
+      borderColor: colors.error,
+      borderWidth: 1,
+    },
+    refundButtonText: {
+      color: colors.error,
+    },
   });
 
   if (loading) {
@@ -454,6 +492,30 @@ export default function OrderDetailScreen() {
             <Text style={styles.notesText}>{order.notes}</Text>
           </View>
         )}
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          {order.status === 'delivered' && order.paymentStatus !== 'refunded' && (
+            <Button
+              label="Request Refund"
+              onPress={handleRequestRefund}
+              style={styles.refundButton}
+              textStyle={styles.refundButtonText}
+              variant="secondary"
+            />
+          )}
+          
+          {order.paymentStatus === 'refunded' && (
+            <View style={[styles.section, { backgroundColor: colors.error + '10', borderColor: colors.error, borderWidth: 1 }]}>
+              <Text style={[styles.sectionTitle, { color: colors.error }]}>
+                Order Refunded
+              </Text>
+              <Text style={styles.infoValue}>
+                This order has been refunded. Check your refunds page for details.
+              </Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

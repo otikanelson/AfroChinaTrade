@@ -150,6 +150,35 @@ export const updateUserStatus = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Find the admin making the request
+    const adminUser = await User.findById(req.userId);
+    if (!adminUser) {
+      return res.status(401).json({ 
+        status: 'error',
+        message: 'Admin user not found',
+        errorCode: 'ADMIN_NOT_FOUND'
+      });
+    }
+
+    // Admin restrictions
+    // 1. Admin cannot manage their own account
+    if (id === req.userId) {
+      return res.status(403).json({ 
+        status: 'error',
+        message: 'You cannot manage your own account',
+        errorCode: 'CANNOT_MANAGE_SELF'
+      });
+    }
+
+    // 2. Admin cannot block other admin accounts (only super_admin can)
+    if (currentUser.role === 'admin' && status === 'blocked' && adminUser.role !== 'super_admin') {
+      return res.status(403).json({ 
+        status: 'error',
+        message: 'Only super administrators can block admin accounts',
+        errorCode: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
     // Validate suspension requirements
     if (status === 'suspended') {
       if (!reason) {
@@ -168,15 +197,35 @@ export const updateUserStatus = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Validate blocking requirements
+    if (status === 'blocked') {
+      if (!reason) {
+        return res.status(400).json({ 
+          status: 'error',
+          message: 'Block reason is required when blocking a user',
+          errorCode: 'BLOCK_REASON_REQUIRED'
+        });
+      }
+    }
+
     // Prepare update data
     const updateData: any = { status };
+    
     if (status === 'suspended') {
       updateData.suspensionReason = reason;
       updateData.suspensionDuration = new Date(suspensionDuration);
-    } else {
-      // Clear suspension fields if not suspended
+      // Clear block reason if switching from blocked to suspended
+      updateData.blockReason = undefined;
+    } else if (status === 'blocked') {
+      updateData.blockReason = reason;
+      // Clear suspension fields if switching from suspended to blocked
       updateData.suspensionReason = undefined;
       updateData.suspensionDuration = undefined;
+    } else {
+      // Clear all restriction fields if reactivating
+      updateData.suspensionReason = undefined;
+      updateData.suspensionDuration = undefined;
+      updateData.blockReason = undefined;
     }
 
     const user = await User.findByIdAndUpdate(
@@ -605,6 +654,100 @@ export const deleteAccount = async (req: AuthRequest, res: Response) => {
       status: 'error',
       message: error.message,
       errorCode: 'ACCOUNT_DELETE_ERROR'
+    });
+  }
+};
+
+// Get user notification settings
+export const getNotificationSettings = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId;
+
+    const user = await User.findById(userId).select('notificationSettings');
+    
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found',
+        errorCode: 'USER_NOT_FOUND'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: user.notificationSettings
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+      errorCode: 'NOTIFICATION_SETTINGS_FETCH_ERROR'
+    });
+  }
+};
+
+// Update user notification settings
+export const updateNotificationSettings = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId;
+    const settings = req.body;
+
+    // Validate settings structure
+    const validKeys = [
+      'orderUpdates',
+      'promotions', 
+      'newProducts',
+      'priceDrops',
+      'newsletter',
+      'pushNotifications',
+      'emailNotifications',
+      'smsNotifications'
+    ];
+
+    const invalidKeys = Object.keys(settings).filter(key => !validKeys.includes(key));
+    if (invalidKeys.length > 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Invalid settings keys: ${invalidKeys.join(', ')}`,
+        errorCode: 'INVALID_SETTINGS_KEYS'
+      });
+    }
+
+    // Validate that all values are boolean
+    for (const [key, value] of Object.entries(settings)) {
+      if (typeof value !== 'boolean') {
+        return res.status(400).json({
+          status: 'error',
+          message: `Setting '${key}' must be a boolean value`,
+          errorCode: 'INVALID_SETTING_VALUE'
+        });
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { notificationSettings: settings } },
+      { new: true, runValidators: true }
+    ).select('notificationSettings');
+
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found',
+        errorCode: 'USER_NOT_FOUND'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: user.notificationSettings,
+      message: 'Notification settings updated successfully'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+      errorCode: 'NOTIFICATION_SETTINGS_UPDATE_ERROR'
     });
   }
 };

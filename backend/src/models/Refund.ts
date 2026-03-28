@@ -9,6 +9,7 @@ export interface IRefund extends Document {
   status: 'pending' | 'approved' | 'rejected' | 'processed';
   processedBy?: mongoose.Types.ObjectId;
   processedAt?: Date;
+  adminNotes?: string;
   createdAt: Date;
 }
 
@@ -52,6 +53,10 @@ const RefundSchema = new Schema<IRefund>(
     },
     processedAt: {
       type: Date,
+    },
+    adminNotes: {
+      type: String,
+      trim: true,
     },
   },
   {

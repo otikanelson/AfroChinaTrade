@@ -29,11 +29,15 @@ export const connectDatabase = async (
   while (retries < maxRetries) {
     try {
       await mongoose.connect(mongoUri, {
-        serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 45000,
-        connectTimeoutMS: 10000,
+        serverSelectionTimeoutMS: 30000, // Increased from 5000
+        socketTimeoutMS: 60000, // Increased from 45000
+        connectTimeoutMS: 30000, // Increased from 10000
         retryWrites: true,
         w: 'majority',
+        maxPoolSize: 10, // Maintain up to 10 socket connections
+        minPoolSize: 5, // Maintain a minimum of 5 socket connections
+        maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+        // Removed bufferMaxEntries and bufferCommands - these are deprecated/unsupported
       });
       console.log('✓ MongoDB connected successfully');
       console.log(`✓ Database: ${mongoose.connection.name}`);

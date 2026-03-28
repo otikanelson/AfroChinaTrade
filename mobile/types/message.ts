@@ -19,7 +19,7 @@ export interface MessageThread {
   productId?: string;
   productName?: string;
   productImage?: string;
-  threadType: 'general' | 'product_inquiry' | 'quote_request';
+  threadType: 'general' | 'product_inquiry' | 'quote_request' | 'inquiry' | 'quotation';
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;
@@ -35,5 +35,5 @@ export interface SendMessageRequest {
   productId?: string;
   productImage?: string;
   productName?: string;
-  threadType?: 'general' | 'product_inquiry' | 'quote_request';
+  threadType?: 'general' | 'product_inquiry' | 'quote_request' | 'inquiry' | 'quotation';
 }

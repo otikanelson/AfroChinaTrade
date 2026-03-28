@@ -59,7 +59,7 @@ const RespondModal: React.FC<RespondModalProps> = ({ review, onClose, onSubmit }
           />
           <View style={styles.modalActions}>
             <Button label="Cancel" variant="secondary" onPress={() => { setText(''); onClose(); }} style={styles.modalBtn} />
-            <Button label="Post Response" onPress={() => { if (review) { onSubmit(review.id, text.trim()); setText(''); } }} disabled={!text.trim()} style={styles.modalBtn} />
+            <Button label="Post Response" onPress={() => { if (review) { onSubmit(review._id, text.trim()); setText(''); } }} disabled={!text.trim()} style={styles.modalBtn} />
           </View>
         </View>
       </View>
@@ -83,16 +83,11 @@ export default function ReviewsScreen({ embedded }: Props) {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const response = await reviewService.getReviews({
-        page: 1,
-        limit: 100, // Get all reviews for now
-      });
+      const response = await reviewService.getAllReviews(1, 100);
       
-      if (response.success && response.data) {
-        setReviews(response.data);
-      } else {
-        setReviews([]);
-      }
+      // Handle both possible response structures
+      const reviewsData = response.reviews || response.data || [];
+      setReviews(reviewsData);
       
       // For now, we'll skip responses and flagged reviews since they're not implemented in the backend
       setResponses([]);
@@ -120,13 +115,14 @@ export default function ReviewsScreen({ embedded }: Props) {
     try {
       const apiResponse = await reviewService.addAdminResponse(reviewId, response);
       
-      if (apiResponse.success) {
+      // The API returns { message: string; review: Review }
+      if (apiResponse.message) {
         const newResp: ReviewResponse = { reviewId, response, createdAt: new Date().toISOString() };
         setResponses((prev) => [newResp, ...prev.filter((r) => r.reviewId !== reviewId)]);
         setRespondTo(null);
         mobileToastManager.success('Response posted', 'Done');
       } else {
-        throw new Error(apiResponse.error?.message || 'Failed to post response');
+        throw new Error('Failed to post response');
       }
     } catch (error) {
       console.error('Error posting review response:', error);
@@ -170,8 +166,8 @@ export default function ReviewsScreen({ embedded }: Props) {
       <DataList<Review>
         data={filtered}
         renderItem={({ item }) => {
-          const response = responses.find((r) => r.reviewId === item.id);
-          const isFlagged = flagged.has(item.id);
+          const response = responses.find((r) => r.reviewId === item._id);
+          const isFlagged = flagged.has(item._id);
           return (
             <Card style={isFlagged ? { ...styles.card, ...styles.cardFlagged } : styles.card}>
               <View style={styles.cardHeader}>
@@ -181,7 +177,7 @@ export default function ReviewsScreen({ embedded }: Props) {
                 </View>
                 <View style={styles.cardHeaderRight}>
                   <Text style={styles.date}>{new Date(item.createdAt).toLocaleDateString()}</Text>
-                  <TouchableOpacity onPress={() => handleFlag(item.id)} accessibilityRole="button" accessibilityLabel={isFlagged ? 'Remove flag' : 'Flag review'}>
+                  <TouchableOpacity onPress={() => handleFlag(item._id)} accessibilityRole="button" accessibilityLabel={isFlagged ? 'Remove flag' : 'Flag review'}>
                     <Ionicons name={isFlagged ? 'flag' : 'flag-outline'} size={18} color={isFlagged ? theme.colors.error : theme.colors.textLight} />
                   </TouchableOpacity>
                 </View>
@@ -202,7 +198,7 @@ export default function ReviewsScreen({ embedded }: Props) {
             </Card>
           );
         }}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         loading={loading}
         refreshing={refreshing}
         onRefresh={() => load(true)}

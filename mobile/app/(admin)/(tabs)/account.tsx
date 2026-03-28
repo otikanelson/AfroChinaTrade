@@ -8,7 +8,6 @@ import { Header } from '../../../components/Header';
 import { ThemeModal } from '../../../components/ThemeModal';
 import { spacing } from '../../../theme/spacing';
 import { getDisplayPhone } from '../../../utils/phoneUtils';
-import { fontWeights } from '../../../theme';
 
 interface MenuItemProps {
   icon: string;
@@ -194,7 +193,6 @@ export default function AdminAccountTab() {
     sectionTitle: {
       fontSize: fontSizes.base,
       fontFamily: fonts.bold,
-      fontWeight: fontWeights.bold,
       color: colors.text,
       marginHorizontal: spacing.lg,
       marginTop: spacing.md,
@@ -293,10 +291,20 @@ export default function AdminAccountTab() {
           </View>
           <View style={styles.gridItem}>
             <MenuItem
-              icon="flag"
-              title="Reports"
+              icon="business"
+              title="Suppliers"
               subtitle=""
-              onPress={() => router.push('/(admin)/moderation/reports')}
+              onPress={() => router.push('/(admin)/suppliers')}
+              variant="grid"
+              showChevron={false}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <MenuItem
+              icon="notifications"
+              title="notifications"
+              subtitle=""
+              onPress={() => router.push('/(admin)/notifications')}
               variant="grid"
               showChevron={false}
             />

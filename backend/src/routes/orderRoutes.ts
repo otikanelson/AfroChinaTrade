@@ -8,22 +8,20 @@ import {
   cancelOrder,
   checkout,
 } from '../controllers/orderController';
-import { verifyToken, authorize } from '../middleware/auth';
+import { verifyToken, authorize, AuthRequest } from '../middleware/auth';
+import { checkUserStatus, allowSuspendedUsers } from '../middleware/userStatus';
 
 const router = Router();
 
-// All routes require authentication
-router.use(verifyToken);
+// Customer routes - suspended users cannot place orders but can view them
+router.post('/', verifyToken, checkUserStatus, createOrder);
+router.post('/checkout', verifyToken, checkUserStatus, checkout);
+router.get('/', verifyToken, allowSuspendedUsers, getOrders); // Allow suspended users to view orders
+router.get('/:id', verifyToken, allowSuspendedUsers, getOrderById); // Allow suspended users to view order details
+router.delete('/:id', verifyToken, checkUserStatus, cancelOrder); // Suspended users cannot cancel orders
 
-// Customer and admin routes
-router.post('/', createOrder);
-router.post('/checkout', checkout);
-router.get('/', getOrders);
-router.get('/:id', getOrderById);
-router.delete('/:id', cancelOrder);
-
-// Admin only routes
-router.patch('/:id/status', authorize('admin', 'super_admin'), updateOrderStatus);
-router.patch('/:id/tracking', authorize('admin', 'super_admin'), updateTrackingNumber);
+// Admin only routes - no user status check needed
+router.patch('/:id/status', verifyToken, authorize('admin', 'super_admin'), updateOrderStatus);
+router.patch('/:id/tracking', verifyToken, authorize('admin', 'super_admin'), updateTrackingNumber);
 
 export default router;

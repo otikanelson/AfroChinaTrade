@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { FormField } from './FormField';
 import { theme } from '../../../theme';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 interface PolicyData {
   paymentPolicy?: string;
@@ -26,12 +27,38 @@ export const PolicyFields: React.FC<PolicyFieldsProps> = ({
   helperText,
   testID,
 }) => {
+  const { colors } = useTheme();
   const updatePolicy = (field: keyof PolicyData, value: string) => {
     onPoliciesChange({
       ...policies,
       [field]: value,
     });
   };
+
+  const styles = StyleSheet.create({
+    container: {
+      marginBottom: theme.spacing.lg,
+    },
+    label: {
+      fontSize: theme.fontSizes.base,
+      fontWeight: theme.fontWeights.semibold,
+      color: colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    helperText: {
+      fontSize: theme.fontSizes.sm,
+      color: colors.textSecondary,
+      marginBottom: theme.spacing.base,
+    },
+    fieldsContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.base,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: theme.spacing.sm,
+    },
+  });
 
   return (
     <View style={styles.container} testID={testID}>
@@ -92,28 +119,3 @@ export const PolicyFields: React.FC<PolicyFieldsProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: theme.spacing.lg,
-  },
-  label: {
-    fontSize: theme.fontSizes.base,
-    fontWeight: theme.fontWeights.semibold,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.sm,
-  },
-  helperText: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.base,
-  },
-  fieldsContainer: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.base,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    gap: theme.spacing.sm,
-  },
-});

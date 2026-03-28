@@ -26,14 +26,39 @@ export interface Product {
   lastViewedAt?: string;
 }
 
+export interface CollectionFilter {
+  type: 'category' | 'name_contains' | 'tag' | 'price_range' | 'rating_min' | 'discount_min' | 'supplier';
+  value: string | number | { min?: number; max?: number };
+  operator?: 'equals' | 'contains' | 'gte' | 'lte' | 'in';
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  description?: string;
+  filters: CollectionFilter[];
+  isActive: boolean;
+  displayOrder: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  productCount?: number;
+}
+
 export interface Supplier {
   id?: string;
   _id?: string; // MongoDB ObjectId
   name: string;
   email?: string;
+  phone?: string;
+  address?: string;
+  location: string;
+  logo?: string; // URL to supplier logo image
+  description?: string;
+  website?: string;
   verified: boolean;
   rating: number;
-  location: string;
+  reviewCount?: number;
   responseTime?: string;
 }
 
@@ -64,7 +89,12 @@ export interface OrderItem {
 export interface Order {
   _id: string;
   orderId: string;
-  userId: string;
+  userId: string | {
+    _id: string;
+    name: string;
+    email: string;
+    phone?: string;
+  };
   items: OrderItem[];
   totalAmount: number;
   status: OrderStatus;
@@ -121,9 +151,14 @@ export interface Refund {
   type: 'full' | 'partial';
   amount: number;
   reason: string;
-  status: 'pending' | 'processing' | 'completed' | 'rejected';
-  processedBy?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'processed';
+  processedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
   processedAt?: string;
+  adminNotes?: string;
   createdAt: string;
 }
 

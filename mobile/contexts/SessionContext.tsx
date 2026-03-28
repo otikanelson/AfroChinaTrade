@@ -14,8 +14,8 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
-const TOKEN_REFRESH_INTERVAL = 25 * 60 * 1000; // Refresh token every 25 minutes
+const SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes (1 hour) in milliseconds
+const TOKEN_REFRESH_INTERVAL = 50 * 60 * 1000; // Refresh token every 50 minutes
 const ACTIVITY_CHECK_INTERVAL = 60 * 1000; // Check session every minute
 const LAST_ACTIVITY_KEY = 'last_activity';
 
@@ -92,9 +92,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const now = new Date();
     const timeSinceActivity = now.getTime() - lastActivity.getTime();
 
-    // If session has expired (30 minutes of inactivity)
+    // If session has expired (60 minutes of inactivity)
     if (timeSinceActivity > SESSION_TIMEOUT) {
-      console.log('⏰ Session expired due to 30 minutes of inactivity');
+      console.log('⏰ Session expired due to 60 minutes of inactivity');
       setIsSessionActive(false);
       logout();
     }

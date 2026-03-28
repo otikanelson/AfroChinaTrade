@@ -26,10 +26,16 @@ export const ViewTracker: React.FC<ViewTrackerProps> = ({
   const startTime = useRef(Date.now());
 
   useEffect(() => {
+    console.log(`🔍 ViewTracker mounted for product: ${productId}`);
+    console.log(`👤 User: ${user?.id ? `${user.name} (${user.id})` : 'anonymous'}`);
+    
     // Track view when component mounts (only once)
     if (!hasTracked.current && productId) {
+      console.log(`🎯 ViewTracker: About to track view...`);
       trackView();
       hasTracked.current = true;
+    } else {
+      console.log(`⚠️ ViewTracker: Not tracking - hasTracked: ${hasTracked.current}, productId: ${productId}`);
     }
 
     // Track view duration when component unmounts
@@ -37,15 +43,19 @@ export const ViewTracker: React.FC<ViewTrackerProps> = ({
       if (hasTracked.current) {
         const viewDuration = Math.floor((Date.now() - startTime.current) / 1000);
         // You could send this data to analytics if needed
-        console.log(`Product ${productId} viewed for ${viewDuration} seconds`);
+        console.log(`⏱️ Product ${productId} viewed for ${viewDuration} seconds`);
       }
     };
   }, [productId]);
 
   const trackView = async () => {
     try {
+      console.log(`🎯 ViewTracker: Starting to track view for product ${productId}`);
+      console.log(`👤 User ID: ${user?.id || 'anonymous'}`);
+      
       // Generate a session ID for anonymous users
       const sessionId = user?.id ? undefined : generateSessionId();
+      console.log(`🔑 Session ID: ${sessionId || 'none (authenticated user)'}`);
       
       const metadata = {
         source,
@@ -54,14 +64,17 @@ export const ViewTracker: React.FC<ViewTrackerProps> = ({
         imageViews: 1
       };
 
+      console.log(`📊 Calling viewTrackingService.trackProductView...`);
       const response = await viewTrackingService.trackProductView(
         productId,
         sessionId,
         metadata
       );
 
+      console.log(`📈 ViewTracker API response:`, response);
+
       if (response.success && response.data) {
-        console.log(`View tracked for product ${productId}, new count: ${response.data.newViewCount}`);
+        console.log(`✅ View tracked for product ${productId}, new count: ${response.data.newViewCount}`);
         
         // Notify parent component of new view count
         if (onViewTracked) {
@@ -75,9 +88,15 @@ export const ViewTracker: React.FC<ViewTrackerProps> = ({
             onRecommendationsRefresh();
           }, 1000);
         }
+        
+        // Add a small delay to ensure backend has processed the browsing history
+        console.log('⏳ Waiting for backend to process browsing history...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        console.warn(`⚠️ View tracking failed or returned no data:`, response);
       }
     } catch (error) {
-      console.error('Failed to track product view:', error);
+      console.error('❌ Failed to track product view:', error);
       // Don't throw error, view tracking is optional
     }
   };

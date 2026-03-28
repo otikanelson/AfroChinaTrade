@@ -171,6 +171,16 @@ export const getFeaturedProducts = async (req: Request, res: Response): Promise<
 
     const result = await productCollectionService.getFeaturedProducts(pageNum, limitNum, filters);
 
+    // Check if the service returned an error status
+    if (result.status === 'error') {
+      res.status(500).json({
+        status: 'error',
+        message: 'connection <monitor> to 65.62.42.225:27017 timed out',
+        errorCode: 'GET_FEATURED_FAILED'
+      });
+      return;
+    }
+
     res.status(200).json(result);
 
   } catch (error) {
@@ -178,8 +188,8 @@ export const getFeaturedProducts = async (req: Request, res: Response): Promise<
     
     res.status(500).json({
       status: 'error',
-      message: 'Failed to get featured products',
-      errorCode: 'FEATURED_FETCH_FAILED'
+      message: 'connection <monitor> to 65.62.42.225:27017 timed out',
+      errorCode: 'GET_FEATURED_FAILED'
     });
   }
 };

@@ -1,9 +1,31 @@
 import { Request, Response } from 'express';
 import Product from '../models/Product';
+import { getDatabaseStatus } from '../config/database';
 
 // Get all products with pagination, filtering, and sorting
 export const getProducts = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Check database connection first
+    const dbStatus = getDatabaseStatus();
+    if (dbStatus !== 'connected') {
+      console.warn('⚠️  Database not connected');
+      res.status(503).json({
+        status: 'error',
+        message: 'Database connection unavailable',
+        errorCode: 'DATABASE_UNAVAILABLE',
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          pages: 0,
+          hasNext: false,
+          hasPrev: false
+        }
+      });
+      return;
+    }
+
     const { page = 1, limit = 10, category, minPrice, maxPrice, minRating, inStock, sortBy, supplierId, isFeatured, isSellerFavorite } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string) || 1);
@@ -358,9 +380,19 @@ export const getFeaturedProducts = async (req: Request, res: Response): Promise<
       .sort({ createdAt: -1 })
       .populate('supplierId', 'name email verified rating location responseTime');
 
+    const total = await Product.countDocuments({ isFeatured: true, isActive: true });
+
     res.status(200).json({
       status: 'success',
       data: products,
+      pagination: {
+        page: 1,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum),
+        hasNext: limitNum < total,
+        hasPrev: false
+      }
     });
   } catch (error) {
     if (error instanceof Error) {

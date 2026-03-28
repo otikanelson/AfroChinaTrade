@@ -59,13 +59,42 @@ export const verifyToken = async (req: Request, res: Response, next: NextFunctio
       role: string;
     };
 
-    // Verify user still exists and is active
+    // Verify user still exists and get status
     const user = await User.findById(decoded.userId);
-    if (!user || user.status !== 'active') {
+    if (!user) {
       res.status(401).json({
         status: 'error',
-        message: 'User account is not active',
-        errorCode: 'ACCOUNT_INACTIVE',
+        message: 'User account not found',
+        errorCode: 'ACCOUNT_NOT_FOUND',
+      });
+      return;
+    }
+
+    // For blocked users, deny all access
+    if (user.status === 'blocked') {
+      res.status(403).json({
+        status: 'error',
+        message: 'Your account has been blocked',
+        errorCode: 'ACCOUNT_BLOCKED',
+        data: {
+          status: 'blocked',
+          reason: user.blockReason || 'Account blocked by administrator',
+        }
+      });
+      return;
+    }
+
+    // For suspended users, deny authenticated actions but allow guest features
+    if (user.status === 'suspended') {
+      res.status(403).json({
+        status: 'error',
+        message: 'Your account has been suspended',
+        errorCode: 'ACCOUNT_SUSPENDED',
+        data: {
+          status: 'suspended',
+          reason: user.suspensionReason || 'Account suspended by administrator',
+          suspensionDuration: user.suspensionDuration,
+        }
       });
       return;
     }
@@ -142,15 +171,21 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
       role: string;
     };
 
-    // Verify user still exists and is active
+    // Verify user still exists and get status
     const user = await User.findById(decoded.userId);
-    if (!user || user.status !== 'active') {
-      // User not found or inactive, continue without authentication
+    if (!user) {
+      // User not found, continue without authentication
       next();
       return;
     }
 
-    // Set user info if authentication successful
+    // For blocked users, continue without authentication
+    if (user.status === 'blocked') {
+      next();
+      return;
+    }
+
+    // Set user info if authentication successful (including suspended users for guest features)
     req.userId = decoded.userId;
     req.userRole = decoded.role;
     next();

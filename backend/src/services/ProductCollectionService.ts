@@ -1,5 +1,6 @@
 import { Product, BrowsingHistory } from '../models';
 import { cacheService, CacheService } from './CacheService';
+import { getDatabaseStatus } from '../config/database';
 import mongoose from 'mongoose';
 
 interface ProductFilters {
@@ -56,15 +57,30 @@ export class ProductCollectionService {
     filters: ProductFilters = {}
   ): Promise<ProductResponse> {
     try {
-      // Temporarily disable caching to ensure fresh data
-      // const filtersKey = JSON.stringify(filters);
-      // const cacheKey = CacheService.keys.featuredProducts(page) + `:${filtersKey}`;
-      
-      // Try cache first
-      // const cached = await cacheService.get<ProductResponse>(cacheKey);
-      // if (cached) {
-      //   return { ...cached, data: { ...cached.data, metadata: { ...cached.data.metadata, cached: true } } };
-      // }
+      // Check database connection first
+      const dbStatus = getDatabaseStatus();
+      if (dbStatus !== 'connected') {
+        console.warn('⚠️  Database not connected, returning empty featured products');
+        return {
+          status: 'error',
+          data: {
+            products: [],
+            pagination: {
+              page,
+              limit,
+              total: 0,
+              pages: 0,
+              hasNext: false,
+              hasPrev: false
+            },
+            metadata: {
+              collectionType: 'featured',
+              generatedAt: new Date().toISOString(),
+              cached: false
+            }
+          }
+        };
+      }
 
       const skip = (page - 1) * limit;
       
@@ -78,16 +94,24 @@ export class ProductCollectionService {
       // Apply additional filters
       this.applyFilters(filter, filters);
 
-      // Execute query
-      const [products, total] = await Promise.all([
+      // Execute query with timeout handling
+      const queryPromise = Promise.all([
         Product.find(filter)
           .sort({ createdAt: -1, viewCount: -1 })
           .skip(skip)
           .limit(limit)
           .populate('supplierId', 'name email verified rating location responseTime')
-          .lean(),
-        Product.countDocuments(filter)
+          .lean()
+          .maxTimeMS(15000), // 15 second timeout
+        Product.countDocuments(filter).maxTimeMS(10000) // 10 second timeout
       ]);
+
+      // Add timeout wrapper
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Database query timeout')), 20000);
+      });
+
+      const [products, total] = await Promise.race([queryPromise, timeoutPromise]) as [any[], number];
 
       const pagination = this.buildPagination(page, limit, total);
 
@@ -104,13 +128,30 @@ export class ProductCollectionService {
         }
       };
 
-      // Cache the result
-      // await cacheService.set(cacheKey, response, this.cacheTTL.featured);
-
       return response;
     } catch (error) {
       console.error('Error getting featured products:', error);
-      throw error;
+      
+      // Return empty result instead of throwing error
+      return {
+        status: 'error',
+        data: {
+          products: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            pages: 0,
+            hasNext: false,
+            hasPrev: false
+          },
+          metadata: {
+            collectionType: 'featured',
+            generatedAt: new Date().toISOString(),
+            cached: false
+          }
+        }
+      };
     }
   }
 
@@ -187,15 +228,30 @@ export class ProductCollectionService {
     filters: ProductFilters = {}
   ): Promise<ProductResponse> {
     try {
-      // Temporarily disable caching to ensure fresh data
-      // const filtersKey = JSON.stringify(filters);
-      // const cacheKey = CacheService.keys.sellerFavorites(page) + `:${filtersKey}`;
-      
-      // Try cache first
-      // const cached = await cacheService.get<ProductResponse>(cacheKey);
-      // if (cached) {
-      //   return { ...cached, data: { ...cached.data, metadata: { ...cached.data.metadata, cached: true } } };
-      // }
+      // Check database connection first
+      const dbStatus = getDatabaseStatus();
+      if (dbStatus !== 'connected') {
+        console.warn('⚠️  Database not connected, returning empty seller favorites');
+        return {
+          status: 'error',
+          data: {
+            products: [],
+            pagination: {
+              page,
+              limit,
+              total: 0,
+              pages: 0,
+              hasNext: false,
+              hasPrev: false
+            },
+            metadata: {
+              collectionType: 'seller_favorites',
+              generatedAt: new Date().toISOString(),
+              cached: false
+            }
+          }
+        };
+      }
 
       const skip = (page - 1) * limit;
       
@@ -209,16 +265,24 @@ export class ProductCollectionService {
       // Apply additional filters
       this.applyFilters(filter, filters);
 
-      // Execute query
-      const [products, total] = await Promise.all([
+      // Execute query with timeout handling
+      const queryPromise = Promise.all([
         Product.find(filter)
           .sort({ viewCount: -1, rating: -1, createdAt: -1 })
           .skip(skip)
           .limit(limit)
           .populate('supplierId', 'name email verified rating location responseTime')
-          .lean(),
-        Product.countDocuments(filter)
+          .lean()
+          .maxTimeMS(15000), // 15 second timeout
+        Product.countDocuments(filter).maxTimeMS(10000) // 10 second timeout
       ]);
+
+      // Add timeout wrapper
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Database query timeout')), 20000);
+      });
+
+      const [products, total] = await Promise.race([queryPromise, timeoutPromise]) as [any[], number];
 
       const pagination = this.buildPagination(page, limit, total);
 
@@ -235,13 +299,30 @@ export class ProductCollectionService {
         }
       };
 
-      // Cache the result
-      // await cacheService.set(cacheKey, response, this.cacheTTL.sellerFavorites);
-
       return response;
     } catch (error) {
       console.error('Error getting seller favorites:', error);
-      throw error;
+      
+      // Return empty result instead of throwing error
+      return {
+        status: 'error',
+        data: {
+          products: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            pages: 0,
+            hasNext: false,
+            hasPrev: false
+          },
+          metadata: {
+            collectionType: 'seller_favorites',
+            generatedAt: new Date().toISOString(),
+            cached: false
+          }
+        }
+      };
     }
   }
 
@@ -258,6 +339,31 @@ export class ProductCollectionService {
     filters: ProductFilters = {}
   ): Promise<ProductResponse> {
     try {
+      // Check database connection first
+      const dbStatus = getDatabaseStatus();
+      if (dbStatus !== 'connected') {
+        console.warn('⚠️  Database not connected, returning empty trending products');
+        return {
+          status: 'error',
+          data: {
+            products: [],
+            pagination: {
+              page: 1,
+              limit,
+              total: 0,
+              pages: 0,
+              hasNext: false,
+              hasPrev: false
+            },
+            metadata: {
+              collectionType: 'trending',
+              generatedAt: new Date().toISOString(),
+              cached: false
+            }
+          }
+        };
+      }
+
       // Create cache key
       const filtersKey = JSON.stringify(filters);
       const cacheKey = CacheService.keys.trending(timeframe) + `:${filtersKey}`;
@@ -395,7 +501,7 @@ export class ProductCollectionService {
           }
         },
         { $limit: limit }
-      ]);
+      ]).maxTimeMS(20000); // 20 second timeout for aggregation
 
       const response: ProductResponse = {
         status: 'success',
@@ -423,7 +529,27 @@ export class ProductCollectionService {
       return response;
     } catch (error) {
       console.error('Error getting trending products:', error);
-      throw error;
+      
+      // Return empty result instead of throwing error
+      return {
+        status: 'error',
+        data: {
+          products: [],
+          pagination: {
+            page: 1,
+            limit,
+            total: 0,
+            pages: 0,
+            hasNext: false,
+            hasPrev: false
+          },
+          metadata: {
+            collectionType: 'trending',
+            generatedAt: new Date().toISOString(),
+            cached: false
+          }
+        }
+      };
     }
   }
 

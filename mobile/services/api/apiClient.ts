@@ -193,6 +193,16 @@ class SimpleApiClient {
     if (response?.data && typeof response.data === 'object') {
       const errorData = response.data as any;
       
+      // Handle user status errors specially
+      if (errorData.errorCode === 'ACCOUNT_SUSPENDED' || errorData.errorCode === 'ACCOUNT_BLOCKED') {
+        return {
+          code: errorData.errorCode,
+          message: errorData.message,
+          details: errorData.data, // Contains status, reason, suspensionDuration
+          status: response.status,
+        };
+      }
+      
       return {
         code: errorData.errorCode || errorData.error?.code || 'API_ERROR',
         message: errorData.message || errorData.error?.message || error.message,
@@ -295,6 +305,15 @@ class SimpleApiClient {
       };
     } catch (error) {
       const apiError = error as ApiError;
+      
+      // For user status errors, throw them so they can be handled by the auth context
+      if (apiError.code === 'ACCOUNT_SUSPENDED' || apiError.code === 'ACCOUNT_BLOCKED') {
+        const statusError = new Error(apiError.message);
+        (statusError as any).code = apiError.code;
+        (statusError as any).data = apiError.details;
+        throw statusError;
+      }
+      
       return {
         success: false,
         error: {

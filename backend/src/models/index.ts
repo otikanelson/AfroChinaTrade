@@ -9,8 +9,10 @@ export { default as Report, IReport } from './Report';
 export { default as Ticket, ITicket } from './Ticket';
 export { default as Category, ICategory } from './Category';
 export { default as Supplier, ISupplier } from './Supplier';
+export { default as SupplierReview, ISupplierReview } from './SupplierReview';
 export { default as UserAuditLog, IUserAuditLog } from './UserAuditLog';
 export { default as BlacklistedToken, IBlacklistedToken } from './BlacklistedToken';
+export { default as Notification, INotification } from './Notification';
 
 // New e-commerce models
 export { default as Wishlist, IWishlist } from './Wishlist';
@@ -24,3 +26,4 @@ export { default as AppReview, IAppReview } from './AppReview';
 export { default as BrowsingHistory, IBrowsingHistory } from './BrowsingHistory';
 export { default as ProductViewCache, IProductViewCache } from './ProductViewCache';
 export { default as RecommendationCache, IRecommendationCache } from './RecommendationCache';
+export { default as Collection, ICollection } from './Collection';

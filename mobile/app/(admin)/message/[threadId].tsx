@@ -1,20 +1,23 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
-  Platform,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { messageService } from '../../../services/MessageService';
 import { Message, MessageThread } from '../../../types/message';
 import { useMessages } from '../../../contexts/MessagesContext';
-import { theme } from '../../../theme';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { Header } from '../../../components/Header';
 
 // Helper function to format relative time
 function formatRelativeTime(iso: string): string {
@@ -43,68 +46,301 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
-interface BubbleProps {
-  message: Message;
-  isAdmin: boolean;
-}
-
-const Bubble: React.FC<BubbleProps> = ({ message, isAdmin }) => (
-  <View style={[styles.bubbleRow, isAdmin && styles.bubbleRowAdmin]}>
-    {!isAdmin && (
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{message.senderName.charAt(0).toUpperCase()}</Text>
-      </View>
-    )}
-    <View style={[styles.bubble, isAdmin ? styles.bubbleAdmin : styles.bubbleCustomer]}>
-      <Text style={[styles.bubbleText, isAdmin && styles.bubbleTextAdmin]}>{message.text}</Text>
-      <Text style={[styles.bubbleTime, isAdmin && styles.bubbleTimeAdmin]}>
-        {formatTime(message.createdAt)}
-      </Text>
-    </View>
-  </View>
-);
-
 export default function MessageThreadScreen() {
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const [thread, setThread] = useState<MessageThread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const { refreshUnreadCount } = useMessages();
+  const [hasMarkedAsRead, setHasMarkedAsRead] = useState(false);
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+  const [isAutoRefreshActive, setIsAutoRefreshActive] = useState(false);
+  const { refreshUnreadCount, decrementUnreadCount } = useMessages();
+  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const listRef = useRef<FlatList>(null);
 
-  const load = useCallback(async () => {
+  interface BubbleProps {
+    message: Message;
+    isAdmin: boolean;
+    showProductInfo?: boolean;
+  }
+
+  const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.surface },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    emptyText: { fontSize: fontSizes.base, color: colors.textSecondary },
+    listContent: { 
+      padding: spacing.base, 
+      paddingBottom: spacing.md, 
+      flexGrow: 1 
+    },
+    // Message container
+    messageContainer: {
+      marginVertical: 4,
+      maxWidth: '85%',
+      alignSelf: 'flex-start',
+    },
+    messageContainerAdmin: {
+      alignSelf: 'flex-end',
+    },
+    productHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primaryLight,
+      padding: spacing.sm,
+      borderRadius: borderRadius.md,
+      marginBottom: spacing.xs,
+      gap: spacing.sm,
+    },
+    productHeaderImage: {
+      width: 40,
+      height: 40,
+      borderRadius: borderRadius.sm,
+    },
+    productHeaderText: {
+      flex: 1,
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium as any,
+      color: colors.text,
+    },
+    // Bubbles
+    bubbleRow: { 
+      flexDirection: 'row', 
+      alignItems: 'flex-end', 
+      gap: spacing.sm, 
+      marginBottom: 2,
+    },
+    bubbleRowAdmin: { flexDirection: 'row-reverse' },
+    avatar: {
+      width: 32, height: 32, borderRadius: 16,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    },
+    avatarText: { 
+      fontSize: fontSizes.sm, 
+      fontWeight: fontWeights.bold as any, 
+      color: colors.primary 
+    },
+    bubble: {
+      maxWidth: '75%', 
+      borderRadius: borderRadius.lg,
+      paddingHorizontal: spacing.md, 
+      paddingVertical: spacing.sm,
+      flexShrink: 1,
+    },
+    bubbleCustomer: {
+      backgroundColor: colors.background,
+      borderBottomLeftRadius: 4,
+      ...shadows.sm,
+    },
+    bubbleAdmin: {
+      backgroundColor: colors.primary,
+      borderBottomRightRadius: 4,
+    },
+    bubbleText: { 
+      fontSize: fontSizes.base, 
+      color: colors.text, 
+      lineHeight: 20,
+      flexWrap: 'wrap',
+    },
+    bubbleTextAdmin: { color: colors.textInverse },
+    messageTime: { 
+      fontSize: fontSizes.xs, 
+      color: colors.textSecondary, 
+      marginTop: 2,
+      textAlign: 'left',
+    },
+    messageTimeAdmin: { 
+      textAlign: 'right',
+    },
+    // Input bar
+    inputBar: {
+      flexDirection: 'row', 
+      alignItems: 'flex-end', 
+      gap: spacing.sm,
+      paddingHorizontal: spacing.base, 
+      paddingVertical: spacing.sm,
+      borderTopWidth: 1, 
+      borderTopColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    input: {
+      flex: 1, 
+      minHeight: 44, 
+      maxHeight: 120,
+      borderWidth: 1.5, 
+      borderColor: colors.border,
+      borderRadius: borderRadius.full,
+      paddingHorizontal: spacing.md, 
+      paddingVertical: spacing.sm,
+      fontSize: fontSizes.base, 
+      color: colors.text,
+      backgroundColor: colors.surface,
+      textAlignVertical: 'top',
+    },
+    sendBtn: {
+      width: 44, 
+      height: 44, 
+      borderRadius: 22,
+      backgroundColor: colors.primary,
+      alignItems: 'center', 
+      justifyContent: 'center',
+    },
+    sendBtnDisabled: { backgroundColor: colors.textSecondary },
+  });
+
+  const Bubble: React.FC<BubbleProps> = ({ message, isAdmin, showProductInfo }) => (
+    <View style={[styles.messageContainer, isAdmin && styles.messageContainerAdmin]}>
+      {showProductInfo && message.productImage && message.productName && (
+        <View style={styles.productHeader}>
+          <Image
+            source={{ uri: message.productImage }}
+            style={styles.productHeaderImage}
+            resizeMode="cover"
+          />
+          <Text style={styles.productHeaderText} numberOfLines={2}>
+            {message.productName}
+          </Text>
+        </View>
+      )}
+      <View style={[styles.bubbleRow, isAdmin && styles.bubbleRowAdmin]}>
+        {!isAdmin && (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{message.senderName.charAt(0).toUpperCase()}</Text>
+          </View>
+        )}
+        <View style={[styles.bubble, isAdmin ? styles.bubbleAdmin : styles.bubbleCustomer]}>
+          <Text style={[styles.bubbleText, isAdmin && styles.bubbleTextAdmin]}>{message.text}</Text>
+        </View>
+      </View>
+      <Text style={[styles.messageTime, isAdmin && styles.messageTimeAdmin]}>
+        {formatTime(message.createdAt)}
+      </Text>
+    </View>
+  );
+
+  const load = useCallback(async (silentRefresh = false) => {
     try {
       const response = await messageService.getThreadMessages(threadId);
       
       if (response.success && response.data) {
         setThread(response.data.thread);
-        setMessages(response.data.messages);
         
-        // Mark messages as read
-        const unreadMessages = response.data.messages.filter(
-          (msg: Message) => !msg.isRead && msg.senderRole === 'customer'
-        );
-        
-        for (const message of unreadMessages) {
-          try {
-            await messageService.markAsRead(message._id);
-          } catch (error) {
-            console.error('Error marking message as read:', error);
+        // Only update messages if there are new ones (to prevent unnecessary re-renders)
+        const newMessages = response.data.messages;
+        if (JSON.stringify(newMessages) !== JSON.stringify(messages)) {
+          setMessages(newMessages);
+          setHasMarkedAsRead(false); // Reset flag when new messages are loaded
+          
+          // Mark messages as read
+          const unreadMessages = newMessages.filter(
+            (msg: Message) => !msg.isRead && msg.senderRole === 'customer'
+          );
+          
+          if (unreadMessages.length > 0) {
+            // Immediately decrement the unread count for instant UI feedback
+            decrementUnreadCount(unreadMessages.length);
+            
+            // Then mark messages as read on the server
+            for (const message of unreadMessages) {
+              try {
+                await messageService.markAsRead(message._id);
+              } catch (error) {
+                console.error('Error marking message as read:', error);
+              }
+            }
+            
+            // Refresh unread count after marking as read (for sync)
+            setTimeout(() => {
+              refreshUnreadCount();
+            }, 500);
+          }
+          
+          // Auto-scroll to bottom if there are new messages
+          if (newMessages.length > messages.length) {
+            setTimeout(() => {
+              listRef.current?.scrollToEnd({ animated: true });
+            }, 100);
           }
         }
-        
-        // Refresh unread count after marking as read
-        refreshUnreadCount();
       }
     } catch (error) {
       console.error('Error loading thread messages:', error);
     }
-  }, [threadId, refreshUnreadCount]);
+  }, [threadId, refreshUnreadCount, decrementUnreadCount, messages]);
+
+  const startAutoRefresh = useCallback(() => {
+    // Clear any existing interval
+    stopAutoRefresh();
+    
+    // Set up auto-refresh every 10 seconds
+    const interval = setInterval(() => {
+      if (!sending) {
+        load(true); // Silent refresh
+      }
+    }, 10000);
+    
+    setAutoRefreshInterval(interval);
+    setIsAutoRefreshActive(true);
+  }, [load, sending]);
+
+  const stopAutoRefresh = useCallback(() => {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+      setAutoRefreshInterval(null);
+    }
+    setIsAutoRefreshActive(false);
+  }, [autoRefreshInterval]);
 
   useEffect(() => {
     load();
-  }, [load]);
+    // Start auto-refresh
+    startAutoRefresh();
+    
+    // Cleanup auto-refresh on unmount
+    return () => {
+      stopAutoRefresh();
+    };
+  }, [load, startAutoRefresh, stopAutoRefresh]);
+
+  // Mark messages as read when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (messages.length > 0 && !hasMarkedAsRead) {
+        const unreadMessages = messages.filter(
+          (msg: Message) => !msg.isRead && msg.senderRole === 'customer'
+        );
+        
+        if (unreadMessages.length > 0) {
+          setHasMarkedAsRead(true);
+          // Immediately decrement the unread count for instant UI feedback
+          decrementUnreadCount(unreadMessages.length);
+          
+          // Then mark messages as read on the server
+          unreadMessages.forEach(async (message) => {
+            try {
+              await messageService.markAsRead(message._id);
+            } catch (error) {
+              console.error('Error marking message as read:', error);
+            }
+          });
+          
+          // Refresh the global unread count to ensure consistency
+          setTimeout(() => {
+            refreshUnreadCount();
+          }, 500);
+        }
+      }
+      
+      // Resume auto-refresh when screen is focused
+      startAutoRefresh();
+      
+      // Pause auto-refresh when screen loses focus
+      return () => {
+        stopAutoRefresh();
+      };
+    }, [messages, hasMarkedAsRead, decrementUnreadCount, startAutoRefresh, stopAutoRefresh])
+  );
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -155,24 +391,59 @@ export default function MessageThreadScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView 
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+    >
+      <Header 
+        title={thread?.customerName || 'Customer'} 
+        showBack={true}
+        rightAction={
+          isAutoRefreshActive ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <View style={{ 
+                width: 6, 
+                height: 6, 
+                borderRadius: 3, 
+                backgroundColor: colors.success || '#4CAF50' 
+              }} />
+              <Text style={{ 
+                fontSize: fontSizes.xs, 
+                color: colors.textSecondary 
+              }}>Live</Text>
+            </View>
+          ) : undefined
+        }
+      />
+      
       <FlatList
         ref={listRef}
         data={messages}
         keyExtractor={(item) => item._id}
-        renderItem={({ item }) => <Bubble message={item} isAdmin={item.senderRole === 'admin'} />}
+        renderItem={({ item, index }) => (
+          <Bubble 
+            message={item} 
+            isAdmin={item.senderRole === 'admin'} 
+            showProductInfo={index === 0}
+          />
+        )}
         contentContainerStyle={styles.listContent}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+        onContentSizeChange={() => {
+          setTimeout(() => {
+            listRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }}
+        onLayout={() => {
+          setTimeout(() => {
+            listRef.current?.scrollToEnd({ animated: false });
+          }, 100);
+        }}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View style={styles.threadHeader}>
-            <Text style={styles.threadName}>{thread.customerName}</Text>
-            <Text style={styles.threadSub}>Last active {formatRelativeTime(thread.lastMessageAt)}</Text>
-            {thread.productName && (
-              <Text style={styles.productInfo}>Product: {thread.productName}</Text>
-            )}
-          </View>
-        }
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+          autoscrollToTopThreshold: 10,
+        }}
       />
 
       {/* Input bar */}
@@ -182,7 +453,7 @@ export default function MessageThreadScreen() {
           value={input}
           onChangeText={setInput}
           placeholder="Type a message…"
-          placeholderTextColor={theme.colors.textLight}
+          placeholderTextColor={colors.textSecondary}
           multiline
           maxLength={1000}
           returnKeyType="default"
@@ -195,72 +466,9 @@ export default function MessageThreadScreen() {
           accessibilityRole="button"
           accessibilityLabel="Send message"
         >
-          <Ionicons name="send" size={20} color={theme.colors.background} />
+          <Ionicons name="send" size={20} color={colors.textInverse} />
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.surface },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontSize: theme.fontSizes.base, color: theme.colors.textSecondary },
-  listContent: { padding: theme.spacing.base, paddingBottom: theme.spacing.md, gap: theme.spacing.sm },
-  threadHeader: {
-    alignItems: 'center', paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1, borderBottomColor: theme.colors.borderLight,
-    marginBottom: theme.spacing.md,
-  },
-  threadName: { fontSize: theme.fontSizes.base, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.text },
-  threadSub: { fontSize: theme.fontSizes.xs, color: theme.colors.textLight, marginTop: 2 },
-  productInfo: { fontSize: theme.fontSizes.xs, color: theme.colors.primary, marginTop: 4, fontStyle: 'italic' },
-  // Bubbles
-  bubbleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing.sm, marginBottom: theme.spacing.xs },
-  bubbleRowAdmin: { flexDirection: 'row-reverse' },
-  avatar: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: theme.colors.primary + '20',
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  avatarText: { fontSize: theme.fontSizes.sm, fontWeight: theme.fontWeights.bold as any, color: theme.colors.primary },
-  bubble: {
-    maxWidth: '75%', borderRadius: theme.borderRadius.md,
-    paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm,
-    gap: 2,
-  },
-  bubbleCustomer: {
-    backgroundColor: theme.colors.background,
-    borderBottomLeftRadius: 2,
-    ...theme.shadows.sm,
-  },
-  bubbleAdmin: {
-    backgroundColor: theme.colors.primary,
-    borderBottomRightRadius: 2,
-  },
-  bubbleText: { fontSize: theme.fontSizes.base, color: theme.colors.text, lineHeight: 20 },
-  bubbleTextAdmin: { color: theme.colors.background },
-  bubbleTime: { fontSize: 10, color: theme.colors.textLight, alignSelf: 'flex-end' },
-  bubbleTimeAdmin: { color: 'rgba(255,255,255,0.7)' },
-  // Input bar
-  inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.base, paddingVertical: theme.spacing.sm,
-    borderTopWidth: 1, borderTopColor: theme.colors.borderLight,
-    backgroundColor: theme.colors.background,
-  },
-  input: {
-    flex: 1, minHeight: 44, maxHeight: 120,
-    borderWidth: 1.5, borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.full,
-    paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm,
-    fontSize: theme.fontSizes.base, color: theme.colors.text,
-    backgroundColor: theme.colors.surface,
-  },
-  sendBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  sendBtnDisabled: { backgroundColor: theme.colors.borderLight },
-});

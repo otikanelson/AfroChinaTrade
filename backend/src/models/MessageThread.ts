@@ -7,6 +7,7 @@ export interface IMessageThread extends Document {
   customerName: string;
   productId?: mongoose.Types.ObjectId;
   productName?: string;
+  productImage?: string;
   threadType: 'general' | 'product_inquiry' | 'quote_request';
   lastMessage: string;
   lastMessageAt: Date;
@@ -41,6 +42,10 @@ const MessageThreadSchema = new Schema<IMessageThread>(
       required: false,
     },
     productName: {
+      type: String,
+      trim: true,
+    },
+    productImage: {
       type: String,
       trim: true,
     },

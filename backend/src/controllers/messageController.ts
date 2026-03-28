@@ -60,16 +60,25 @@ export const createMessage = async (req: Request, res: Response) => {
         }
       }
 
-      // Get product info if productId is provided
-      let productName = undefined;
-      let productImage = undefined;
-      if (productId) {
+      // Get product info if productId is provided but productName/productImage aren't
+      let finalProductName = productName;
+      let finalProductImage = productImage;
+      
+      if (productId && (!productName || !productImage)) {
         const Product = require('../models/Product').default;
         const product = await Product.findById(productId);
         if (product) {
-          productName = product.name;
-          productImage = product.images && product.images.length > 0 ? product.images[0] : undefined;
+          finalProductName = finalProductName || product.name;
+          finalProductImage = finalProductImage || (product.images && product.images.length > 0 ? product.images[0] : undefined);
         }
+      }
+
+      // Map new message types to existing thread types
+      let mappedThreadType = threadType;
+      if (threadType === 'inquiry') {
+        mappedThreadType = 'product_inquiry';
+      } else if (threadType === 'quotation') {
+        mappedThreadType = 'quote_request';
       }
 
       thread = await MessageThread.create({
@@ -77,8 +86,9 @@ export const createMessage = async (req: Request, res: Response) => {
         customerId: user.role === 'customer' ? req.userId : recipient._id,
         customerName: user.role === 'customer' ? user.name : recipient.name,
         productId: productId || undefined,
-        productName,
-        threadType,
+        productName: finalProductName,
+        productImage: finalProductImage,
+        threadType: mappedThreadType,
         lastMessage: text,
         lastMessageAt: new Date(),
         unreadCount: user.role === 'customer' ? 0 : 1
@@ -113,8 +123,9 @@ export const createMessage = async (req: Request, res: Response) => {
       senderName: user.name,
       senderRole: user.role,
       text,
-      productImage: productImage || undefined,
-      productName: productName || undefined,
+      productId: thread.productId || undefined,
+      productImage: thread.productImage || undefined,
+      productName: thread.productName || undefined,
     });
 
     // Update thread with last message info and increment unread count appropriately
@@ -155,14 +166,19 @@ export const createMessage = async (req: Request, res: Response) => {
 
 export const getThreads = async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, threadType } = req.query;
 
     const pageNum = parseInt(page as string) || 1;
     const limitNum = Math.min(parseInt(limit as string) || 10, 100); // Max 100 per page
     const skip = (pageNum - 1) * limitNum;
 
     // For customers, show their own threads. For admins, show all threads
-    const filter = req.userRole === 'admin' ? {} : { customerId: req.userId };
+    const filter: any = req.userRole === 'admin' ? {} : { customerId: req.userId };
+    
+    // Add thread type filter if provided
+    if (threadType) {
+      filter.threadType = threadType;
+    }
 
     const threads = await MessageThread.find(filter)
       .skip(skip)

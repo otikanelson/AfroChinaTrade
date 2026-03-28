@@ -1,19 +1,25 @@
-import { Router } from 'express';
+import express from 'express';
+import { verifyToken, authorize } from '../middleware/auth';
+import { allowSuspendedUsers } from '../middleware/userStatus';
 import {
   createTicket,
-  getTickets,
+  getUserTickets,
   getTicketById,
-  updateTicketStatus,
-  updateTicketPriority,
+  getAllTickets,
+  updateTicket,
+  getUserSuspensionAppeals
 } from '../controllers/ticketController';
-import { verifyToken, authorize } from '../middleware/auth';
 
-const router = Router();
+const router = express.Router();
 
-router.post('/', verifyToken, createTicket);
-router.get('/', verifyToken, getTickets);
-router.get('/:id', verifyToken, getTicketById);
-router.patch('/:id/status', verifyToken, authorize('admin'), updateTicketStatus);
-router.patch('/:id/priority', verifyToken, authorize('admin'), updateTicketPriority);
+// User routes (suspended users can create tickets)
+router.post('/', verifyToken, allowSuspendedUsers, createTicket);
+router.get('/my-tickets', verifyToken, allowSuspendedUsers, getUserTickets);
+router.get('/:id', verifyToken, allowSuspendedUsers, getTicketById);
+
+// Admin routes
+router.get('/', verifyToken, authorize('admin', 'super_admin'), getAllTickets);
+router.put('/:id', verifyToken, authorize('admin', 'super_admin'), updateTicket);
+router.get('/user/:userId/appeals', verifyToken, authorize('admin', 'super_admin'), getUserSuspensionAppeals);
 
 export default router;

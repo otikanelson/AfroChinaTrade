@@ -115,3 +115,111 @@ export const getProductStats = async (req: Request, res: Response) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const getMostSoldProducts = async (req: Request, res: Response) => {
+  try {
+    const { limit = 20, timeframe = '30d' } = req.query;
+    
+    // Calculate date filter based on timeframe
+    let dateFilter: any = {};
+    const now = new Date();
+    
+    switch (timeframe) {
+      case '7d':
+        dateFilter = { $gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) };
+        break;
+      case '30d':
+        dateFilter = { $gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) };
+        break;
+      case '90d':
+        dateFilter = { $gte: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) };
+        break;
+      case 'all':
+      default:
+        dateFilter = {}; // No date filter for 'all'
+        break;
+    }
+
+    // Aggregate orders to find most sold products
+    const mostSoldProducts = await Order.aggregate([
+      {
+        $match: {
+          status: { $in: ['delivered', 'shipped', 'processing'] },
+          ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter })
+        }
+      },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: '$items.productId',
+          totalQuantitySold: { $sum: '$items.quantity' },
+          totalRevenue: { $sum: '$items.subtotal' },
+          orderCount: { $sum: 1 }
+        }
+      },
+      { $sort: { totalQuantitySold: -1 } },
+      { $limit: parseInt(limit as string) },
+      {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'product'
+        }
+      },
+      { $unwind: '$product' },
+      {
+        $match: {
+          'product.isActive': true
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          id: '$product._id',
+          name: '$product.name',
+          description: '$product.description',
+          price: '$product.price',
+          currency: '$product.currency',
+          images: '$product.images',
+          category: '$product.category',
+          subcategory: '$product.subcategory',
+          rating: '$product.rating',
+          reviewCount: '$product.reviewCount',
+          stock: '$product.stock',
+          tags: '$product.tags',
+          specifications: '$product.specifications',
+          discount: '$product.discount',
+          isNew: '$product.isNewProduct',
+          isFeatured: '$product.isFeatured',
+          isActive: '$product.isActive',
+          viewCount: '$product.viewCount',
+          isSellerFavorite: '$product.isSellerFavorite',
+          trendingScore: '$product.trendingScore',
+          lastViewedAt: '$product.lastViewedAt',
+          // Sales metrics
+          totalQuantitySold: 1,
+          totalRevenue: 1,
+          orderCount: 1
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      data: mostSoldProducts,
+      metadata: {
+        timeframe,
+        limit: parseInt(limit as string),
+        generatedAt: new Date().toISOString()
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error getting most sold products:', error);
+    res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
+  }
+};

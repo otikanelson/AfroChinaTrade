@@ -4,6 +4,7 @@ import { AuthUser, AuthContextType, LoginCredentials, RegisterData, AuthResponse
 import { authService } from '../services/AuthService';
 import { tokenManager } from '../services/api/tokenManager';
 import { APP_CONFIG } from '../constants/config';
+import { UserStatusModal } from '../components/modals/UserStatusModal';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -15,6 +16,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isGuestMode, setIsGuestMode] = useState(false);
+  const [userStatusModal, setUserStatusModal] = useState<{
+    visible: boolean;
+    status: 'suspended' | 'blocked';
+    reason?: string;
+    suspensionDuration?: string;
+  }>({
+    visible: false,
+    status: 'suspended',
+  });
 
   useEffect(() => {
     initializeAuth();
@@ -93,6 +103,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error('Failed to load user profile:', error);
       
+      // Check if it's a user status error first
+      if (handleUserStatusError(error)) {
+        return; // Status modal will be shown
+      }
+      
       // If it's an auth error, clear everything
       if (error.code === 'NO_TOKEN' || error.status === 401) {
         await handleAuthError();
@@ -107,6 +122,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await tokenManager.clearTokens();
     await AsyncStorage.removeItem(AUTH_USER_KEY);
     await AsyncStorage.setItem(GUEST_MODE_KEY, 'true');
+  };
+
+  const handleUserStatusError = (error: any) => {
+    if (error.code === 'ACCOUNT_SUSPENDED' || error.code === 'ACCOUNT_BLOCKED') {
+      const statusData = error.data;
+      setUserStatusModal({
+        visible: true,
+        status: statusData.status,
+        reason: statusData.reason,
+        suspensionDuration: statusData.suspensionDuration,
+      });
+      return true; // Indicates status error was handled
+    }
+    return false; // Not a status error
   };
 
   const login = async (credentials: LoginCredentials, onSuccess?: () => void): Promise<AuthResponse> => {
@@ -137,6 +166,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return authResponse;
     } catch (error: any) {
       const errorMessage = error.message || 'Login failed';
+      
+      // Check if it's a user status error first
+      if (handleUserStatusError(error)) {
+        throw error; // Re-throw so caller knows about status issue
+      }
+      
       setAuthError(errorMessage);
       throw error;
     }
@@ -236,6 +271,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthError(null);
   };
 
+  const closeUserStatusModal = () => {
+    setUserStatusModal(prev => ({ ...prev, visible: false }));
+  };
+
+  const handleAppealSubmitted = () => {
+    closeUserStatusModal();
+    // Optionally show a success message or navigate somewhere
+  };
+
   const contextValue: AuthContextType = {
     user,
     isAuthenticated: !!user && tokenManager.isAuthenticated(),
@@ -257,6 +301,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={contextValue}>
       {children}
+      <UserStatusModal
+        visible={userStatusModal.visible}
+        status={userStatusModal.status}
+        reason={userStatusModal.reason}
+        suspensionDuration={userStatusModal.suspensionDuration}
+        onClose={closeUserStatusModal}
+        onAppealSubmitted={handleAppealSubmitted}
+      />
     </AuthContext.Provider>
   );
 }

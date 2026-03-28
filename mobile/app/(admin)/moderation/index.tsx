@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import ReportsScreen from './reports';
 import ReviewsScreen from './reviews';
 import TicketsScreen from './tickets';
 import { theme } from '../../../theme';
@@ -8,7 +7,6 @@ import { theme } from '../../../theme';
 type Tab = 'reports' | 'reviews' | 'tickets';
 
 const TABS: { value: Tab; label: string }[] = [
-  { value: 'reports', label: 'Reports' },
   { value: 'reviews', label: 'Reviews' },
   { value: 'tickets', label: 'Tickets' },
 ];
@@ -37,7 +35,6 @@ export default function ModerationDashboardScreen() {
 
       {/* Content */}
       <View style={styles.content}>
-        {activeTab === 'reports' && <ReportsScreen embedded />}
         {activeTab === 'reviews' && <ReviewsScreen embedded />}
         {activeTab === 'tickets' && <TicketsScreen embedded />}
       </View>

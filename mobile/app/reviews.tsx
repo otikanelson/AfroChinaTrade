@@ -15,22 +15,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { Header } from '../components/Header';
-import { API_BASE_URL } from '../constants/config';
-import { tokenManager } from '../services/api/tokenManager';
+import { reviewService, Review } from '../services/ReviewService';
 import { spacing } from '../theme/spacing';
-
-interface Review {
-  _id: string;
-  productId: {
-    _id: string;
-    name: string;
-    images: string[];
-  };
-  rating: number;
-  comment: string;
-  createdAt: string;
-  helpful: number;
-}
 
 export default function ReviewsScreen() {
   const { isAuthenticated } = useRequireAuth('Please sign in to view your reviews');
@@ -129,11 +115,6 @@ export default function ReviewsScreen() {
       flexDirection: 'row',
       alignItems: 'center',
     },
-    helpfulText: {
-      fontSize: fontSizes.xs,
-      color: colors.textSecondary,
-      marginLeft: spacing.xs,
-    },
     errorText: {
       fontSize: fontSizes.base,
       color: colors.error,
@@ -156,9 +137,6 @@ export default function ReviewsScreen() {
   const fetchReviews = useCallback(async (isRefresh: boolean = false) => {
     if (!user?.id) return;
 
-    const token = await tokenManager.getAccessToken();
-    if (!token) return;
-
     try {
       if (!isRefresh) {
         setLoading(true);
@@ -167,33 +145,11 @@ export default function ReviewsScreen() {
       }
       setError(null);
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      const response = await fetch(
-        `${API_BASE_URL}/reviews/user/${user.id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          signal: controller.signal,
-        }
-      );
-
-      clearTimeout(timeoutId);
-      const data = await response.json();
-
-      if (data.status === 'success') {
-        setReviews(data.data || []);
-      } else {
-        setError(data.message || 'Failed to load reviews');
-      }
+      const response = await reviewService.getUserReviews();
+      setReviews(response.data || []);
     } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        console.error('Error fetching reviews:', err);
-        setError('Failed to load reviews. Please try again.');
-      }
+      console.error('Error fetching reviews:', err);
+      setError('Failed to load reviews. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -252,14 +208,10 @@ export default function ReviewsScreen() {
       
       {renderStars(item.rating)}
       
-      <Text style={styles.comment}>{item.comment}</Text>
+      {item.comment && <Text style={styles.comment}>{item.comment}</Text>}
       
       <View style={styles.footer}>
         <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
-        <View style={styles.helpful}>
-          <Ionicons name="thumbs-up-outline" size={14} color={colors.textSecondary} />
-          <Text style={styles.helpfulText}>{item.helpful} found helpful</Text>
-        </View>
       </View>
     </TouchableOpacity>
   ), [styles, colors, router]);

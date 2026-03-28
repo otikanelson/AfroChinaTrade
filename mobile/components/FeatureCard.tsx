@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { spacing } from '../theme';
 
 interface FeatureCardProps {
   iconName: string;
@@ -20,9 +21,12 @@ export const FeatureCard: React.FC<FeatureCardProps> = ({
 }) => {
   const { colors, spacing, borderRadius, fontSizes, fontWeights, shadows } = useTheme();
   const finalIconColor = iconColor || colors.primary;
+  const { width: screenWidth } = Dimensions.get('window');
+  
 
   return (
-    <TouchableOpacity style={[styles.container, { 
+    <TouchableOpacity style={[styles.container, {
+      width: (screenWidth - spacing['3xl'])/4,
       backgroundColor: colors.background, 
       borderRadius: borderRadius.md, 
       padding: spacing.sm,
