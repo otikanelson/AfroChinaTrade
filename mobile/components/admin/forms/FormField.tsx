@@ -112,7 +112,7 @@ export const FormField: React.FC<FormFieldProps> = ({
     <View style={[styles.container, style]} testID={testID}>
       {/* Label */}
       <Text
-        style={[styles.label, disabled && styles.labelDisabled]}
+        style={[styles.label, { color: colors.text }, disabled && styles.labelDisabled]}
         accessibilityRole="text"
       >
         {label}
@@ -132,7 +132,7 @@ export const FormField: React.FC<FormFieldProps> = ({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={theme.colors.textLight}
+          placeholderTextColor={colors.textLight}
           multiline={multiline}
           numberOfLines={multiline ? numberOfLines : undefined}
           keyboardType={keyboardType}
@@ -164,7 +164,7 @@ export const FormField: React.FC<FormFieldProps> = ({
             <Ionicons
               name={secure ? 'eye-outline' : 'eye-off-outline'}
               size={20}
-              color={theme.colors.textSecondary}
+              color={colors.textSecondary}
             />
           </TouchableOpacity>
         )}
@@ -176,7 +176,7 @@ export const FormField: React.FC<FormFieldProps> = ({
           <Ionicons
             name="alert-circle-outline"
             size={14}
-            color={theme.colors.error}
+            color={colors.error}
             style={styles.messageIcon}
           />
           <Text
@@ -206,7 +206,6 @@ const styles = StyleSheet.create({
   label: {
     ...theme.typography.bodySmall,
     fontWeight: theme.fontWeights.semibold as TextStyle['fontWeight'],
-    color: colors.text,
     marginBottom: theme.spacing.xs,
   },
   labelDisabled: {

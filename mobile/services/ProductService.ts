@@ -380,8 +380,8 @@ class ProductService {
 
     const queryString = queryParams.toString();
     const url = queryString ? 
-      `/products/collections/${collectionType}?${queryString}` : 
-      `/products/collections/${collectionType}`;
+      `/product-collections/collections/${collectionType}?${queryString}` : 
+      `/product-collections/collections/${collectionType}`;
     
     return apiClient.get<{ products: Product[]; pagination: any; metadata: any }>(url);
   }
@@ -395,12 +395,22 @@ class ProductService {
     limit: number = 20,
     filters: ProductFilters = {}
   ): Promise<ApiResponse<{ products: Product[]; pagination: any; metadata: any }>> {
-    return this.getProductCollection('trending', { 
-      page, 
-      limit, 
-      timeframe, 
-      ...filters 
-    });
+    const queryParams = new URLSearchParams();
+    
+    queryParams.append('timeframe', timeframe);
+    queryParams.append('page', page.toString());
+    queryParams.append('limit', limit.toString());
+    
+    // Add filters
+    if (filters.category) queryParams.append('category', filters.category);
+    if (filters.minPrice !== undefined) queryParams.append('minPrice', filters.minPrice.toString());
+    if (filters.maxPrice !== undefined) queryParams.append('maxPrice', filters.maxPrice.toString());
+    if (filters.minRating !== undefined) queryParams.append('minRating', filters.minRating.toString());
+
+    const queryString = queryParams.toString();
+    const url = `/product-collections/trending?${queryString}`;
+    
+    return apiClient.get<{ products: Product[]; pagination: any; metadata: any }>(url);
   }
 
   /**

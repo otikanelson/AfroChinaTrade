@@ -73,10 +73,18 @@ export const PickerField: React.FC<PickerFieldProps> = ({
     if (!disabled) setModalVisible(true);
   };
 
+  const dynamicStyles = {
+    label: {
+      fontSize: theme.fontSizes.base,
+      fontWeight: theme.fontWeights.semibold,
+      color: colors.text,
+    },
+  };
+
   return (
     <View style={[styles.container, style]} testID={testID}>
       {/* Label */}
-      <Text style={[styles.label, disabled && styles.labelDisabled]}>
+      <Text style={[dynamicStyles.label, disabled && styles.labelDisabled]}>
         {label}
         {required && <Text style={styles.required}> *</Text>}
       </Text>
@@ -201,12 +209,6 @@ export const PickerField: React.FC<PickerFieldProps> = ({
 const styles = StyleSheet.create({
   container: {
     marginBottom: theme.spacing.base,
-  },
-  label: {
-    ...theme.typography.bodySmall,
-    fontWeight: theme.fontWeights.semibold as '600',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
   },
   labelDisabled: {
     color: theme.colors.textLight,

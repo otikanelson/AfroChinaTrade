@@ -7,27 +7,26 @@ import {
   FlatList,
   ActivityIndicator,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useTheme } from '../contexts/ThemeContext';
-import { useAuth } from '../contexts/AuthContext';
-import { reviewService, Review } from '../services/ReviewService';
-import { AlertModal } from './ui/AlertModal';
-import { spacing } from '../theme/spacing';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { reviewService, Review } from '../../services/ReviewService';
+import { Header } from '../../components/Header';
+import { AlertModal } from '../../components/ui/AlertModal';
+import { spacing } from '../../theme/spacing';
 
-interface ProductReviewsProps {
-  productId: string;
-  productName?: string;
-}
-
-export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, productName }) => {
-  const { colors, fontSizes, fontWeights, borderRadius } = useTheme();
+export default function ProductReviewsScreen() {
+  const { id, productName } = useLocalSearchParams<{ id: string; productName?: string }>();
+  const { colors, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const { user, isAuthenticated, isAdmin } = useAuth();
   const router = useRouter();
   
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showAddReview, setShowAddReview] = useState(false);
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState('');
@@ -45,23 +44,23 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
     type: 'info',
   });
 
-  // Limit reviews shown in product detail page
-  const PREVIEW_LIMIT = 3;
-  const previewReviews = reviews.slice(0, PREVIEW_LIMIT);
-  const hasMoreReviews = reviews.length > PREVIEW_LIMIT;
-
   const styles = StyleSheet.create({
     container: {
-      backgroundColor: colors.surface,
-      borderRadius: borderRadius.lg,
-      padding: spacing.base,
-      marginBottom: spacing.base,
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flex: 1,
     },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: spacing.base,
+      padding: spacing.base,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+      marginTop: 5,
     },
     title: {
       fontSize: fontSizes.lg,
@@ -70,8 +69,8 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
     },
     addReviewButton: {
       backgroundColor: colors.primary,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.sm,
       borderRadius: borderRadius.base,
     },
     addReviewText: {
@@ -80,15 +79,18 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
       fontWeight: fontWeights.semibold,
     },
     reviewItem: {
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-      paddingVertical: spacing.sm,
+      backgroundColor: colors.surface,
+      marginHorizontal: spacing.base,
+      marginVertical: spacing.xs,
+      padding: spacing.base,
+      borderRadius: borderRadius.lg,
+      ...shadows.sm,
     },
     reviewHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: spacing.xs,
+      marginBottom: spacing.sm,
     },
     reviewerName: {
       fontSize: fontSizes.base,
@@ -96,13 +98,13 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
       color: colors.text,
     },
     reviewDate: {
-      fontSize: fontSizes.xs,
+      fontSize: fontSizes.sm,
       color: colors.textSecondary,
     },
     ratingContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: spacing.xs,
+      marginBottom: spacing.sm,
     },
     ratingText: {
       fontSize: fontSizes.sm,
@@ -110,18 +112,20 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
       marginLeft: spacing.xs,
     },
     comment: {
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.base,
       color: colors.text,
-      lineHeight: 20,
+      lineHeight: 22,
     },
     response: {
       backgroundColor: colors.background,
       padding: spacing.sm,
       borderRadius: borderRadius.base,
-      marginTop: spacing.xs,
+      marginTop: spacing.sm,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
     },
     responseLabel: {
-      fontSize: fontSizes.xs,
+      fontSize: fontSizes.sm,
       fontWeight: fontWeights.semibold,
       color: colors.primary,
       marginBottom: spacing.xs,
@@ -129,19 +133,20 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
     responseText: {
       fontSize: fontSizes.sm,
       color: colors.text,
-      lineHeight: 18,
+      lineHeight: 20,
     },
     addReviewForm: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
+      margin: spacing.base,
       padding: spacing.base,
-      borderRadius: borderRadius.base,
-      marginTop: spacing.base,
+      borderRadius: borderRadius.lg,
+      ...shadows.sm,
     },
     formTitle: {
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.lg,
       fontWeight: fontWeights.semibold,
       color: colors.text,
-      marginBottom: spacing.sm,
+      marginBottom: spacing.base,
     },
     ratingSelector: {
       flexDirection: 'row',
@@ -149,20 +154,21 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
       marginBottom: spacing.base,
     },
     ratingLabel: {
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.base,
       color: colors.text,
-      marginRight: spacing.sm,
+      marginRight: spacing.base,
     },
     commentInput: {
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: borderRadius.base,
-      padding: spacing.sm,
+      padding: spacing.base,
       fontSize: fontSizes.base,
       color: colors.text,
-      minHeight: 80,
+      minHeight: 100,
       textAlignVertical: 'top',
       marginBottom: spacing.base,
+      backgroundColor: colors.background,
     },
     formButtons: {
       flexDirection: 'row',
@@ -171,21 +177,21 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
     submitButton: {
       flex: 1,
       backgroundColor: colors.primary,
-      paddingVertical: spacing.sm,
+      paddingVertical: spacing.base,
       borderRadius: borderRadius.base,
       alignItems: 'center',
     },
     cancelButton: {
       flex: 1,
-      backgroundColor: colors.surface,
-      paddingVertical: spacing.sm,
+      backgroundColor: colors.background,
+      paddingVertical: spacing.base,
       borderRadius: borderRadius.base,
       alignItems: 'center',
       borderWidth: 1,
       borderColor: colors.border,
     },
     buttonText: {
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.base,
       fontWeight: fontWeights.semibold,
     },
     submitButtonText: {
@@ -195,43 +201,49 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
       color: colors.text,
     },
     emptyState: {
+      flex: 1,
+      justifyContent: 'center',
       alignItems: 'center',
-      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.xl,
+    },
+    emptyIcon: {
+      marginBottom: spacing.base,
+    },
+    emptyTitle: {
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.semibold,
+      color: colors.text,
+      marginBottom: spacing.sm,
+      textAlign: 'center',
     },
     emptyText: {
       fontSize: fontSizes.base,
       color: colors.textSecondary,
       textAlign: 'center',
+      lineHeight: 22,
     },
     loadingContainer: {
-      paddingVertical: spacing.lg,
+      flex: 1,
+      justifyContent: 'center',
       alignItems: 'center',
     },
-    seeMoreButton: {
-      backgroundColor: colors.background,
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.base,
-      borderRadius: borderRadius.base,
-      borderWidth: 1,
-      borderColor: colors.primary,
-      alignItems: 'center',
-      marginTop: spacing.sm,
-    },
-    seeMoreText: {
-      color: colors.primary,
-      fontSize: fontSizes.sm,
-      fontWeight: fontWeights.semibold,
+    loadingText: {
+      marginTop: spacing.base,
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
     },
   });
 
   useEffect(() => {
-    fetchReviews();
-  }, [productId]);
+    if (id) {
+      fetchReviews();
+    }
+  }, [id]);
 
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const response = await reviewService.getProductReviews(productId);
+      const response = await reviewService.getProductReviews(id);
       setReviews(response.reviews || []);
       
       // Check if current user has already reviewed this product
@@ -241,9 +253,16 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
       }
     } catch (error) {
       console.error('Error fetching reviews:', error);
+      showAlert('Error', 'Failed to load reviews', 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchReviews();
+    setRefreshing(false);
   };
 
   const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
@@ -269,7 +288,7 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
     try {
       setSubmitting(true);
       await reviewService.createReview({
-        productId,
+        productId: id,
         rating: newRating,
         comment: newComment.trim(),
       });
@@ -288,15 +307,6 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
     }
   };
 
-  const handleSeeMoreReviews = () => {
-    router.push({
-      pathname: `/product-reviews/${productId}`,
-      params: {
-        productName: productName || 'Product'
-      }
-    });
-  };
-
   const renderStars = (rating: number, interactive = false, onPress?: (rating: number) => void) => {
     return (
       <View style={styles.ratingContainer}>
@@ -308,7 +318,7 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
           >
             <Ionicons
               name={star <= rating ? 'star' : 'star-outline'}
-              size={interactive ? 24 : 16}
+              size={interactive ? 28 : 18}
               color="#f59e0b"
               style={{ marginRight: 2 }}
             />
@@ -352,61 +362,39 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
 
   const canAddReview = isAuthenticated && !isAdmin && !userHasReviewed;
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Reviews ({reviews.length})</Text>
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          {reviews.length > 0 && (
-            <TouchableOpacity
-              style={[styles.seeMoreButton, { marginTop: 0, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm }]}
-              onPress={handleSeeMoreReviews}
-            >
-              <Text style={[styles.seeMoreText, { fontSize: fontSizes.xs }]}>
-                View All
-              </Text>
-            </TouchableOpacity>
-          )}
-          {canAddReview && (
-            <TouchableOpacity
-              style={styles.addReviewButton}
-              onPress={() => setShowAddReview(true)}
-            >
-              <Text style={styles.addReviewText}>Add Review</Text>
-            </TouchableOpacity>
-          )}
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Header
+          title={`Reviews`}
+          showBack={true}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading reviews...</Text>
         </View>
       </View>
+    );
+  }
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
-        </View>
-      ) : reviews.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="star-outline" size={48} color={colors.textLight} />
-          <Text style={styles.emptyText}>No reviews yet. Be the first to review!</Text>
-        </View>
-      ) : (
-        <>
-          <FlatList
-            data={previewReviews}
-            renderItem={renderReviewItem}
-            keyExtractor={(item) => item._id}
-            scrollEnabled={false}
-          />
-          {hasMoreReviews && (
-            <TouchableOpacity
-              style={styles.seeMoreButton}
-              onPress={handleSeeMoreReviews}
-            >
-              <Text style={styles.seeMoreText}>
-                See All {reviews.length} Reviews
-              </Text>
-            </TouchableOpacity>
-          )}
-        </>
-      )}
+  return (
+    <View style={styles.container}>
+      <Header
+        title={`Reviews`}
+        showBack={true}
+      />
+
+      <View style={styles.header}>
+        <Text style={styles.title}>All Reviews ({reviews.length})</Text>
+        {canAddReview && (
+          <TouchableOpacity
+            style={styles.addReviewButton}
+            onPress={() => setShowAddReview(true)}
+          >
+            <Text style={styles.addReviewText}>Add Review</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {showAddReview && (
         <View style={styles.addReviewForm}>
@@ -420,7 +408,7 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
           <TextInput
             style={styles.commentInput}
             placeholder="Share your experience with this product... (optional)"
-            placeholderTextColor={colors.textLight}
+            placeholderTextColor={colors.textSecondary}
             value={newComment}
             onChangeText={setNewComment}
             multiline
@@ -454,6 +442,38 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
         </View>
       )}
 
+      <View style={styles.content}>
+        {reviews.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons 
+              name="star-outline" 
+              size={64} 
+              color={colors.textSecondary} 
+              style={styles.emptyIcon}
+            />
+            <Text style={styles.emptyTitle}>No Reviews Yet</Text>
+            <Text style={styles.emptyText}>
+              Be the first to share your experience with this product!
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={reviews}
+            renderItem={renderReviewItem}
+            keyExtractor={(item) => item._id}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.primary]}
+              />
+            }
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: spacing.xl }}
+          />
+        )}
+      </View>
+
       <AlertModal
         visible={alertModal.visible}
         title={alertModal.title}
@@ -463,4 +483,4 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, produ
       />
     </View>
   );
-};
+}

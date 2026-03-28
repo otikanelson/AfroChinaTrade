@@ -7,6 +7,7 @@ export enum NavigationSource {
   HOME_TRENDING = 'home_trending',
   HOME_SELLER_FAVORITES = 'home_seller_favorites',
   HOME_COLLECTION = 'home_collection',
+  HOME_BROWSE_ALL = 'home_browse_all',
   SEARCH_RESULTS = 'search_results',
   CATEGORY_BROWSE = 'category_browse',
   MESSAGE_TAGGING = 'message_tagging'

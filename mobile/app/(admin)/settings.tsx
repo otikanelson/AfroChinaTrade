@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ThemeToggle } from '../../components/settings/ThemeSettings';
+import { ReviewSyncButton } from '../../components/admin/ReviewSyncButton';
 
 export default function AdminSettingsScreen() {
   const router = useRouter();
@@ -72,6 +73,14 @@ export default function AdminSettingsScreen() {
       </View>
 
       <ScrollView style={styles.content}>
+        {/* System Maintenance Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>System Maintenance</Text>
+          </View>
+          <ReviewSyncButton />
+        </View>
+
         {/* Appearance Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>

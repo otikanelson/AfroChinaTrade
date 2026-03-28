@@ -356,7 +356,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <Text style={[styles.originalPrice, { fontSize: fontSizes.xs, color: colors.textSecondary, textDecorationLine: 'line-through' }]} numberOfLines={1}>
                   {formatPrice(product.price || 0)}
                 </Text>
-                <Text style={[styles.discountedPrice, { fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.error }]} numberOfLines={1}>
+                <Text style={[styles.discountedPrice, { fontSize: fontSizes.md, fontWeight: fontWeights.bold, color: colors.error }]} numberOfLines={1}>
                   {formatPrice(getDiscountedPrice())}
                 </Text>
               </>
@@ -427,7 +427,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    width: '100%',
+    minHeight: 200,
     overflow: 'hidden',
     marginBottom: 5,
   },

@@ -759,7 +759,13 @@ export default function ProductDetailScreen() {
           )}
 
           <View style={styles.metaInfo}>
-            <View style={styles.metaItem}>
+            <TouchableOpacity 
+              style={styles.metaItem}
+              onPress={() => router.push({
+                pathname: `/product-reviews/${product.id}`,
+                params: { productName: product.name }
+              })}
+            >
               <Ionicons name="star" size={18} color="#FFD700" />
               <Text style={styles.metaText}>
                 {product.rating.toFixed(1)}
@@ -767,7 +773,8 @@ export default function ProductDetailScreen() {
               <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
                 ({product.reviewCount})
               </Text>
-            </View>
+              <Ionicons name="chevron-forward" size={16} color={themeColors.textSecondary} style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
             <View style={styles.metaItem}>
               <Ionicons name="cube-outline" size={18} color={product.stock > 10 ? themeColors.success : themeColors.warning} />
               <Text style={[styles.metaText, { color: product.stock > 10 ? themeColors.success : themeColors.warning }]}>

@@ -225,10 +225,18 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
     launchGallery();
   };
 
+  const dynamicStyles = {
+      label: {
+        fontSize: theme.fontSizes.base,
+        fontWeight: theme.fontWeights.semibold,
+        color: colors.text,
+      },
+    };
+
   return (
     <View style={[styles.container, style]} testID={testID}>
       {/* Label */}
-      <Text style={[styles.label, disabled && styles.labelDisabled]}>
+      <Text style={[dynamicStyles.label, disabled && styles.labelDisabled]}>
         {label}
         {required && <Text style={styles.required}> *</Text>}
       </Text>

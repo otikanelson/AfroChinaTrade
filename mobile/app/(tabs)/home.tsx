@@ -3,11 +3,10 @@ import { View, ScrollView, StyleSheet, StatusBar, Text, ActivityIndicator, Alert
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Header } from '../../components/Header';
 import { SearchBar } from '../../components/SearchBar';
-import { CategoryTabs } from '../../components/CategoryTabs';
 import { ProductCard } from '../../components/ProductCard';
 import { FeatureCard } from '../../components/FeatureCard';
 import { SectionHeader } from '../../components/SectionHeader';
-import { productService } from '../../services/ProductService';
+import { BrowseAllCard } from '../../components/BrowseAllCard';
 import { categoryService } from '../../services/CategoryService';
 import { collectionService } from '../../services/CollectionService';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -74,20 +73,6 @@ export default function HomeTab() {
     featuredCardWrapper: {
       width: 110,
       margin: 5,
-    },
-    masonryContainer: {
-      flexDirection: 'row',
-      paddingHorizontal: spacing.base,
-      gap: spacing.sm,
-    },
-    masonryColumn: {
-      flex: 1,
-      alignItems: 'center',
-    },
-    masonryItem: {
-      marginBottom: spacing.md,
-      width: '100%',
-      alignItems: 'center',
     },
     loadingContainer: {
       flex: 1,
@@ -224,17 +209,6 @@ export default function HomeTab() {
       setIsLoadingCollections(false);
     }
   };
-    } catch (error) {
-      console.error('Failed to load initial data:', error);
-      if (!isRefresh) {
-        Alert.alert('Error', 'Failed to load data. Please try again.');
-      }
-    } finally {
-      if (!isRefresh) {
-        setIsLoading(false);
-      }
-    }
-  };
 
   const handleProductPress = (product: Product) => {
     // Handle both _id and id fields from backend
@@ -258,8 +232,6 @@ export default function HomeTab() {
     }
   }, [refreshRecommendations]);
 
-  const categoryNames = ['All', ...(categories || []).map(c => c.name)];
-
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -272,7 +244,7 @@ export default function HomeTab() {
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading products...</Text>
+          <Text style={styles.loadingText}>Loading collections...</Text>
         </View>
       </View>
     );
@@ -363,131 +335,11 @@ export default function HomeTab() {
           </ScrollView>
         </View>
 
-        {/* Featured Products - Only show if there are featured products */}
-        {featuredProducts.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader
-              title="Featured Products"
-              subtitle="Handpicked deals for you"
-              actionText="See All"
-              navigationSource={NavigationSource.HOME_FEATURED}
-              collectionType="featured"
-            />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-            >
-              {featuredProducts.map(product => {
-                const productId = (product as any)._id || product.id;
-                const badgeText = product.isNew ? 'New' : undefined;
-                return (
-                  <View key={productId} style={styles.featuredCardWrapper}>
-                    <ProductCard
-                      product={product}
-                      badge={badgeText}
-                      onPress={() => handleProductPress(product)}
-                      showViewCount={true}
-                    />
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Trending Products - Only show if there are trending products */}
-        {trendingProducts.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader
-              title="Trending Products"
-              subtitle="Popular right now"
-              actionText="See All"
-              navigationSource={NavigationSource.HOME_TRENDING}
-              collectionType="trending"
-            />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-            >
-              {trendingProducts.map(product => {
-                const productId = (product as any)._id || product.id;
-                return (
-                  <View key={productId} style={styles.featuredCardWrapper}>
-                    <ProductCard
-                      product={product}
-                      onPress={() => handleProductPress(product)}
-                      showViewCount={true}
-                    />
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Seller Favorites - Only show if there are seller favorites */}
-        {sellerFavorites.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader
-              title="Seller Favorites"
-              subtitle="Top picks from our sellers"
-              actionText="See All"
-              navigationSource={NavigationSource.HOME_SELLER_FAVORITES}
-              collectionType="seller_favorites"
-            />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-            >
-              {sellerFavorites.map(product => {
-                const productId = (product as any)._id || product.id;
-                const badgeText = 'Seller Pick';
-                return (
-                  <View key={productId} style={styles.featuredCardWrapper}>
-                    <ProductCard
-                      product={product}
-                      badge={badgeText}
-                      onPress={() => handleProductPress(product)}
-                      showViewCount={true}
-                    />
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Recommended Products - Only show for authenticated users with recommendations */}
-        {user && hasRecommendations && (
-          <View style={styles.section}>
-            <SectionHeader
-              title="Recommended for You"
-              subtitle="Based on your interests"
-              actionText="See All"
-              navigationSource={NavigationSource.HOME_RECOMMENDED}
-              collectionType="recommended"
-            />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-            >
-              {recommendations.map(product => {
-                const productId = (product as any)._id || product.id;
-                return (
-                  <View key={productId} style={styles.featuredCardWrapper}>
-                    <ProductCard
-                      product={product}
-                      onPress={() => handleProductPress(product)}
-                      showViewCount={true}
-                    />
-                  </View>
-                );
-              })}
-            </ScrollView>
+        {/* Collections Loading Indicator */}
+        {isLoadingCollections && (
+          <View style={styles.productsLoadingContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading collections...</Text>
           </View>
         )}
 
@@ -500,8 +352,7 @@ export default function HomeTab() {
             <View key={collection.id} style={styles.section}>
               <SectionHeader
                 title={collection.name}
-                subtitle={collection.description || `${products.length} products`}
-                actionText="See All"
+                 actionText="See All"
                 navigationSource={NavigationSource.HOME_COLLECTION}
                 collectionType="custom"
                 onActionPress={() => router.push({
@@ -534,81 +385,55 @@ export default function HomeTab() {
           );
         })}
 
-        {/* Products Loading Indicator */}
-        {isLoadingProducts && (
-          <View style={styles.productsLoadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading products...</Text>
+        {/* Recommended Products - Only show for authenticated users with recommendations */}
+        {user && hasRecommendations && (
+          <View style={styles.section}>
+            <SectionHeader
+              title="Recommended for You"
+              subtitle="Based on your interests"
+              actionText="See All"
+              navigationSource={NavigationSource.HOME_RECOMMENDED}
+              collectionType="recommended"
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalList}
+            >
+              {recommendations.map(product => {
+                const productId = (product as any)._id || product.id;
+                return (
+                  <View key={productId} style={styles.featuredCardWrapper}>
+                    <ProductCard
+                      product={product}
+                      onPress={() => handleProductPress(product)}
+                      showViewCount={true}
+                    />
+                  </View>
+                );
+              })}
+            </ScrollView>
           </View>
         )}
 
-        {/* Masonry Product Grid */}
-        <View style={styles.section}>
-          <SectionHeader
-            title={activeCategory === 'All' ? 'All Products' : activeCategory}
-            subtitle={`${products.length || 0} products`}
-            actionText="See All"
-            navigationSource={NavigationSource.HOME_ALL}
-            collectionType="all"
-          />
-          {products.length > 0 ? (
-            <View style={styles.masonryContainer}>
-              <View style={styles.masonryColumn}>
-                {column1.map(product => {
-                  const productId = (product as any)._id || product.id;
-                  const badgeText = product.isNew ? 'New' : undefined;
-                  return (
-                    <View key={productId} style={styles.masonryItem}>
-                      <ProductCard
-                        product={product}
-                        badge={badgeText}
-                        onPress={() => handleProductPress(product)}
-                        showViewCount={true}
-                      />
-                    </View>
-                  );
-                })}
-              </View>
-              <View style={styles.masonryColumn}>
-                {column2.map(product => {
-                  const productId = (product as any)._id || product.id;
-                  const badgeText = product.isNew ? 'New' : undefined;
-                  return (
-                    <View key={productId} style={styles.masonryItem}>
-                      <ProductCard
-                        product={product}
-                        badge={badgeText}
-                        onPress={() => handleProductPress(product)}
-                        showViewCount={true}
-                      />
-                    </View>
-                  );
-                })}
-              </View>
-              <View style={styles.masonryColumn}>
-                {column3.map(product => {
-                  const productId = (product as any)._id || product.id;
-                  const badgeText = product.isNew ? 'New' : undefined;
-                  return (
-                    <View key={productId} style={styles.masonryItem}>
-                      <ProductCard
-                        product={product}
-                        badge={badgeText}
-                        onPress={() => handleProductPress(product)}
-                        showViewCount={true}
-                      />
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No products found</Text>
-              <Text style={styles.emptySubtext}>Try adjusting your search or category filter</Text>
-            </View>
-          )}
-        </View>
+        {/* Empty State - Show when no collections are available */}
+        {!isLoadingCollections && collections.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No collections available</Text>
+            <Text style={styles.emptySubtext}>Collections will appear here once they are created by admin</Text>
+          </View>
+        )}
+
+        {/* Browse All Products Section */}
+        <BrowseAllCard
+          onPress={() => router.push({
+            pathname: '/product-listing',
+            params: { 
+              title: 'All Products',
+              showAll: 'true'
+            }
+          })}
+        />
       </ScrollView>
     </View>
   );

@@ -7,12 +7,15 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  Modal,
+  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../../../components/Header';
 import { Card } from '../../../components/admin/Card';
 import { StatusBadge } from '../../../components/admin/StatusBadge';
+import { CustomModal } from '../../../components/ui/CustomModal';
 import { collectionService } from '../../../services/CollectionService';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Collection } from '../../../types/product';
@@ -23,6 +26,8 @@ export default function CollectionsManagement() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
 
   useEffect(() => {
     loadCollections();
@@ -38,7 +43,20 @@ export default function CollectionsManagement() {
 
       const response = await collectionService.getActiveCollections();
       if (response.success && response.data) {
-        setCollections(response.data);
+        // Load product count for each collection
+        const collectionsWithCounts = await Promise.all(
+          response.data.map(async (collection) => {
+            const collectionId = (collection as any)._id || collection.id;
+            const productsResponse = await collectionService.getCollectionProducts(collectionId, 1, 1);
+            return {
+              ...collection,
+              productCount: productsResponse.success && productsResponse.data 
+                ? productsResponse.data.productCount || 0 
+                : 0
+            };
+          })
+        );
+        setCollections(collectionsWithCounts);
       }
     } catch (error) {
       console.error('Error loading collections:', error);
@@ -58,15 +76,18 @@ export default function CollectionsManagement() {
   };
 
   const handleEditCollection = (collection: Collection) => {
+    const collectionId = (collection as any)._id || collection.id;
+    console.log('🔍 Attempting to edit collection:', collectionId, collection.name);
     router.push({
       pathname: '/(admin)/collections/[id]',
-      params: { id: collection.id }
+      params: { id: collectionId }
     });
   };
 
   const handleToggleStatus = async (collection: Collection) => {
     try {
-      const response = await collectionService.toggleCollectionStatus(collection.id);
+      const collectionId = (collection as any)._id || collection.id;
+      const response = await collectionService.toggleCollectionStatus(collectionId);
       if (response.success) {
         loadCollections();
         Alert.alert(
@@ -83,31 +104,28 @@ export default function CollectionsManagement() {
   };
 
   const handleDeleteCollection = (collection: Collection) => {
-    Alert.alert(
-      'Delete Collection',
-      `Are you sure you want to delete "${collection.name}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await collectionService.deleteCollection(collection.id);
-              if (response.success) {
-                loadCollections();
-                Alert.alert('Success', 'Collection deleted successfully');
-              } else {
-                Alert.alert('Error', response.error || 'Failed to delete collection');
-              }
-            } catch (error) {
-              console.error('Error deleting collection:', error);
-              Alert.alert('Error', 'Failed to delete collection');
-            }
-          }
-        }
-      ]
-    );
+    setSelectedCollection(collection);
+    setDeleteModalVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedCollection) return;
+    
+    try {
+      const collectionId = (selectedCollection as any)._id || selectedCollection.id;
+      const response = await collectionService.deleteCollection(collectionId);
+      if (response.success) {
+        loadCollections();
+        setDeleteModalVisible(false);
+        setSelectedCollection(null);
+        Alert.alert('Success', 'Collection deleted successfully');
+      } else {
+        Alert.alert('Error', response.error || 'Failed to delete collection');
+      }
+    } catch (error) {
+      console.error('Error deleting collection:', error);
+      Alert.alert('Error', 'Failed to delete collection');
+    }
   };
 
   const renderCollectionCard = ({ item: collection }: { item: Collection }) => (
@@ -221,12 +239,17 @@ export default function CollectionsManagement() {
     },
     actionsContainer: {
       flexDirection: 'row',
-      gap: spacing.xs,
+      gap: spacing.sm,
     },
     actionButton: {
-      padding: spacing.xs,
-      borderRadius: borderRadius.sm,
+      padding: spacing.sm,
+      borderRadius: borderRadius.md,
       backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minWidth: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     description: {
       fontSize: fontSizes.sm,
@@ -301,7 +324,7 @@ export default function CollectionsManagement() {
         <FlatList
           data={collections}
           renderItem={renderCollectionCard}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => (item as any)._id || item.id}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -312,13 +335,15 @@ export default function CollectionsManagement() {
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="albums-outline" size={64} color={colors.textLight} />
-              <Text style={styles.emptyText}>No collections found</Text>
-              <Text style={styles.emptySubtext}>
-                Create your first collection to organize products
-              </Text>
-            </View>
+            !loading ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="albums-outline" size={64} color={colors.textLight} />
+                <Text style={styles.emptyText}>No collections found</Text>
+                <Text style={styles.emptySubtext}>
+                  Create your first collection to organize products
+                </Text>
+              </View>
+            ) : null
           }
         />
       </View>

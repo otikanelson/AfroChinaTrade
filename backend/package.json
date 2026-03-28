@@ -25,7 +25,11 @@
     "db:clear:carts": "ts-node src/scripts/clearAllCarts.ts",
     "db:clear:products:confirm": "ts-node src/scripts/clearProducts.ts --confirm",
     "db:health": "ts-node src/scripts/healthCheck.ts",
-    "db:verify": "ts-node src/scripts/verifyIndexes.ts"
+    "db:verify": "ts-node src/scripts/verifyIndexes.ts",
+    "db:sync:reviews": "ts-node src/scripts/syncProductReviews.ts",
+    "db:fix:reviews": "ts-node src/scripts/fixReviewDiscrepancies.ts",
+    "db:seed:collections": "ts-node src/scripts/seedCollections.ts",
+    "db:seed:advanced-collections": "ts-node src/scripts/seedAdvancedCollections.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

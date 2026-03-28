@@ -154,7 +154,7 @@ export class CollectionService {
           if (Array.isArray(filter.value)) {
             query.tags = { $in: filter.value };
           } else {
-            query.tags = filter.value;
+            query.tags = { $in: [filter.value] };
           }
           break;
         
