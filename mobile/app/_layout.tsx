@@ -14,6 +14,7 @@ import { AlertProvider } from '../contexts/AlertContext';
 import { RedirectProvider } from '../contexts/RedirectContext';
 import { CartSidebar } from '../components/CartSidebar';
 import { useAuthTokenMonitor } from '../hooks/useAuthTokenMonitor';
+import { preloadService } from '../services/PreloadService';
 
 // Enable layout animation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -35,6 +36,8 @@ function RootLayoutContent() {
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
+      // Start preloading essential data in background
+      preloadService.preloadEssentialData();
     }
   }, [fontsLoaded]);
 

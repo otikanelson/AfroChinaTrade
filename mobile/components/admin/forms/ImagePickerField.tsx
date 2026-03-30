@@ -113,7 +113,7 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
         uri: image.uri,
         type: image.mimeType || 'image/jpeg',
         name: image.fileName || 'image.jpg',
-      });
+      }, undefined, 'image');
 
       if (response.success && response.data?.url) {
         return {

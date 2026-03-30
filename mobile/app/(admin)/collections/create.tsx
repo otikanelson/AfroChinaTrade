@@ -17,6 +17,7 @@ import { collectionService } from '../../../services/CollectionService';
 import { categoryService } from '../../../services/CategoryService';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { CollectionFilter, Category } from '../../../types/product';
+import { COLLECTION_TAGS } from '../../../constants/tags';
 
 const FILTER_TYPES = [
   { 
@@ -57,9 +58,7 @@ const FILTER_TYPES = [
   },
 ];
 
-const TAG_OPTIONS = [
-  'featured', 'trending', 'new', 'sale', 'bestseller', 'limited', 'premium', 'eco-friendly'
-];
+const TAG_OPTIONS = COLLECTION_TAGS;
 
 export default function CreateCollection() {
   const router = useRouter();

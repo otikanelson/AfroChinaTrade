@@ -6,12 +6,16 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
 export default function AdminLayout() {
+  console.log('🔧 AdminLayout component loaded');
   const { isAuthenticated, isAdmin, user } = useAuth();
   const { colors, spacing, fontSizes, fontWeights } = useTheme();
   const router = useRouter();
   const segments = useSegments();
 
+  console.log('🔧 AdminLayout - isAuthenticated:', isAuthenticated, 'isAdmin:', isAdmin, 'segments:', segments);
+
   useEffect(() => {
+    console.log('🔧 AdminLayout useEffect - isAuthenticated:', isAuthenticated, 'isAdmin:', isAdmin);
     // Redirect non-admin users to home (allow guest mode)
     if (!isAuthenticated) {
       console.log('🔐 Admin access denied: Not authenticated, redirecting to home');

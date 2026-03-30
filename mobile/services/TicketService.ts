@@ -32,7 +32,7 @@ class TicketService {
   }
 
   async createTicket(token: string, ticketData: CreateTicketData) {
-    const response = await fetch(`${API_BASE_URL}/api/tickets`, {
+    const response = await fetch(`${API_BASE_URL}/tickets`, {
       method: 'POST',
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(ticketData),
@@ -48,21 +48,39 @@ class TicketService {
   }
 
   async getUserTickets(token: string) {
-    const response = await fetch(`${API_BASE_URL}/api/tickets/my-tickets`, {
-      headers: this.getAuthHeaders(token),
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/tickets/my-tickets`, {
+        headers: this.getAuthHeaders(token),
+      });
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to fetch tickets');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        // For authentication errors, return empty structure instead of throwing
+        if (response.status === 401 || response.status === 403) {
+          return {
+            status: 'success',
+            data: []
+          };
+        }
+        throw new Error(data.message || 'Failed to fetch tickets');
+      }
+
+      return data;
+    } catch (error) {
+      // If it's a network error, return empty structure instead of throwing
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return {
+          status: 'success',
+          data: []
+        };
+      }
+      throw error;
     }
-
-    return data;
   }
 
   async getTicketById(token: string, ticketId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
+    const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}`, {
       headers: this.getAuthHeaders(token),
     });
 
@@ -76,29 +94,48 @@ class TicketService {
   }
 
   async getAllTickets(token: string, filters: TicketFilters = {}) {
-    const queryParams = new URLSearchParams();
-    
-    if (filters.status) queryParams.append('status', filters.status);
-    if (filters.category) queryParams.append('category', filters.category);
-    if (filters.priority) queryParams.append('priority', filters.priority);
-    if (filters.page) queryParams.append('page', filters.page.toString());
-    if (filters.limit) queryParams.append('limit', filters.limit.toString());
+    try {
+      const queryParams = new URLSearchParams();
+      
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.category) queryParams.append('category', filters.category);
+      if (filters.priority) queryParams.append('priority', filters.priority);
+      if (filters.page) queryParams.append('page', filters.page.toString());
+      if (filters.limit) queryParams.append('limit', filters.limit.toString());
 
-    const response = await fetch(`${API_BASE_URL}/api/tickets?${queryParams}`, {
-      headers: this.getAuthHeaders(token),
-    });
+      const response = await fetch(`${API_BASE_URL}/tickets?${queryParams}`, {
+        headers: this.getAuthHeaders(token),
+      });
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to fetch tickets');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch tickets');
+      }
+
+      return data;
+    } catch (error) {
+      // If it's a network error, return empty structure instead of throwing
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return {
+          status: 'success',
+          data: {
+            tickets: [],
+            pagination: {
+              page: 1,
+              limit: 20,
+              total: 0,
+              pages: 0
+            }
+          }
+        };
+      }
+      throw error;
     }
-
-    return data;
   }
 
   async updateTicket(token: string, ticketId: string, updateData: UpdateTicketData) {
-    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
+    const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(token),
       body: JSON.stringify(updateData),
@@ -114,7 +151,7 @@ class TicketService {
   }
 
   async getUserSuspensionAppeals(token: string, userId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/tickets/user/${userId}/appeals`, {
+    const response = await fetch(`${API_BASE_URL}/tickets/user/${userId}/appeals`, {
       headers: this.getAuthHeaders(token),
     });
 

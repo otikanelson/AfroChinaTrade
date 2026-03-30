@@ -209,6 +209,7 @@ export default function ProductsScreen() {
     statusFilter: 'all',
     discountFilter: 'all',
     categoryFilter: 'all',
+    tagFilter: 'all',
     featuredOnly: false,
     sellerFavoriteOnly: false,
   });
@@ -540,6 +541,11 @@ export default function ProductsScreen() {
       result = result.filter((p) => p.category === filters.categoryFilter);
     }
 
+    // Tag filter
+    if (filters.tagFilter !== 'all') {
+      result = result.filter((p) => (p as any).tags && (p as any).tags.includes(filters.tagFilter));
+    }
+
     // Featured filter
     if (filters.featuredOnly) {
       result = result.filter((p) => p.isFeatured);
@@ -553,7 +559,7 @@ export default function ProductsScreen() {
     return result;
   }, [products, searchQuery, filters]);
 
-  const hasActiveFilters = filters.statusFilter !== 'all' || filters.discountFilter !== 'all' || filters.categoryFilter !== 'all' || filters.featuredOnly || filters.sellerFavoriteOnly || searchQuery.trim();
+  const hasActiveFilters = filters.statusFilter !== 'all' || filters.discountFilter !== 'all' || filters.categoryFilter !== 'all' || filters.tagFilter !== 'all' || filters.featuredOnly || filters.sellerFavoriteOnly || searchQuery.trim();
 
   const clearAllFilters = () => {
     setSearchQuery('');
@@ -561,6 +567,7 @@ export default function ProductsScreen() {
       statusFilter: 'all',
       discountFilter: 'all',
       categoryFilter: 'all',
+      tagFilter: 'all',
       featuredOnly: false,
       sellerFavoriteOnly: false,
     });

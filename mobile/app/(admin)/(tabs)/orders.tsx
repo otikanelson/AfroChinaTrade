@@ -365,6 +365,9 @@ export default function OrdersScreen() {
     const ordersArray = Array.isArray(orders) ? orders : [];
     let result = ordersArray;
 
+    // Apply time period filter first
+    result = result.filter((o) => isWithinPeriod(o.createdAt, timePeriod));
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -380,7 +383,7 @@ export default function OrdersScreen() {
     }
 
     return result;
-  }, [orders, searchQuery, statusFilter]);
+  }, [orders, searchQuery, statusFilter, timePeriod]);
 
   // ── Stats (scoped to time period) ─────────────────────────────────────────
 

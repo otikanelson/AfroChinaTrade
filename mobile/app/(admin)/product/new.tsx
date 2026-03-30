@@ -9,6 +9,7 @@ import { PickerField, PickerOption } from '../../../components/admin/forms/Picke
 import { TagSelector } from '../../../components/admin/forms/TagSelector';
 import { SpecificationsTable } from '../../../components/admin/forms/SpecificationsTable';
 import { PolicyFields } from '../../../components/admin/forms/PolicyFields';
+import { COLLECTION_TAGS, TAG_LABELS } from '../../../constants/tags';
 import { Header } from '../../../components/Header';
 import { mobileToastManager } from '../../../utils/toast';
 import { productService } from '../../../services/ProductService';
@@ -55,6 +56,7 @@ interface FormState {
   isActive: boolean;
   specifications: Specification[];
   policies: PolicyData;
+  tags: string[];
 }
 
 interface FormErrors {
@@ -132,6 +134,7 @@ export default function NewProductScreen() {
     isActive: true,
     specifications: [],
     policies: {},
+    tags: [],
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -525,6 +528,25 @@ export default function NewProductScreen() {
             }
           }}
           testID="new-product-status-tags"
+        />
+
+        {/* Product Collection Tags */}
+        <TagSelector
+          label="Collection Tags"
+          description="Add tags to help categorize and filter this product"
+          tags={COLLECTION_TAGS.map(tag => ({
+            id: tag,
+            label: TAG_LABELS[tag],
+            value: form.tags?.includes(tag) || false
+          }))}
+          onTagToggle={(tagId) => {
+            const currentTags = form.tags || [];
+            const updatedTags = currentTags.includes(tagId)
+              ? currentTags.filter(tag => tag !== tagId)
+              : [...currentTags, tagId];
+            setField('tags', updatedTags);
+          }}
+          testID="new-product-collection-tags"
         />
 
         {/* Conditional discount amount */}

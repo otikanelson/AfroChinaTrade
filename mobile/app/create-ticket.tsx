@@ -141,7 +141,7 @@ export default function CreateTicketScreen() {
 
   const handleSubmit = async () => {
     if (!formData.subject.trim() || !formData.description.trim()) {
-      showError('Please fill in all required fields');
+      showError('Validation Error', 'Please fill in all required fields');
       return;
     }
 

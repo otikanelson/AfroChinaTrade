@@ -9,6 +9,7 @@ import { PickerField, PickerOption } from '../../../components/admin/forms/Picke
 import { TagSelector } from '../../../components/admin/forms/TagSelector';
 import { SpecificationsTable } from '../../../components/admin/forms/SpecificationsTable';
 import { PolicyFields } from '../../../components/admin/forms/PolicyFields';
+import { COLLECTION_TAGS, TAG_LABELS } from '../../../constants/tags';
 import { CustomModal } from '../../../components/ui/CustomModal';
 import { mobileToastManager } from '../../../utils/toast';
 import { productService } from '../../../services/ProductService';
@@ -55,6 +56,7 @@ interface FormState {
   isActive: boolean;
   specifications: Specification[];
   policies: PolicyData;
+  tags: string[];
 }
 
 interface FormErrors {
@@ -296,6 +298,7 @@ export default function EditProductScreen() {
     isActive: true,
     specifications: [],
     policies: {},
+    tags: [],
   });
 
   // ---------------------------------------------------------------------------
@@ -416,6 +419,7 @@ export default function EditProductScreen() {
           isActive: product.isActive ?? true,
           specifications: specificationsArray,
           policies: (product as any).policies || {},
+          tags: (product as any).tags || [],
         });
       } catch (error) {
         console.error('Error loading product:', error);
@@ -480,6 +484,8 @@ export default function EditProductScreen() {
         policies: form.policies,
         // Map favorite field to isSellerFavorite for backend
         isSellerFavorite: form.favorite,
+        // Include tags
+        tags: form.tags,
       };
 
       const response = await productService.updateProduct(id, updateData);
@@ -728,6 +734,25 @@ export default function EditProductScreen() {
             }
           }}
           testID="edit-product-status-tags"
+        />
+
+        {/* Product Collection Tags */}
+        <TagSelector
+          label="Collection Tags"
+          description="Add tags to help categorize and filter this product"
+          tags={COLLECTION_TAGS.map(tag => ({
+            id: tag,
+            label: TAG_LABELS[tag],
+            value: form.tags?.includes(tag) || false
+          }))}
+          onTagToggle={(tagId) => {
+            const currentTags = form.tags || [];
+            const updatedTags = currentTags.includes(tagId)
+              ? currentTags.filter(tag => tag !== tagId)
+              : [...currentTags, tagId];
+            setField('tags', updatedTags);
+          }}
+          testID="edit-product-collection-tags"
         />
 
         {form.discounted && (

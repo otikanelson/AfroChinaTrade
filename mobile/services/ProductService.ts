@@ -8,6 +8,7 @@ export interface ProductFilters {
   minRating?: number;
   inStock?: boolean;
   search?: string;
+  tag?: string;
   tags?: string[];
   isFeatured?: boolean;
   isSellerFavorite?: boolean;
@@ -71,7 +72,8 @@ class ProductService {
       if (params.isFeatured !== undefined) queryParams.append('isFeatured', params.isFeatured.toString());
       if (params.isSellerFavorite !== undefined) queryParams.append('isSellerFavorite', params.isSellerFavorite.toString());
       
-      // Add tags
+      // Add tag (singular) and tags (array)
+      if (params.tag) queryParams.append('tag', params.tag);
       if (params.tags && params.tags.length > 0) {
         params.tags.forEach(tag => queryParams.append('tags', tag));
       }
@@ -406,6 +408,7 @@ class ProductService {
     if (filters.minPrice !== undefined) queryParams.append('minPrice', filters.minPrice.toString());
     if (filters.maxPrice !== undefined) queryParams.append('maxPrice', filters.maxPrice.toString());
     if (filters.minRating !== undefined) queryParams.append('minRating', filters.minRating.toString());
+    if (filters.tag) queryParams.append('tag', filters.tag);
 
     const queryString = queryParams.toString();
     const url = `/product-collections/trending?${queryString}`;

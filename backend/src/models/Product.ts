@@ -105,6 +105,13 @@ const ProductSchema = new Schema<IProduct>(
     tags: {
       type: [String],
       default: [],
+      validate: {
+        validator: function (tags: string[]) {
+          const validTags = ['trending', 'new', 'sale', 'bestseller', 'limited', 'premium', 'eco-friendly'];
+          return tags.every(tag => validTags.includes(tag));
+        },
+        message: 'Invalid tag. Valid tags are: trending, new, sale, bestseller, limited, premium, eco-friendly',
+      },
     },
     specifications: {
       type: Map,

@@ -80,8 +80,13 @@ export const requestSizeLimit = (req: Request, res: Response, next: NextFunction
 };
 
 export const validateContentType = (req: Request, res: Response, next: NextFunction) => {
-  // Skip validation for file upload endpoints
-  if (req.path.includes('/upload')) {
+  // Skip validation for file upload endpoints and image search
+  if (req.path.includes('/upload') || req.path.includes('/search/image')) {
+    return next();
+  }
+
+  // Skip validation for multipart form data (file uploads)
+  if (req.headers['content-type']?.includes('multipart/form-data')) {
     return next();
   }
 

@@ -5,8 +5,10 @@ import { Header } from '../components/Header';
 import { SearchBar } from '../components/SearchBar';
 import { CategoryTabs } from '../components/CategoryTabs';
 import { ProductCard } from '../components/ProductCard';
+import { ProductSectionSkeleton } from '../components/ProductSectionSkeleton';
 import { productService } from '../services/ProductService';
 import { categoryService } from '../services/CategoryService';
+import { productCacheService } from '../services/ProductCacheService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCart } from '../contexts/CartContext';
 import { Product, Category } from '../types/product';
@@ -23,6 +25,7 @@ export default function SearchPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const styles = StyleSheet.create({
     container: {
@@ -107,17 +110,30 @@ export default function SearchPage() {
 
   // Load initial data
   useEffect(() => {
-    loadInitialData();
+    loadInitialDataOptimized();
   }, []);
 
-  // Load products when category or search changes
+  // Debounced search when query or category changes
   useEffect(() => {
-    loadProducts();
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    const timeout = setTimeout(() => {
+      loadProducts();
+    }, searchQuery.trim() ? 300 : 0); // Debounce search queries
+    
+    setSearchTimeout(timeout);
+    
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
   }, [activeCategory, searchQuery]);
 
-  const loadInitialData = async () => {
+  const loadInitialDataOptimized = async () => {
     try {
-      setIsLoading(true);
+      // Show UI immediately
+      setIsLoading(false);
       
       const categoriesResponse = await categoryService.getCategories();
       if (categoriesResponse.success && categoriesResponse.data) {
@@ -127,10 +143,7 @@ export default function SearchPage() {
       // Load initial products
       await loadProducts();
     } catch (error) {
-      console.error('Failed to load initial data:', error);
       Alert.alert('Error', 'Failed to load data. Please try again.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -153,15 +166,25 @@ export default function SearchPage() {
         params.search = searchQuery.trim();
       }
 
+      // Check cache first for better performance
+      const cacheKey = `${searchQuery.trim()}_${activeCategory}`;
+      const cachedResults = productCacheService.getCachedSearchResults(cacheKey, params);
+      if (cachedResults) {
+        setProducts(cachedResults);
+        setIsLoadingProducts(false);
+        return;
+      }
+
       const response = await productService.searchProducts(params);
       
       if (response.success && response.data) {
         setProducts(response.data);
+        // Cache the results
+        productCacheService.cacheSearchResults(cacheKey, response.data, params);
       } else {
         setProducts([]);
       }
     } catch (error) {
-      console.error('Failed to load products:', error);
       setProducts([]);
     } finally {
       setIsLoadingProducts(false);
@@ -179,14 +202,37 @@ export default function SearchPage() {
   if (isLoading) {
     return (
       <View style={styles.container}>
+        <StatusBar 
+          backgroundColor={colors.surface} 
+          barStyle={isDark ? "light-content" : "dark-content"} 
+        />
+        
         <Header
           title="Search"
           showBack={true}
         />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading...</Text>
+
+        {/* Sticky Search and Tabs Section */}
+        <View style={styles.stickySection}>
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search products, suppliers..."
+              onCameraPress={() => {
+                // Camera functionality not implemented yet
+              }}
+            />
+          </View>
+
+          {/* Category Tabs Skeleton */}
+          <View style={{ height: 50, backgroundColor: colors.surface }} />
         </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
+          <ProductSectionSkeleton variant="list" itemCount={6} showHeader={false} />
+        </ScrollView>
       </View>
     );
   }
@@ -211,7 +257,9 @@ export default function SearchPage() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search products, suppliers..."
-            onCameraPress={() => console.log('Camera pressed')}
+            onCameraPress={() => {
+              // Camera functionality not implemented yet
+            }}
           />
         </View>
 
@@ -233,18 +281,15 @@ export default function SearchPage() {
           <View style={styles.resultsHeader}>
             <Text style={styles.resultsText}>
               {products.length} results
-              {searchQuery.trim() && ` for "${searchQuery}"`}
-              {activeCategory !== 'All' && ` in ${activeCategory}`}
+              {searchQuery.trim() ? ` for "${searchQuery}"` : ''}
+              {activeCategory !== 'All' ? ` in ${activeCategory}` : ''}
             </Text>
           </View>
         )}
 
         {/* Products Loading Indicator */}
-        {isLoadingProducts && (
-          <View style={styles.productsLoadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.loadingText}>Searching...</Text>
-          </View>
+        {isLoadingProducts && products.length === 0 && (
+          <ProductSectionSkeleton variant="list" itemCount={4} showHeader={false} />
         )}
 
         {/* Products List */}
@@ -270,8 +315,7 @@ export default function SearchPage() {
               <Text style={styles.emptySubtext}>
                 {searchQuery.trim() 
                   ? `No results for "${searchQuery}". Try different keywords.`
-                  : 'Try searching for products or browse categories.'
-                }
+                  : 'Try searching for products or browse categories.'}
               </Text>
             </View>
           )}

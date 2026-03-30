@@ -108,7 +108,7 @@ export class CollectionService {
           .sort({ createdAt: -1, viewCount: -1 })
           .skip(skip)
           .limit(limit)
-          .populate('supplierId', 'name'),
+          .populate('supplierId', 'name logo'),
         Product.countDocuments(query)
       ]);
 

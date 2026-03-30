@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
+import { COLLECTION_TAGS, TAG_LABELS } from '../../constants/tags';
 
 export interface FilterOptions {
   statusFilter: 'all' | 'active' | 'inactive';
   discountFilter: 'all' | 'discounted' | 'regular';
   categoryFilter: string;
+  tagFilter: string;
   featuredOnly: boolean;
   sellerFavoriteOnly: boolean;
 }
@@ -180,6 +182,7 @@ export const ProductFiltersDropdown: React.FC<ProductFiltersDropdownProps> = ({
     if (filters.statusFilter !== 'all') count++;
     if (filters.discountFilter !== 'all') count++;
     if (filters.categoryFilter !== 'all') count++;
+    if (filters.tagFilter !== 'all') count++;
     if (filters.featuredOnly) count++;
     if (filters.sellerFavoriteOnly) count++;
     return count;
@@ -205,6 +208,10 @@ export const ProductFiltersDropdown: React.FC<ProductFiltersDropdownProps> = ({
     onFiltersChange({ ...filters, categoryFilter: category });
   };
 
+  const handleTagChange = (tag: string) => {
+    onFiltersChange({ ...filters, tagFilter: tag });
+  };
+
   const handleFeaturedToggle = () => {
     onFiltersChange({ ...filters, featuredOnly: !filters.featuredOnly });
   };
@@ -218,6 +225,7 @@ export const ProductFiltersDropdown: React.FC<ProductFiltersDropdownProps> = ({
       statusFilter: 'all',
       discountFilter: 'all',
       categoryFilter: 'all',
+      tagFilter: 'all',
       featuredOnly: false,
       sellerFavoriteOnly: false,
     });
@@ -392,6 +400,21 @@ export const ProductFiltersDropdown: React.FC<ProductFiltersDropdownProps> = ({
                 </View>
               </>
             )}
+
+            {/* Tags Section */}
+            <View style={styles.sectionSeparator} />
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Tags</Text>
+              {renderOption('All Tags', filters.tagFilter === 'all', () => handleTagChange('all'), 'tag-all')}
+              {COLLECTION_TAGS.map((tag) =>
+                renderOption(
+                  TAG_LABELS[tag],
+                  filters.tagFilter === tag,
+                  () => handleTagChange(tag),
+                  `tag-${tag}`
+                )
+              )}
+            </View>
 
             {/* Clear Filters Button */}
             {getActiveFiltersCount() > 0 && (

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Modal, ScrollView, StyleSheet,
+  Alert, Image, Modal, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { DataList } from '../../../components/admin/DataList';
 import { Button } from '../../../components/admin/Button';
 import { mobileToastManager } from '../../../utils/toast';
 import { theme } from '../../../theme';
+import { Header } from '../../../components/Header';
 
 
 
@@ -87,6 +88,9 @@ export default function ReviewsScreen({ embedded }: Props) {
       
       // Handle both possible response structures
       const reviewsData = response.reviews || response.data || [];
+      if (reviewsData.length > 0) {
+        console.log('[Reviews] sample productId field:', JSON.stringify(reviewsData[0].productId));
+      }
       setReviews(reviewsData);
       
       // For now, we'll skip responses and flagged reviews since they're not implemented in the backend
@@ -146,6 +150,7 @@ export default function ReviewsScreen({ embedded }: Props) {
 
   return (
     <Wrapper style={styles.screen}>
+      {!embedded && <Header title="Product Reviews" subtitle="Manage and respond to reviews" showBack={true} />}
       {/* Rating filter */}
       <View style={styles.filterRow}>
         {(['all', '5', '4', '3', '2', '1'] as RatingFilter[]).map((r) => (
@@ -168,6 +173,7 @@ export default function ReviewsScreen({ embedded }: Props) {
         renderItem={({ item }) => {
           const response = responses.find((r) => r.reviewId === item._id);
           const isFlagged = flagged.has(item._id);
+          const product = item.productId && typeof item.productId === 'object' ? item.productId : null;
           return (
             <Card style={isFlagged ? { ...styles.card, ...styles.cardFlagged } : styles.card}>
               <View style={styles.cardHeader}>
@@ -182,6 +188,17 @@ export default function ReviewsScreen({ embedded }: Props) {
                   </TouchableOpacity>
                 </View>
               </View>
+              {product && (
+                <View style={styles.productRef}>
+                  {product.images?.[0] && (
+                    <Image source={{ uri: product.images[0] }} style={styles.productThumb} />
+                  )}
+                  <View style={styles.productRefTextWrap}>
+                    <Text style={styles.productRefLabel}>Product</Text>
+                    <Text style={styles.productRefName} numberOfLines={1}>{product.name}</Text>
+                  </View>
+                </View>
+              )}
               <Text style={styles.comment}>{item.comment}</Text>
               {response && (
                 <View style={styles.responseBox}>
@@ -231,6 +248,16 @@ const styles = StyleSheet.create({
   userName: { fontSize: theme.fontSizes.base, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.text },
   date: { fontSize: theme.fontSizes.xs, color: theme.colors.textLight },
   comment: { fontSize: theme.fontSizes.sm, color: theme.colors.text, lineHeight: 20 },
+  productRef: {
+    flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm,
+    backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.base,
+    padding: theme.spacing.sm, marginBottom: theme.spacing.sm,
+    borderWidth: 1, borderColor: theme.colors.border,
+  },
+  productThumb: { width: 36, height: 36, borderRadius: theme.borderRadius.sm, backgroundColor: theme.colors.border },
+  productRefTextWrap: { flex: 1 },
+  productRefLabel: { fontSize: theme.fontSizes.xs, color: theme.colors.textLight, marginBottom: 1 },
+  productRefName: { fontSize: theme.fontSizes.sm, fontWeight: theme.fontWeights.medium as any, color: theme.colors.text },
   responseBox: { marginTop: theme.spacing.sm, padding: theme.spacing.sm, backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.base, borderLeftWidth: 3, borderLeftColor: theme.colors.primary },
   responseLabel: { fontSize: theme.fontSizes.xs, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.primary, marginBottom: 2 },
   responseText: { fontSize: theme.fontSizes.sm, color: theme.colors.text },

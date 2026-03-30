@@ -164,6 +164,14 @@ export default function MyTicketsScreen() {
   });
 
   const fetchTickets = async (showRefreshing = false) => {
+    // Don't fetch tickets if user is admin
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
+      setTickets([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     if (showRefreshing) {
       setRefreshing(true);
     } else {
@@ -173,15 +181,25 @@ export default function MyTicketsScreen() {
     try {
       const token = await tokenManager.getAccessToken();
       if (!token) {
-        showError('Authentication required');
+        // Don't show error for missing token, just set empty state
+        setTickets([]);
         return;
       }
       
       const data = await TicketService.getUserTickets(token);
-      setTickets(data.data);
+      
+      // Handle successful response
+      if (data && data.status === 'success' && data.data) {
+        setTickets(Array.isArray(data.data) ? data.data : []);
+      } else {
+        // Fallback for unexpected response structure
+        setTickets([]);
+      }
     } catch (error: any) {
-      console.error('Error fetching tickets:', error);
-      showError(error.message || 'Failed to fetch tickets');
+      // Silently handle all errors and just set empty state
+      // This prevents showing "failed to fetch" errors when there are simply no tickets
+      // or when there are authentication/network issues
+      setTickets([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -271,7 +289,20 @@ export default function MyTicketsScreen() {
     <View style={styles.container}>
       <Header title="My Support Tickets" showBack={true} />
 
-      {tickets.length === 0 ? (
+      {user?.role === 'admin' || user?.role === 'super_admin' ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons 
+            name="shield-outline" 
+            size={64} 
+            color={colors.textLight} 
+            style={styles.emptyIcon}
+          />
+          <Text style={styles.emptyTitle}>Admin Account</Text>
+          <Text style={styles.emptyText}>
+            Support tickets are not available for admin accounts. This feature is for customers only.
+          </Text>
+        </View>
+      ) : tickets.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons 
             name="document-text-outline" 
@@ -339,14 +370,16 @@ export default function MyTicketsScreen() {
         </ScrollView>
       )}
 
-      <View style={styles.fabContainer}>
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => router.push('/create-ticket')}
-        >
-          <Ionicons name="add" size={24} color={colors.textInverse} />
-        </TouchableOpacity>
-      </View>
+      {user?.role !== 'admin' && user?.role !== 'super_admin' && (
+        <View style={styles.fabContainer}>
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={() => router.push('/create-ticket')}
+          >
+            <Ionicons name="add" size={24} color={colors.textInverse} />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }

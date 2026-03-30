@@ -26,7 +26,7 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    const { page = 1, limit = 10, category, minPrice, maxPrice, minRating, inStock, sortBy, supplierId, isFeatured, isSellerFavorite } = req.query;
+    const { page = 1, limit = 10, category, minPrice, maxPrice, minRating, inStock, sortBy, sortOrder, supplierId, isFeatured, isSellerFavorite, tag } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 10));
@@ -65,16 +65,26 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
       filter.isSellerFavorite = isSellerFavorite === 'true';
     }
 
-    // Build sort object
+    if (tag) {
+      filter.tags = { $in: [tag] };
+    }
+
+    // Build sort object — supports both combined (price_asc) and split (sortBy=price&sortOrder=asc) formats
     let sortObj: any = { createdAt: -1 };
-    if (sortBy === 'price_asc') {
+    const sortByStr = sortBy as string;
+    const sortOrderStr = (sortOrder as string) || 'desc';
+    const sortDir = sortOrderStr === 'asc' ? 1 : -1;
+
+    if (sortByStr === 'price_asc' || (sortByStr === 'price' && sortOrderStr === 'asc')) {
       sortObj = { price: 1 };
-    } else if (sortBy === 'price_desc') {
+    } else if (sortByStr === 'price_desc' || (sortByStr === 'price' && sortOrderStr === 'desc')) {
       sortObj = { price: -1 };
-    } else if (sortBy === 'rating') {
+    } else if (sortByStr === 'rating' || sortByStr === 'rating_desc') {
       sortObj = { rating: -1 };
-    } else if (sortBy === 'newest') {
-      sortObj = { createdAt: -1 };
+    } else if (sortByStr === 'newest' || sortByStr === 'createdAt') {
+      sortObj = { createdAt: sortDir };
+    } else if (sortByStr === 'name') {
+      sortObj = { name: sortDir };
     }
 
     // Execute query
@@ -82,7 +92,7 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
       .sort(sortObj)
       .skip(skip)
       .limit(limitNum)
-      .populate('supplierId', 'name email verified rating location responseTime');
+      .populate('supplierId', 'name email verified rating location responseTime logo');
 
     const total = await Product.countDocuments(filter);
 
@@ -118,7 +128,7 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
   try {
     const { id } = req.params;
 
-    const product = await Product.findById(id).populate('supplierId', 'name email verified rating location responseTime');
+    const product = await Product.findById(id).populate('supplierId', 'name email verified rating location responseTime logo');
     if (!product) {
       res.status(404).json({
         status: 'error',
@@ -378,7 +388,7 @@ export const getFeaturedProducts = async (req: Request, res: Response): Promise<
     const products = await Product.find({ isFeatured: true, isActive: true })
       .limit(limitNum)
       .sort({ createdAt: -1 })
-      .populate('supplierId', 'name email verified rating location responseTime');
+      .populate('supplierId', 'name email verified rating location responseTime logo');
 
     const total = await Product.countDocuments({ isFeatured: true, isActive: true });
 
@@ -425,7 +435,7 @@ export const getProductsByCategory = async (req: Request, res: Response): Promis
       .skip(skip)
       .limit(limitNum)
       .sort({ createdAt: -1 })
-      .populate('supplierId', 'name email verified rating location responseTime');
+      .populate('supplierId', 'name email verified rating location responseTime logo');
 
     const total = await Product.countDocuments({ category: categoryId, isActive: true });
 
@@ -499,7 +509,7 @@ export const getAdminProducts = async (req: Request, res: Response): Promise<voi
       .sort(sortObj)
       .skip(skip)
       .limit(limitNum)
-      .populate('supplierId', 'name email');
+      .populate('supplierId', 'name email logo');
 
     const total = await Product.countDocuments(filter);
 

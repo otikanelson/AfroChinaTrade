@@ -8,16 +8,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { useAuth } from '../../../contexts/AuthContext';
 import { useAlertContext } from '../../../contexts/AlertContext';
 import { Header } from '../../../components/Header';
 import { spacing } from '../../../theme/spacing';
 import { API_BASE_URL } from '../../../constants/config';
+import { tokenManager } from '../../../services/api/tokenManager';
 
 interface TicketDetail {
   _id: string;
@@ -56,8 +55,7 @@ export default function AdminTicketDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors, fontSizes, fontWeights, borderRadius } = useTheme();
-  const { token } = useAuth();
-  const { showAlert } = useAlert();
+  const { showError, showSuccess } = useAlertContext();
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -338,7 +336,8 @@ export default function AdminTicketDetailScreen() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/tickets/${id}`, {
+      const token = await tokenManager.getAccessToken();
+      const response = await fetch(`${API_BASE_URL}/tickets/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -351,12 +350,12 @@ export default function AdminTicketDetailScreen() {
         setSelectedStatus(data.data.status);
         setAdminResponse(data.data.adminResponse || '');
       } else {
-        showAlert(data.message || 'Failed to fetch ticket details', 'error');
+        showError('Error', data.message || 'Failed to fetch ticket details');
         router.back();
       }
     } catch (error) {
       console.error('Error fetching ticket detail:', error);
-      showAlert('Network error. Please try again.', 'error');
+      showError('Network Error', 'Please try again.');
       router.back();
     } finally {
       setLoading(false);
@@ -376,13 +375,14 @@ export default function AdminTicketDetailScreen() {
 
   const handleUpdateTicket = async () => {
     if (!adminResponse.trim() && selectedStatus === ticket?.status) {
-      showAlert('Please provide a response or change the status', 'error');
+      showError('Validation', 'Please provide a response or change the status');
       return;
     }
 
     setUpdating(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/tickets/${id}`, {
+      const token = await tokenManager.getAccessToken();
+      const response = await fetch(`${API_BASE_URL}/tickets/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -398,14 +398,14 @@ export default function AdminTicketDetailScreen() {
       const data = await response.json();
 
       if (data.status === 'success') {
-        showAlert('Ticket updated successfully!', 'success');
+        showSuccess('Ticket updated successfully!');
         fetchTicketDetail();
       } else {
-        showAlert(data.message || 'Failed to update ticket', 'error');
+        showError('Error', data.message || 'Failed to update ticket');
       }
     } catch (error) {
       console.error('Error updating ticket:', error);
-      showAlert('Network error. Please try again.', 'error');
+      showError('Network Error', 'Please try again.');
     } finally {
       setUpdating(false);
     }

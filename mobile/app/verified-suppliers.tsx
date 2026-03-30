@@ -11,6 +11,7 @@ import { spacing } from '../theme/spacing';
 
 
 export default function SuppliersScreen() {
+  console.log('🏪 Regular SuppliersScreen component loaded');
   const router = useRouter();
   const { fonts, fontSizes, colors, fontWeights, borderRadius } = useTheme();
   const { isAuthenticated } = useAuth();

@@ -117,7 +117,7 @@ export const CustomModal: React.FC<CustomModalProps> = ({
       flex: 1,
       backgroundColor: 'rgba(0, 0, 0, 0.5)',
       justifyContent: position === 'center' ? 'center' : 'flex-end',
-      alignItems: 'center',
+      alignItems: position === 'center' ? 'center' : 'stretch',
     },
     container: {
       backgroundColor: colors.background,
@@ -128,7 +128,9 @@ export const CustomModal: React.FC<CustomModalProps> = ({
       shadowOpacity: 0.15,
       shadowRadius: 12,
       elevation: 8,
-      ...sizeStyles,
+      ...(position === 'bottom'
+        ? { width: screenWidth, maxHeight: screenHeight * 0.85 }
+        : sizeStyles),
     },
     header: {
       flexDirection: 'row',
@@ -206,9 +208,10 @@ export const CustomModal: React.FC<CustomModalProps> = ({
 
               {scrollable ? (
                 <ScrollView
-                  style={styles.content}
-                  contentContainerStyle={styles.scrollContent}
+                  style={[styles.content, { flexGrow: 1 }]}
+                  contentContainerStyle={[styles.scrollContent, { flexGrow: 1 }]}
                   showsVerticalScrollIndicator={true}
+                  keyboardShouldPersistTaps="handled"
                 >
                   {children}
                 </ScrollView>

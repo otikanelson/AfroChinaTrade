@@ -225,8 +225,7 @@ export default function MessageThreadScreen() {
   useEffect(() => {
     if (threadId && !isNewThread && !threadId.startsWith('temp_')) {
       loadThread(false, 0);
-      // Start auto-refresh when thread is loaded
-      startAutoRefresh();
+      // Auto-refresh will be started after messages are loaded
     } else if (isNewThread || threadId.startsWith('temp_')) {
       setLoading(false);
     }
@@ -238,15 +237,25 @@ export default function MessageThreadScreen() {
   }, [threadId, isNewThread]);
 
   const startAutoRefresh = () => {
-    // Clear any existing interval
+    // Clear any existing interval first
     stopAutoRefresh();
     
-    // Set up auto-refresh every 10 seconds
+    // Don't start auto-refresh for new threads or empty threads
+    if (isNewThread || threadId.startsWith('temp_') || messages.length === 0) {
+      return;
+    }
+    
+    // Don't start if already active
+    if (isAutoRefreshActive) {
+      return;
+    }
+    
+    // Set up auto-refresh every 30 seconds (reduced from 10 seconds)
     const interval = setInterval(() => {
-      if (!refreshing && !sending) {
+      if (!refreshing && !sending && !loading) {
         loadThread(false, 0, true); // Silent refresh
       }
-    }, 10000);
+    }, 30000); // Changed from 10000 to 30000
     
     setAutoRefreshInterval(interval);
     setIsAutoRefreshActive(true);
@@ -266,8 +275,8 @@ export default function MessageThreadScreen() {
       if (messages.length > 0) {
         markMessagesAsRead(messages);
       }
-      // Resume auto-refresh when screen is focused
-      if (threadId && !isNewThread && !threadId.startsWith('temp_')) {
+      // Resume auto-refresh when screen is focused (only if there are messages)
+      if (threadId && !isNewThread && !threadId.startsWith('temp_') && messages.length > 0) {
         startAutoRefresh();
       }
       
@@ -275,7 +284,7 @@ export default function MessageThreadScreen() {
       return () => {
         stopAutoRefresh();
       };
-    }, [threadId, isNewThread]) // Removed 'messages' from dependency array to prevent repeated calls
+    }, [threadId, isNewThread, messages.length]) // Added messages.length to dependency array
   );
 
   const loadThread = async (showRefreshIndicator = false, retryCount = 0, silentRefresh = false) => {
@@ -309,11 +318,17 @@ export default function MessageThreadScreen() {
               flatListRef.current?.scrollToEnd({ animated: true });
             }, 100);
           }
+          
+          // Start auto-refresh after messages are loaded (only for initial load)
+          if (!silentRefresh && !showRefreshIndicator && newMessages.length > 0 && !isAutoRefreshActive) {
+            setTimeout(() => {
+              startAutoRefresh();
+            }, 1000);
+          }
         }
       } else {
         // If this is a newly created thread, retry a few times
         if (retryCount < 3 && !showRefreshIndicator && !silentRefresh) {
-          console.log(`Thread not found, retrying... (${retryCount + 1}/3)`);
           setTimeout(() => {
             loadThread(false, retryCount + 1);
           }, 1000);
@@ -330,7 +345,6 @@ export default function MessageThreadScreen() {
       
       // If this is a newly created thread, retry a few times
       if (retryCount < 3 && !showRefreshIndicator && !silentRefresh) {
-        console.log(`Error loading thread, retrying... (${retryCount + 1}/3)`);
         setTimeout(() => {
           loadThread(false, retryCount + 1);
         }, 1000);
@@ -383,7 +397,6 @@ export default function MessageThreadScreen() {
 
     try {
       setSending(true);
-      console.log('Sending message to thread:', threadId, 'Message:', newMessage.trim());
       
       // If this is a new product thread, create it first
       if ((isNewThread && productId) || threadId.startsWith('temp_')) {
@@ -399,8 +412,6 @@ export default function MessageThreadScreen() {
           (threadType as 'product_inquiry' | 'quote_request') || 'product_inquiry'
         );
         
-        console.log('Create product thread response:', createResponse);
-        
         if (createResponse.success && createResponse.data) {
           // Thread created successfully, navigate to the real thread
           router.replace({
@@ -412,7 +423,6 @@ export default function MessageThreadScreen() {
           });
           return;
         } else {
-          console.error('Failed to create thread:', createResponse.error);
           toast.error(createResponse.error?.message || 'Failed to start conversation');
           setSending(false);
           return;
@@ -428,8 +438,6 @@ export default function MessageThreadScreen() {
         productName: messages.length === 0 ? displayProductName : undefined,
       });
 
-      console.log('Send message response:', response);
-
       if (response.success && response.data) {
         setMessages(prev => [...prev, response.data!]);
         setNewMessage('');
@@ -443,7 +451,6 @@ export default function MessageThreadScreen() {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
       } else {
-        console.error('Failed to send message:', response.error);
         toast.error(response.error?.message || 'Failed to send message');
       }
     } catch (error) {

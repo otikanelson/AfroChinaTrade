@@ -302,12 +302,14 @@ class CollectionService {
       const response = await fetch(`${this.baseUrl}/${collectionId}/status`, {
         method: 'PATCH',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
       const result: ApiResponse<{ collection: Collection }> = await response.json();

@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ReviewsScreen from './reviews';
 import TicketsScreen from './tickets';
 import { theme } from '../../../theme';
+import { Header } from '../../../components/Header';
 
 type Tab = 'reports' | 'reviews' | 'tickets';
 
@@ -16,6 +17,7 @@ export default function ModerationDashboardScreen() {
 
   return (
     <View style={styles.screen}>
+      <Header title="Moderation" subtitle="Reviews & support tickets" showBack={true} />
       {/* Tab bar */}
       <View style={styles.tabBar}>
         {TABS.map((tab) => (

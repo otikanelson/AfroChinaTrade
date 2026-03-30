@@ -10,7 +10,7 @@ const categories = [
   {
     name: 'Electronics',
     description: 'Electronic devices and gadgets',
-    icon: 'smartphone',
+    icon: 'phone-portrait-outline',
     imageUrl: '/uploads/categories/electronics.jpg',
     isActive: true,
     subcategories: ['Smartphones', 'Laptops', 'Tablets', 'Accessories']
@@ -18,7 +18,7 @@ const categories = [
   {
     name: 'Fashion',
     description: 'Clothing and fashion accessories',
-    icon: 'shirt',
+    icon: 'shirt-outline',
     imageUrl: '/uploads/categories/fashion.jpg',
     isActive: true,
     subcategories: ['Men\'s Clothing', 'Women\'s Clothing', 'Shoes', 'Accessories']
@@ -26,7 +26,7 @@ const categories = [
   {
     name: 'Home & Garden',
     description: 'Home improvement and garden supplies',
-    icon: 'home',
+    icon: 'home-outline',
     imageUrl: '/uploads/categories/home-garden.jpg',
     isActive: true,
     subcategories: ['Furniture', 'Kitchen', 'Garden Tools', 'Decor']
@@ -34,7 +34,7 @@ const categories = [
   {
     name: 'Sports & Outdoors',
     description: 'Sports equipment and outdoor gear',
-    icon: 'football',
+    icon: 'football-outline',
     imageUrl: '/uploads/categories/sports.jpg',
     isActive: true,
     subcategories: ['Fitness', 'Outdoor Recreation', 'Team Sports', 'Water Sports']
@@ -42,7 +42,7 @@ const categories = [
   {
     name: 'Books & Media',
     description: 'Books, movies, music and educational materials',
-    icon: 'book',
+    icon: 'book-outline',
     imageUrl: '/uploads/categories/books.jpg',
     isActive: true,
     subcategories: ['Books', 'Movies', 'Music', 'Educational']
@@ -50,7 +50,7 @@ const categories = [
   {
     name: 'Health & Beauty',
     description: 'Health products and beauty supplies',
-    icon: 'heart',
+    icon: 'heart-outline',
     imageUrl: '/uploads/categories/health-beauty.jpg',
     isActive: true,
     subcategories: ['Skincare', 'Makeup', 'Health Supplements', 'Personal Care']
@@ -58,7 +58,7 @@ const categories = [
   {
     name: 'Automotive',
     description: 'Car parts and automotive accessories',
-    icon: 'car',
+    icon: 'car-outline',
     imageUrl: '/uploads/categories/automotive.jpg',
     isActive: true,
     subcategories: ['Car Parts', 'Tools', 'Accessories', 'Maintenance']
@@ -66,7 +66,7 @@ const categories = [
   {
     name: 'Toys & Games',
     description: 'Toys, games and entertainment for all ages',
-    icon: 'gamepad',
+    icon: 'game-controller-outline',
     imageUrl: '/uploads/categories/toys.jpg',
     isActive: true,
     subcategories: ['Action Figures', 'Board Games', 'Educational Toys', 'Video Games']

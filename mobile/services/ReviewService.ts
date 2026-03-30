@@ -7,7 +7,7 @@ export interface Review {
     _id: string;
     name: string;
     images: string[];
-  };
+  } | string;
   userId: string;
   userName: string;
   rating: number;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Text, ActivityIndicator, Alert, RefreshControl, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, StatusBar, Text, Alert, RefreshControl, Dimensions } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Header } from '../../components/Header';
 import { SearchBar } from '../../components/SearchBar';
@@ -7,8 +7,11 @@ import { ProductCard } from '../../components/ProductCard';
 import { FeatureCard } from '../../components/FeatureCard';
 import { SectionHeader } from '../../components/SectionHeader';
 import { BrowseAllCard } from '../../components/BrowseAllCard';
+import { ProductSectionSkeleton } from '../../components/ProductSectionSkeleton';
+import { CameraSearchModal } from '../../components/CameraSearchModal';
 import { categoryService } from '../../services/CategoryService';
 import { collectionService } from '../../services/CollectionService';
+import { productCacheService } from '../../services/ProductCacheService';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -16,7 +19,7 @@ import { useRecommendations } from '../../hooks/useRecommendations';
 import { Product, Category, Collection } from '../../types/product';
 import { NavigationSource } from '../../types/navigation';
 import { testConnectionWithRetry, getConnectionErrorMessage } from '../../utils/connectionUtils';
-import { spacing } from '../../theme';
+import { spacing, borderRadius } from '../../theme';
 
 export default function HomeTab() {
   const router = useRouter();
@@ -28,7 +31,9 @@ export default function HomeTab() {
   const [collectionProducts, setCollectionProducts] = useState<Record<string, Product[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingCollections, setIsLoadingCollections] = useState(false);
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
   const { width: screenWidth } = Dimensions.get('window');
   
 
@@ -63,6 +68,40 @@ export default function HomeTab() {
       marginHorizontal: 18,
       marginTop: spacing.md,
       gap: spacing.xs,
+    },
+    categoriesSection: {
+      marginBottom: spacing.lg,
+    },
+    categoriesScrollView: {
+      paddingHorizontal: spacing.base,
+      gap: spacing.sm,
+    },
+    categoryCard: {
+      backgroundColor: colors.background,
+      borderRadius: borderRadius.lg,
+      padding: spacing.base,
+      marginRight: spacing.sm,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      width: 100,
+      minHeight: 90,
+      justifyContent: 'center',
+    },
+    categoryIconContainer: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.xs,
+    },
+    categoryName: {
+      fontSize: fontSizes.xs,
+      fontFamily: fonts.medium,
+      color: colors.text,
+      textAlign: 'center',
     },
     section: {
       marginBottom: spacing.xs,
@@ -139,13 +178,16 @@ export default function HomeTab() {
         setIsLoading(true);
       }
 
-      // Test backend connection first with retry logic for cold starts
-      console.log('🔍 Testing backend connection...');
+      // Show UI immediately, load data progressively
+      if (!isRefresh) {
+        setIsLoading(false); // Show UI immediately
+      }
+
+      // Test backend connection in background
       const connectionResult = await testConnectionWithRetry(3, 15000);
       
       if (!connectionResult.success) {
         const errorMessage = getConnectionErrorMessage(connectionResult);
-        console.error('❌ All connection attempts failed:', connectionResult.error);
         
         if (!isRefresh) {
           Alert.alert(
@@ -157,56 +199,63 @@ export default function HomeTab() {
             ]
           );
         }
-        // Continue loading even if connection test fails - the individual API calls might still work
-      } else {
-        if (connectionResult.isColdStart) {
-          console.log('🥶 Cold start detected - server was sleeping');
-        }
       }
 
-      // Load categories first
-      const categoriesResponse = await categoryService.getCategories();
+      // Load categories and collections in parallel
+      const [categoriesResponse, collectionsResponse] = await Promise.all([
+        categoryService.getCategories(),
+        collectionService.getActiveCollections()
+      ]);
+
       if (categoriesResponse.success && categoriesResponse.data) {
-        setCategories(categoriesResponse.data);
+        setCategories(categoriesResponse.data.slice(0, 6));
       }
 
-      // Load collections with lazy loading
-      await loadCollections();
+      if (collectionsResponse.success && collectionsResponse.data) {
+        setCollections(collectionsResponse.data);
+        // Load collection products progressively
+        loadCollectionProductsProgressively(collectionsResponse.data);
+      }
+
     } catch (error) {
-      console.error('Failed to load initial data:', error);
       if (!isRefresh) {
         Alert.alert('Error', 'Failed to load data. Please try again.');
-      }
-    } finally {
-      if (!isRefresh) {
-        setIsLoading(false);
       }
     }
   };
 
-  const loadCollections = async () => {
-    try {
-      setIsLoadingCollections(true);
-      
-      // Load collections
-      const collectionsResponse = await collectionService.getActiveCollections();
-      if (collectionsResponse.success && collectionsResponse.data) {
-        setCollections(collectionsResponse.data);
+  const loadCollectionProductsProgressively = async (collections: Collection[]) => {
+    // Load collection products one by one to show progressive updates
+    for (const collection of collections) {
+      try {
+        setLoadingStates(prev => ({ ...prev, [collection.id]: true }));
         
-        // Load products for each collection (limit to 10 per collection for performance)
-        const collectionProductsMap: Record<string, Product[]> = {};
-        for (const collection of collectionsResponse.data) {
-          const collectionProductsResponse = await collectionService.getCollectionProducts(collection.id, 1, 10);
-          if (collectionProductsResponse.success && collectionProductsResponse.data) {
-            collectionProductsMap[collection.id] = collectionProductsResponse.data.products || [];
-          }
+        // Check cache first
+        const cachedProducts = productCacheService.getCachedCollectionProducts(collection.id);
+        if (cachedProducts) {
+          setCollectionProducts(prev => ({
+            ...prev,
+            [collection.id]: cachedProducts
+          }));
+          setLoadingStates(prev => ({ ...prev, [collection.id]: false }));
+          continue;
         }
-        setCollectionProducts(collectionProductsMap);
+
+        const collectionProductsResponse = await collectionService.getCollectionProducts(collection.id, 1, 10);
+        if (collectionProductsResponse.success && collectionProductsResponse.data) {
+          const products = collectionProductsResponse.data.products || [];
+          setCollectionProducts(prev => ({
+            ...prev,
+            [collection.id]: products
+          }));
+          // Cache the results
+          productCacheService.cacheCollectionProducts(collection.id, products);
+        }
+      } catch (error) {
+        // Continue loading other collections even if one fails
+      } finally {
+        setLoadingStates(prev => ({ ...prev, [collection.id]: false }));
       }
-    } catch (error) {
-      console.error('Failed to load collections:', error);
-    } finally {
-      setIsLoadingCollections(false);
     }
   };
 
@@ -220,32 +269,166 @@ export default function HomeTab() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
+      // Clear cache on refresh
+      productCacheService.clear();
       // Reload all data
       await Promise.all([
-        loadInitialData(true), // Pass true to indicate this is a refresh
+        loadInitialData(true),
         refreshRecommendations()
       ]);
     } catch (error) {
-      console.error('Error refreshing home data:', error);
+      // Error refreshing home data
     } finally {
       setRefreshing(false);
     }
   }, [refreshRecommendations]);
 
+  const handleCameraPress = () => {
+    setShowCameraModal(true);
+  };
+
+  const renderCollectionSection = (collection: Collection) => {
+    const products = collectionProducts[collection.id] || [];
+    const isLoadingSection = loadingStates[collection.id];
+    
+    // Show skeleton while loading
+    if (isLoadingSection && products.length === 0) {
+      return (
+        <ProductSectionSkeleton
+          key={`${collection.id}_skeleton`}
+          variant="horizontal"
+          itemCount={4}
+          showHeader={true}
+        />
+      );
+    }
+    
+    // Don't render if no products and not loading
+    if (products.length === 0 && !isLoadingSection) return null;
+    
+    return (
+      <View key={collection.id} style={styles.section}>
+        <SectionHeader
+          title={collection.name}
+          actionText="See All"
+          navigationSource={NavigationSource.HOME_COLLECTION}
+          collectionType="custom"
+          onActionPress={() => router.push({
+            pathname: '/product-listing',
+            params: { 
+              collectionId: collection.id,
+              title: collection.name
+            }
+          })}
+        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalList}
+        >
+          {products.map(product => {
+            const productId = (product as any)._id || product.id;
+            return (
+              <View key={productId} style={styles.featuredCardWrapper}>
+                <ProductCard
+                  product={product}
+                  onPress={() => handleProductPress(product)}
+                  showViewCount={true}
+                />
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
+        <StatusBar
+          backgroundColor={colors.surface}
+          barStyle={isDark ? "light-content" : "dark-content"}
+        />
+
         <Header
           title="AfroChinaTrade"
           showLogo={true}
-          showCart={true}
+          showCart={user?.role !== 'admin'}
           cartCount={cartCount}
           onCartPress={() => router.push('/cart')}
         />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading collections...</Text>
+
+        {/* Sticky Search Section */}
+        <View style={styles.stickySection}>
+          <View style={styles.searchContainer}>
+            <SearchBar
+              value=""
+              onChangeText={() => { }}
+              placeholder="Search products, suppliers..."
+              onCameraPress={handleCameraPress}
+              onPress={() => router.push('/search')}
+              editable={false}
+            />
+          </View>
         </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
+          {/* Feature Cards Skeleton */}
+          <View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.featureCardsRow}
+            >
+              <FeatureCard
+                key="verified-suppliers"
+                iconName="shield-check"
+                title="Verified"
+                subtitle="Suppliers"
+                iconColor={colors.secondary}
+                onPress={() => {
+                  router.push('/verified-suppliers');
+                }}
+              />
+              <FeatureCard
+                key="quick delivery"
+                iconName="truck-fast"
+                title="quick delivery"
+                subtitle="make order"
+                iconColor={colors.accent}
+                onPress={() => {
+                    router.push('/my-orders');
+                  }
+                }
+              />
+              <FeatureCard
+                key="categories"
+                iconName="view-grid"
+                title="All Categories"
+                subtitle="Browse all"
+                iconColor={colors.primary}
+                onPress={() => router.push({
+                  pathname: '/product-listing',
+                  params: { showCategories: 'true', title: 'Categories' }
+                })}
+              />
+              <FeatureCard
+                key="get-quotes"
+                iconName="file-document-edit"
+                title="Get Quotes"
+                subtitle="Request"
+                iconColor={colors.secondary}
+                onPress={() => router.push('/messages')}
+              />
+            </ScrollView>
+          </View>
+
+          {/* Loading Skeletons */}
+          <ProductSectionSkeleton variant="horizontal" itemCount={4} />
+          <ProductSectionSkeleton variant="horizontal" itemCount={4} />
+          <ProductSectionSkeleton variant="horizontal" itemCount={4} />
+        </ScrollView>
       </View>
     );
   }
@@ -273,7 +456,7 @@ export default function HomeTab() {
             value=""
             onChangeText={() => { }}
             placeholder="Search products, suppliers..."
-            onCameraPress={() => console.log('Camera pressed')}
+            onCameraPress={handleCameraPress}
             onPress={() => router.push('/search')}
             editable={false}
           />
@@ -304,19 +487,24 @@ export default function HomeTab() {
               title="Verified"
               subtitle="Suppliers"
               iconColor={colors.secondary}
-              onPress={() => router.push('/suppliers')}
+              onPress={() => {
+                router.push('/verified-suppliers');
+              }}
             />
             <FeatureCard
-              key="secure-trading"
-              iconName="lock"
-              title="Secure"
-              subtitle="Trading"
+              key="delivery"
+              iconName="speedometer"
+              title="Quick Delivery"
+              subtitle="Make order"
               iconColor={colors.accent}
+              onPress={() => {
+                router.push('/my-orders');
+              }}
             />
             <FeatureCard
               key="categories"
               iconName="view-grid"
-              title="Categories"
+              title="All Categories"
               subtitle="Browse all"
               iconColor={colors.primary}
               onPress={() => router.push({
@@ -335,55 +523,8 @@ export default function HomeTab() {
           </ScrollView>
         </View>
 
-        {/* Collections Loading Indicator */}
-        {isLoadingCollections && (
-          <View style={styles.productsLoadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading collections...</Text>
-          </View>
-        )}
-
         {/* Collections Sections - Display all admin-created collections */}
-        {collections.map(collection => {
-          const products = collectionProducts[collection.id] || [];
-          if (products.length === 0) return null;
-          
-          return (
-            <View key={collection.id} style={styles.section}>
-              <SectionHeader
-                title={collection.name}
-                 actionText="See All"
-                navigationSource={NavigationSource.HOME_COLLECTION}
-                collectionType="custom"
-                onActionPress={() => router.push({
-                  pathname: '/product-listing',
-                  params: { 
-                    collectionId: collection.id,
-                    title: collection.name
-                  }
-                })}
-              />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-              >
-                {products.map(product => {
-                  const productId = (product as any)._id || product.id;
-                  return (
-                    <View key={productId} style={styles.featuredCardWrapper}>
-                      <ProductCard
-                        product={product}
-                        onPress={() => handleProductPress(product)}
-                        showViewCount={true}
-                      />
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          );
-        })}
+        {collections.map(renderCollectionSection)}
 
         {/* Recommended Products - Only show for authenticated users with recommendations */}
         {user && hasRecommendations && (
@@ -416,8 +557,13 @@ export default function HomeTab() {
           </View>
         )}
 
+        {/* Show loading skeletons for collections that are still loading */}
+        {Object.entries(loadingStates).some(([_, loading]) => loading) && (
+          <ProductSectionSkeleton variant="horizontal" itemCount={4} />
+        )}
+
         {/* Empty State - Show when no collections are available */}
-        {!isLoadingCollections && collections.length === 0 && (
+        {collections.length === 0 && !Object.values(loadingStates).some(loading => loading) && (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No collections available</Text>
             <Text style={styles.emptySubtext}>Collections will appear here once they are created by admin</Text>
@@ -435,6 +581,12 @@ export default function HomeTab() {
           })}
         />
       </ScrollView>
+
+      {/* Camera Search Modal */}
+      <CameraSearchModal
+        visible={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+      />
     </View>
   );
 }

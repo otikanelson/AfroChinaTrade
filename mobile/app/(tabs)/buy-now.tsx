@@ -6,7 +6,9 @@ import { useRouter } from 'expo-router';
 import { Header } from '../../components/Header';
 import { ProductCard } from '../../components/ProductCard';
 import { SectionHeader } from '../../components/SectionHeader';
+import { ProductSectionSkeleton } from '../../components/ProductSectionSkeleton';
 import { productService } from '../../services/ProductService';
+import { productCacheService } from '../../services/ProductCacheService';
 import { Product } from '../../types/product';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -22,100 +24,132 @@ export default function BuyNowTab() {
   const [discountedProducts, setDiscountedProducts] = useState<Product[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({
+    featured: true,
+    trending: true,
+    seller_favorites: true,
+    discounted: true,
+    all: true
+  });
   const [loadingErrors, setLoadingErrors] = useState<string[]>([]);
 
   // Use recommendations hook for personalized products
   const { recommendations, hasRecommendations } = useRecommendations();
 
   useEffect(() => {
-    loadAllSections();
+    loadAllSectionsOptimized();
   }, []);
 
-  const loadAllSections = async () => {
+  const loadAllSectionsOptimized = async () => {
     try {
-      setLoading(true);
-      
-      console.log('🚀 Starting to load all sections...');
-      console.log('📡 API Base URL:', process.env.EXPO_PUBLIC_API_URL || 'Using fallback');
-      
-      // Load all product sections
-      const [
-        featuredResponse, 
-        trendingResponse, 
-        sellerFavoritesResponse,
-        discountedResponse,
-        allProductsResponse
-      ] = await Promise.all([
-        productService.getFeaturedProducts(12),
-        productService.getTrendingProducts('7d', 1, 12),
-        productService.getSellerFavorites(1, 12),
-        productService.getProducts({ limit: 12, minPrice: 1, sortBy: 'price_desc' as any }), // Products with discounts
-        productService.getProducts({ limit: 8, sortBy: 'newest' as any }) // All products, newest first - reduced to 8 for better grid layout
-      ]);
-
-      console.log('📊 API Responses received:');
-      console.log('Featured:', featuredResponse.success, featuredResponse.data?.length || 0);
-      console.log('Trending:', trendingResponse.success, Array.isArray(trendingResponse.data) ? trendingResponse.data.length : (trendingResponse.data?.products?.length || 0));
-      console.log('Seller Favorites:', sellerFavoritesResponse.success, Array.isArray(sellerFavoritesResponse.data) ? sellerFavoritesResponse.data.length : (sellerFavoritesResponse.data?.products?.length || 0));
-      console.log('Discounted:', discountedResponse.success, discountedResponse.data?.length || 0);
-      console.log('All Products:', allProductsResponse.success, allProductsResponse.data?.length || 0);
-
-      if (featuredResponse.success && featuredResponse.data) {
-        console.log('✅ Setting featured products:', featuredResponse.data.length);
-        setFeaturedProducts(featuredResponse.data);
-      } else {
-        console.error('❌ Featured products failed:', featuredResponse.error);
-        setLoadingErrors(prev => [...prev, 'Featured Products']);
-      }
-
-      if (trendingResponse.success && trendingResponse.data) {
-        const trendingData = Array.isArray(trendingResponse.data) 
-          ? trendingResponse.data 
-          : trendingResponse.data.products || [];
-        console.log('✅ Setting trending products:', trendingData.length);
-        setTrendingProducts(trendingData);
-      } else {
-        console.error('❌ Trending products failed:', trendingResponse.error);
-      }
-
-      if (sellerFavoritesResponse.success && sellerFavoritesResponse.data) {
-        const sellerData = Array.isArray(sellerFavoritesResponse.data) 
-          ? sellerFavoritesResponse.data 
-          : sellerFavoritesResponse.data.products || [];
-        console.log('✅ Setting seller favorites:', sellerData.length);
-        setSellerFavorites(sellerData);
-      } else {
-        console.error('❌ Seller favorites failed:', sellerFavoritesResponse.error);
-      }
-
-      if (discountedResponse.success && discountedResponse.data) {
-        const discountData = Array.isArray(discountedResponse.data) 
-          ? discountedResponse.data 
-          : discountedResponse.data || [];
-        // Filter for products with actual discounts
-        const withDiscounts = discountData.filter(product => product.discount && product.discount > 0);
-        console.log('✅ Setting discounted products:', withDiscounts.length, 'out of', discountData.length);
-        setDiscountedProducts(withDiscounts);
-      } else {
-        console.error('❌ Discounted products failed:', discountedResponse.error);
-      }
-
-      if (allProductsResponse.success && allProductsResponse.data) {
-        const allData = Array.isArray(allProductsResponse.data) 
-          ? allProductsResponse.data 
-          : allProductsResponse.data || [];
-        console.log('✅ Setting all products:', allData.length);
-        setAllProducts(allData);
-      } else {
-        console.error('❌ All products failed:', allProductsResponse.error);
-      }
-
-    } catch (error) {
-      console.error('Error loading buy-now sections:', error);
-      Alert.alert('Error', 'Failed to load products');
-    } finally {
+      // Show UI immediately with skeletons
       setLoading(false);
+      
+      // Load cached data first for instant display
+      loadCachedData();
+      
+      // Then load fresh data in background
+      await loadFreshData();
+      
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load products');
     }
+  };
+
+  const loadCachedData = () => {
+    // Load from cache for instant display
+    const cachedFeatured = productCacheService.getCachedFeaturedProducts();
+    if (cachedFeatured) {
+      setFeaturedProducts(cachedFeatured);
+      setLoadingStates(prev => ({ ...prev, featured: false }));
+    }
+
+    const cachedTrending = productCacheService.getCachedTrendingProducts();
+    if (cachedTrending) {
+      setTrendingProducts(cachedTrending);
+      setLoadingStates(prev => ({ ...prev, trending: false }));
+    }
+
+    const cachedSellerFavorites = productCacheService.getCachedSellerFavorites();
+    if (cachedSellerFavorites) {
+      setSellerFavorites(cachedSellerFavorites);
+      setLoadingStates(prev => ({ ...prev, seller_favorites: false }));
+    }
+
+    const cachedDiscounted = productCacheService.getCachedDiscountedProducts();
+    if (cachedDiscounted) {
+      setDiscountedProducts(cachedDiscounted);
+      setLoadingStates(prev => ({ ...prev, discounted: false }));
+    }
+
+    const cachedAll = productCacheService.getCachedAllProducts({ limit: 8, sortBy: 'newest' });
+    if (cachedAll) {
+      setAllProducts(cachedAll);
+      setLoadingStates(prev => ({ ...prev, all: false }));
+    }
+  };
+
+  const loadFreshData = async () => {
+    // Load sections progressively for better UX
+    const sections = [
+      {
+        key: 'featured',
+        loader: () => productService.getFeaturedProducts(12),
+        setter: setFeaturedProducts,
+        cacher: (data: Product[]) => productCacheService.cacheFeaturedProducts(data)
+      },
+      {
+        key: 'trending',
+        loader: () => productService.getTrendingProducts('7d', 1, 12),
+        setter: setTrendingProducts,
+        cacher: (data: Product[]) => productCacheService.cacheTrendingProducts(data),
+        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data?.products || []
+      },
+      {
+        key: 'seller_favorites',
+        loader: () => productService.getSellerFavorites(1, 12),
+        setter: setSellerFavorites,
+        cacher: (data: Product[]) => productCacheService.cacheSellerFavorites(data),
+        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data?.products || []
+      },
+      {
+        key: 'discounted',
+        loader: () => productService.getProducts({ limit: 12, minPrice: 1, sortBy: 'price_desc' as any }),
+        setter: setDiscountedProducts,
+        cacher: (data: Product[]) => productCacheService.cacheDiscountedProducts(data),
+        transformer: (response: any) => {
+          const products = Array.isArray(response.data) ? response.data : response.data || [];
+          return products.filter((product: Product) => product.discount && product.discount > 0);
+        }
+      },
+      {
+        key: 'all',
+        loader: () => productService.getProducts({ limit: 8, sortBy: 'newest' as any }),
+        setter: setAllProducts,
+        cacher: (data: Product[]) => productCacheService.cacheAllProducts(data, { limit: 8, sortBy: 'newest' }),
+        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data || []
+      }
+    ];
+
+    // Load sections in parallel but update UI as each completes
+    const promises = sections.map(async (section) => {
+      try {
+        const response = await section.loader();
+        if (response.success && response.data) {
+          const data = section.transformer ? section.transformer(response) : response.data;
+          section.setter(data);
+          section.cacher(data);
+        } else {
+          setLoadingErrors(prev => [...prev, section.key]);
+        }
+      } catch (error) {
+        setLoadingErrors(prev => [...prev, section.key]);
+      } finally {
+        setLoadingStates(prev => ({ ...prev, [section.key]: false }));
+      }
+    });
+
+    await Promise.all(promises);
   };
 
   const handleProductPress = (product: Product) => {
@@ -140,7 +174,17 @@ export default function BuyNowTab() {
   };
 
   const handleRefresh = () => {
-    loadAllSections();
+    // Clear cache and reload
+    productCacheService.clear();
+    setLoadingStates({
+      featured: true,
+      trending: true,
+      seller_favorites: true,
+      discounted: true,
+      all: true
+    });
+    setLoadingErrors([]);
+    loadAllSectionsOptimized();
   };
 
   const renderProductSection = (
@@ -148,13 +192,37 @@ export default function BuyNowTab() {
     products: Product[],
     sectionKey: string
   ) => {
-    // Don't render section if no products
-    if (products.length === 0) return null;
+    const isLoadingSection = loadingStates[sectionKey];
+    
+    // Show skeleton while loading and no cached data
+    if (isLoadingSection && products.length === 0) {
+      if (sectionKey === 'all') {
+        return (
+          <ProductSectionSkeleton
+            key={`${sectionKey}_skeleton`}
+            variant="grid"
+            itemCount={4}
+            showHeader={true}
+          />
+        );
+      }
+      return (
+        <ProductSectionSkeleton
+          key={`${sectionKey}_skeleton`}
+          variant="horizontal"
+          itemCount={4}
+          showHeader={true}
+        />
+      );
+    }
+
+    // Don't render section if no products and not loading
+    if (products.length === 0 && !isLoadingSection) return null;
 
     // Special handling for "all" products section - render in masonry layout
     if (sectionKey === 'all') {
       return (
-        <View style={styles.section}>
+        <View key={sectionKey} style={styles.section}>
           <SectionHeader
             title={title}
             actionText="See All"
@@ -191,7 +259,7 @@ export default function BuyNowTab() {
 
     // Default horizontal layout for other sections
     return (
-      <View style={styles.section}>
+      <View key={sectionKey} style={styles.section}>
         <SectionHeader
           title={title}
           actionText="See All"
@@ -394,41 +462,33 @@ export default function BuyNowTab() {
           </TouchableOpacity>
         </View>
 
-        {/* Debug: Show loading errors if any */}
-        {loadingErrors.length > 0 && (
-          <View style={styles.debugContainer}>
-            <Text style={styles.debugTitle}>⚠️ Loading Issues:</Text>
-            {loadingErrors.map((error, index) => (
-              <Text key={index} style={styles.debugText}>• {error}</Text>
-            ))}
-          </View>
-        )}
-
-        {/* Featured Products */}
+        {/* Product Sections */}
         {renderProductSection('Featured Products', featuredProducts, 'featured')}
-
-        {/* Seller Favorites */}
         {renderProductSection('Seller Favorites', sellerFavorites, 'seller_favorites')}
-
-        {/* Discounted Products */}
         {renderProductSection('Special Discounts', discountedProducts, 'discounted')}
-
+        
         {/* Recommended Products (for authenticated users) */}
         {user && hasRecommendations && renderProductSection('Recommended for You', recommendations, 'recommended')}
-
-        {/* Trending Products */}
+        
         {renderProductSection('Trending Products', trendingProducts, 'trending')}
-
-        {/* All Products */}
         {renderProductSection('Browse All Products', allProducts, 'all')}
 
-        {/* Empty State - only show if ALL sections are empty */}
+        {/* Show loading skeletons for sections that are still loading */}
+        {Object.entries(loadingStates).some(([_, loading]) => loading) && (
+          <>
+            <ProductSectionSkeleton variant="horizontal" itemCount={4} />
+            <ProductSectionSkeleton variant="horizontal" itemCount={4} />
+          </>
+        )}
+
+        {/* Empty State - only show if ALL sections are empty and not loading */}
         {featuredProducts.length === 0 && 
          trendingProducts.length === 0 && 
          sellerFavorites.length === 0 && 
          discountedProducts.length === 0 && 
          allProducts.length === 0 && 
-         (!user || !hasRecommendations || recommendations.length === 0) && (
+         (!user || !hasRecommendations || recommendations.length === 0) &&
+         !Object.values(loadingStates).some(loading => loading) && (
           <View style={styles.emptyContainer}>
             <Ionicons name="storefront-outline" size={48} color={colors.textSecondary} />
             <Text style={styles.emptyText}>

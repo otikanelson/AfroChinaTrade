@@ -246,7 +246,7 @@ export default function MessageThreadScreen() {
               try {
                 await messageService.markAsRead(message._id);
               } catch (error) {
-                console.error('Error marking message as read:', error);
+                // Silently handle error
               }
             }
             
@@ -265,7 +265,7 @@ export default function MessageThreadScreen() {
         }
       }
     } catch (error) {
-      console.error('Error loading thread messages:', error);
+      // Silently handle error
     }
   }, [threadId, refreshUnreadCount, decrementUnreadCount, messages]);
 
@@ -273,12 +273,12 @@ export default function MessageThreadScreen() {
     // Clear any existing interval
     stopAutoRefresh();
     
-    // Set up auto-refresh every 10 seconds
+    // Set up auto-refresh every 30 seconds
     const interval = setInterval(() => {
       if (!sending) {
         load(true); // Silent refresh
       }
-    }, 10000);
+    }, 30000);
     
     setAutoRefreshInterval(interval);
     setIsAutoRefreshActive(true);
@@ -321,7 +321,7 @@ export default function MessageThreadScreen() {
             try {
               await messageService.markAsRead(message._id);
             } catch (error) {
-              console.error('Error marking message as read:', error);
+              // Silently handle error
             }
           });
           
@@ -362,7 +362,6 @@ export default function MessageThreadScreen() {
         throw new Error(response.error?.message || 'Failed to send message');
       }
     } catch (error) {
-      console.error('Error sending message:', error);
       // For now, just add the message locally as fallback
       const newMsg: Message = {
         _id: `msg-${Date.now()}`,

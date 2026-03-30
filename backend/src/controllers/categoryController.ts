@@ -16,9 +16,15 @@ export const getCategories = async (req: Request, res: Response) => {
       })
     );
 
-    res.json(categoriesWithCount);
+    res.json({
+      success: true,
+      data: categoriesWithCount
+    });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 };
 
@@ -28,17 +34,26 @@ export const getCategoryById = async (req: Request, res: Response) => {
     const category = await Category.findById(id);
 
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Category not found' 
+      });
     }
 
     const productCount = await Product.countDocuments({ category: category.name });
 
     res.json({
-      ...category.toObject(),
-      productCount,
+      success: true,
+      data: {
+        ...category.toObject(),
+        productCount,
+      }
     });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 };
 
@@ -47,12 +62,18 @@ export const createCategory = async (req: Request, res: Response) => {
     const { name, description, icon, imageUrl, subcategories } = req.body;
 
     if (!name) {
-      return res.status(400).json({ message: 'Category name is required' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Category name is required' 
+      });
     }
 
     const existingCategory = await Category.findOne({ name });
     if (existingCategory) {
-      return res.status(409).json({ message: 'Category already exists' });
+      return res.status(409).json({ 
+        success: false,
+        error: 'Category already exists' 
+      });
     }
 
     const category = await Category.create({
@@ -64,11 +85,15 @@ export const createCategory = async (req: Request, res: Response) => {
     });
 
     res.status(201).json({
+      success: true,
       message: 'Category created successfully',
-      category,
+      data: category,
     });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 };
 
@@ -84,15 +109,22 @@ export const updateCategory = async (req: Request, res: Response) => {
     );
 
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Category not found' 
+      });
     }
 
     res.json({
+      success: true,
       message: 'Category updated successfully',
-      category,
+      data: category,
     });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 };
 
@@ -102,19 +134,31 @@ export const deleteCategory = async (req: Request, res: Response) => {
     const category = await Category.findById(id);
 
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Category not found' 
+      });
     }
 
     const productCount = await Product.countDocuments({ category: category.name });
     if (productCount > 0) {
-      return res.status(409).json({ message: 'Cannot delete category with assigned products' });
+      return res.status(409).json({ 
+        success: false,
+        error: 'Cannot delete category with assigned products' 
+      });
     }
 
     await Category.findByIdAndDelete(id);
 
-    res.json({ message: 'Category deleted successfully' });
+    res.json({ 
+      success: true,
+      message: 'Category deleted successfully' 
+    });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 };
 
@@ -129,7 +173,10 @@ export const getCategoryProducts = async (req: Request, res: Response) => {
 
     const category = await Category.findById(id);
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Category not found' 
+      });
     }
 
     const products = await Product.find({ category: category.name, isActive: true })
@@ -139,15 +186,21 @@ export const getCategoryProducts = async (req: Request, res: Response) => {
     const total = await Product.countDocuments({ category: category.name, isActive: true });
 
     res.json({
-      products,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum),
-      },
+      success: true,
+      data: {
+        products,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum),
+        },
+      }
     });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 };

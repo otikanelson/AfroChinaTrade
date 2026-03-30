@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
-  FlatList, 
   StyleSheet, 
   ActivityIndicator, 
   Text, 
   Alert, 
   RefreshControl,
   TouchableOpacity,
-  Dimensions, 
+  Dimensions,
   ScrollView
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -28,6 +27,18 @@ import { NavigationSource } from '../types/navigation';
 import { spacing, borderRadius } from '../theme/spacing';
 
 const { width: screenWidth } = Dimensions.get('window');
+
+// Helper function to convert sort options from modal to service format
+const getSortParams = (sortBy?: string): { sortBy?: 'price' | 'rating' | 'createdAt' | 'name'; sortOrder?: 'asc' | 'desc' } => {
+  switch (sortBy) {
+    case 'newest':    return { sortBy: 'createdAt', sortOrder: 'desc' };
+    case 'price_asc': return { sortBy: 'price', sortOrder: 'asc' };
+    case 'price_desc':return { sortBy: 'price', sortOrder: 'desc' };
+    case 'rating':    return { sortBy: 'rating', sortOrder: 'desc' };
+    case 'trending':  return { sortBy: 'createdAt', sortOrder: 'desc' };
+    default:          return {};
+  }
+};
 
 export default function ProductListingPage() {
   const { 
@@ -108,7 +119,8 @@ export default function ProductListingPage() {
     }
   };
 
-  const loadProducts = useCallback(async (page: number = 1, refresh: boolean = false) => {
+  const loadProducts = useCallback(async (page: number = 1, refresh: boolean = false, overrideFilters?: any) => {
+    const activeFilters = overrideFilters !== undefined ? overrideFilters : filters;
     try {
       if (refresh) {
         setRefreshing(true);
@@ -121,46 +133,95 @@ export default function ProductListingPage() {
       let response;
 
       if (collectionId) {
-        response = await collectionService.getCollectionProducts(collectionId, page, 20);
-        if (response.success && response.data) {
-          const collection = response.data;
-          const newProducts = collection.products || [];
-          setProducts(page === 1 ? newProducts : [...products, ...newProducts]);
-          setPagination({
+        // If filters are active, use getProducts filtered by collection via getProducts
+        // Otherwise use the dedicated collection endpoint
+        if (Object.keys(activeFilters).length > 0) {
+          response = await productService.getProducts({
             page,
-            hasNext: newProducts.length === 20,
-            total: collection.productCount || newProducts.length,
-            pages: Math.ceil((collection.productCount || newProducts.length) / 20)
+            limit: 20,
+            minPrice: activeFilters.minPrice,
+            maxPrice: activeFilters.maxPrice,
+            minRating: activeFilters.minRating,
+            tag: activeFilters.tag,
+            ...getSortParams(activeFilters.sortBy),
           });
+        } else {
+          response = await collectionService.getCollectionProducts(collectionId, page, 20);
+          if (response.success && response.data) {
+            const collectionData = response.data;
+            const newProducts = collectionData.products || [];
+            setProducts(page === 1 ? newProducts : [...products, ...newProducts]);
+            setPagination({
+              page,
+              hasNext: newProducts.length === 20,
+              total: collectionData.productCount || newProducts.length,
+              pages: Math.ceil((collectionData.productCount || newProducts.length) / 20)
+            });
+          }
         }
       } else if (collection) {
         switch (collection) {
           case 'featured':
-            response = await productService.getFeaturedProducts(20);
+            // If filters are active, use getProducts with isFeatured flag so filters apply
+            if (Object.keys(activeFilters).length > 0) {
+              response = await productService.getProducts({
+                page,
+                limit: 20,
+                isFeatured: true,
+                minPrice: activeFilters.minPrice,
+                maxPrice: activeFilters.maxPrice,
+                minRating: activeFilters.minRating,
+                tag: activeFilters.tag,
+                ...getSortParams(activeFilters.sortBy),
+              });
+            } else {
+              response = await productService.getFeaturedProducts(20);
+            }
             break;
           case 'trending':
-            response = await productService.getTrendingProducts('7d', page, 20);
+            response = await productService.getTrendingProducts('7d', page, 20, {
+              minPrice: activeFilters.minPrice,
+              maxPrice: activeFilters.maxPrice,
+              minRating: activeFilters.minRating,
+              category: activeFilters.category,
+              tag: activeFilters.tag,
+            });
             break;
           case 'seller_favorites':
-            response = await productService.getSellerFavorites(page, 20);
+            response = await productService.getSellerFavorites(page, 20, {
+              minPrice: activeFilters.minPrice,
+              maxPrice: activeFilters.maxPrice,
+              minRating: activeFilters.minRating,
+              category: activeFilters.category,
+              tag: activeFilters.tag,
+            });
             break;
           case 'discounted':
-            response = await productService.getProducts({ 
-              page, 
+            response = await productService.getProducts({
+              page,
               limit: 20,
-              sortBy: 'price_desc' as any
+              minPrice: activeFilters.minPrice,
+              maxPrice: activeFilters.maxPrice,
+              minRating: activeFilters.minRating,
+              tag: activeFilters.tag,
+              ...getSortParams(activeFilters.sortBy || 'price_desc'),
             });
             if (response.success && response.data) {
               const allData = Array.isArray(response.data) ? response.data : response.data || [];
-              const withDiscounts = allData.filter(product => product.discount && product.discount > 0);
+              const withDiscounts = allData.filter((product: Product) => product.discount && product.discount > 0);
               response.data = withDiscounts;
             }
             break;
           case 'all':
-            response = await productService.getProducts({ 
-              page, 
+            response = await productService.getProducts({
+              page,
               limit: 20,
-              sortBy: 'newest' as any
+              category: activeFilters.category,
+              minPrice: activeFilters.minPrice,
+              maxPrice: activeFilters.maxPrice,
+              minRating: activeFilters.minRating,
+              tag: activeFilters.tag,
+              ...getSortParams(activeFilters.sortBy || 'newest'),
             });
             break;
           case 'recommended':
@@ -171,14 +232,16 @@ export default function ProductListingPage() {
             }
             break;
           default:
-            response = await productService.getProducts({ 
-              page, 
+            response = await productService.getProducts({
+              page,
               limit: 20,
-              category: category || filters.category,
-              minPrice: filters.minPrice,
-              maxPrice: filters.maxPrice,
-              minRating: filters.minRating,
-              search: filters.search
+              category: category || activeFilters.category,
+              minPrice: activeFilters.minPrice,
+              maxPrice: activeFilters.maxPrice,
+              minRating: activeFilters.minRating,
+              search: activeFilters.search,
+              tag: activeFilters.tag,
+              ...getSortParams(activeFilters.sortBy),
             });
         }
       } else if (category) {
@@ -186,27 +249,35 @@ export default function ProductListingPage() {
           page, 
           limit: 20,
           category,
-          minPrice: filters.minPrice,
-          maxPrice: filters.maxPrice,
-          minRating: filters.minRating,
-          search: filters.search
+          minPrice: activeFilters.minPrice,
+          maxPrice: activeFilters.maxPrice,
+          minRating: activeFilters.minRating,
+          search: activeFilters.search,
+          tag: activeFilters.tag,
+          ...getSortParams(activeFilters.sortBy)
         });
       } else if (showAll === 'true') {
-        // Browse all products - no filters, just get everything
         response = await productService.getProducts({ 
           page, 
           limit: 20,
-          sortBy: 'newest' as any
+          minPrice: activeFilters.minPrice,
+          maxPrice: activeFilters.maxPrice,
+          minRating: activeFilters.minRating,
+          search: activeFilters.search,
+          tag: activeFilters.tag,
+          ...getSortParams(activeFilters.sortBy || 'newest')
         });
       } else {
         response = await productService.getProducts({ 
           page, 
           limit: 20,
-          category: filters.category,
-          minPrice: filters.minPrice,
-          maxPrice: filters.maxPrice,
-          minRating: filters.minRating,
-          search: filters.search
+          category: activeFilters.category,
+          minPrice: activeFilters.minPrice,
+          maxPrice: activeFilters.maxPrice,
+          minRating: activeFilters.minRating,
+          search: activeFilters.search,
+          tag: activeFilters.tag,
+          ...getSortParams(activeFilters.sortBy)
         });
       }
 
@@ -259,7 +330,7 @@ export default function ProductListingPage() {
       setRefreshing(false);
       setLoadingMore(false);
     }
-  }, [collectionId, collection, category, filters, products, user]);
+  }, [collectionId, collection, category, showAll, products, user]);
 
   const handleRefresh = useCallback(() => {
     if (isShowingCategories) {
@@ -268,12 +339,6 @@ export default function ProductListingPage() {
       loadProducts(1, true);
     }
   }, [isShowingCategories, loadProducts]);
-
-  const handleLoadMore = useCallback(() => {
-    if (!loadingMore && pagination.hasNext && !isShowingCategories) {
-      loadProducts(pagination.page + 1);
-    }
-  }, [loadingMore, pagination, loadProducts, isShowingCategories]);
 
   const handleProductPress = (product: Product) => {
     const productId = (product as any)._id || product.id;
@@ -302,27 +367,24 @@ export default function ProductListingPage() {
     setShowFilterModal(true);
   };
 
+  const hasActiveFilters = () => {
+    return !!(
+      filters.category ||
+      filters.minPrice ||
+      filters.maxPrice ||
+      filters.minRating ||
+      filters.search ||
+      filters.tag ||
+      filters.sortBy
+    );
+  };
+
   const handleApplyFilters = (newFilters: any) => {
     setFilters(newFilters);
     setShowFilterModal(false);
-    loadProducts(1, true);
+    loadProducts(1, true, newFilters);
   };
 
-  const renderProduct = ({ item }: { item: Product }) => {
-    if (!item || (!item.id && !(item as any)._id)) {
-      return null;
-    }
-    
-    return (
-      <View style={styles.productContainer}>
-        <ProductCard
-          product={item}
-          onPress={() => handleProductPress(item)}
-          variant="grid"
-        />
-      </View>
-    );
-  };
 
   const renderCategory = ({ item }: { item: Category }) => (
     <TouchableOpacity
@@ -330,7 +392,11 @@ export default function ProductListingPage() {
       onPress={() => handleCategoryPress(item)}
     >
       <View style={styles.categoryIconContainer}>
-        <Ionicons name={item.icon as any} size={32} color={colors.primary} />
+        <Ionicons 
+          name={item.icon as any || 'grid-outline'} 
+          size={32} 
+          color={colors.primary} 
+        />
       </View>
       <Text style={styles.categoryName}>{item.name}</Text>
       {item.subcategories && item.subcategories.length > 0 && (
@@ -341,14 +407,6 @@ export default function ProductListingPage() {
     </TouchableOpacity>
   );
 
-  const renderFooter = () => {
-    if (!loadingMore) return null;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.primary} />
-      </View>
-    );
-  };
 
   const styles = StyleSheet.create({
     container: {
@@ -371,10 +429,25 @@ export default function ProductListingPage() {
       borderColor: colors.border,
       gap: spacing.xs,
     },
+    filterButtonActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primaryLight,
+    },
     filterButtonText: {
       fontSize: fontSizes.sm,
       color: colors.text,
       fontFamily: fonts.medium,
+    },
+    filterButtonTextActive: {
+      color: colors.primary,
+    },
+    filterBadge: {
+      marginLeft: spacing.xs,
+    },
+    filterBadgeText: {
+      fontSize: fontSizes.lg,
+      color: colors.primary,
+      fontFamily: fonts.bold,
     },
     productContainer: {
       width: '48%',
@@ -396,15 +469,12 @@ export default function ProductListingPage() {
       backgroundColor: colors.background,
       borderRadius: borderRadius.lg,
       padding: spacing.lg,
-      margin: spacing.xs,
       alignItems: 'center',
       borderWidth: 1,
       borderColor: colors.border,
       minHeight: 120,
       justifyContent: 'center',
       flex: 1,
-      maxWidth: (screenWidth - spacing.base * 3) / 2,
-      alignSelf: 'center',
     },
     categoryIconContainer: {
       width: 60,
@@ -444,6 +514,13 @@ export default function ProductListingPage() {
       alignItems: 'center',
       padding: spacing.xl,
     },
+    emptyStateContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: spacing['4xl'],
+      paddingHorizontal: spacing.xl,
+      minHeight: 300,
+    },
     emptyText: {
       fontSize: fontSizes.lg,
       color: colors.textSecondary,
@@ -458,6 +535,20 @@ export default function ProductListingPage() {
     footerLoader: {
       padding: spacing.lg,
       alignItems: 'center',
+    },
+    loadMoreButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      marginHorizontal: spacing.base,
+      marginVertical: spacing.lg,
+    },
+    loadMoreText: {
+      color: colors.background,
+      fontSize: fontSizes.base,
+      fontFamily: fonts.medium,
     },
     bottomSection: {
       marginTop: spacing.xl,
@@ -522,29 +613,33 @@ export default function ProductListingPage() {
       
       {!isShowingCategories && (
         <TouchableOpacity 
-          style={styles.filterButton} 
+          style={[
+            styles.filterButton,
+            hasActiveFilters() && styles.filterButtonActive
+          ]} 
           onPress={handleFilterPress}
         >
-          <Ionicons name="filter-outline" size={16} color={colors.text} />
-          <Text style={styles.filterButtonText}>Filter & Sort</Text>
+          <Ionicons 
+            name="filter-outline" 
+            size={16} 
+            color={hasActiveFilters() ? colors.primary : colors.text} 
+          />
+          <Text style={[
+            styles.filterButtonText,
+            hasActiveFilters() && styles.filterButtonTextActive
+          ]}>
+            Filter & Sort
+          </Text>
+          {hasActiveFilters() && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>•</Text>
+            </View>
+          )}
         </TouchableOpacity>
       )}
 
       {isShowingCategories ? (
-        <FlatList<Category>
-          data={categories}
-          renderItem={renderCategory}
-          keyExtractor={(item) => (item as any)._id || item.id || Math.random().toString()}
-          numColumns={2}
-          contentContainerStyle={{ 
-            padding: spacing.xs,
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          columnWrapperStyle={{
-            justifyContent: 'space-around',
-            paddingHorizontal: spacing.xs
-          }}
+        <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -554,7 +649,9 @@ export default function ProductListingPage() {
               tintColor={colors.primary}
             />
           }
-          ListEmptyComponent={
+        >
+          {/* Categories Section */}
+          {categories.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons 
                 name="grid-outline" 
@@ -568,8 +665,77 @@ export default function ProductListingPage() {
                 Categories will appear here once they are created
               </Text>
             </View>
-          }
-        />
+          ) : (
+            <View style={{ padding: spacing.base }}>
+              <View style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+              }}>
+                {categories.map((item) => (
+                  <View 
+                    key={(item as any)._id || item.id || Math.random().toString()}
+                    style={{
+                      width: '48%',
+                      marginBottom: spacing.sm,
+                    }}
+                  >
+                    {renderCategory({ item })}
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Collections Section */}
+          {collections.length > 0 && (
+            <View style={styles.bottomSection}>
+              <SectionHeader
+                title="Explore Collections"
+                subtitle="Curated product collections"
+                navigationSource={NavigationSource.HOME_COLLECTION}
+                onActionPress={() => router.push({
+                  pathname: '/product-listing',
+                  params: { 
+                    showCategories: 'true',
+                    title: 'All Collections'
+                  }
+                })}
+              />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.collectionsScrollView}
+              >
+                {collections.map(collection => (
+                  <TouchableOpacity
+                    key={collection.id}
+                    style={styles.collectionCard}
+                    onPress={() => router.push({
+                      pathname: '/product-listing',
+                      params: { 
+                        collectionId: collection.id,
+                        title: collection.name
+                      }
+                    })}
+                  >
+                    <View style={styles.collectionIconContainer}>
+                      <Ionicons name="albums-outline" size={24} color={colors.primary} />
+                    </View>
+                    <Text style={styles.collectionName} numberOfLines={2}>
+                      {collection.name}
+                    </Text>
+                    {collection.productCount && (
+                      <Text style={styles.collectionCount}>
+                        {collection.productCount} products
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </ScrollView>
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -582,48 +748,75 @@ export default function ProductListingPage() {
             />
           }
         >
-          <View style={styles.masonryContainer}>
-            <View style={styles.masonryColumn}>
-              {products.filter((_, index) => index % 2 === 0).map((item) => {
-                if (!item || (!item.id && !(item as any)._id)) {
-                  return null;
-                }
-                
-                return (
-                  <View key={(item as any)._id || item.id || Math.random().toString()} style={styles.masonryItem}>
-                    <ProductCard
-                      product={item}
-                      onPress={() => handleProductPress(item)}
-                      variant="grid"
-                    />
-                  </View>
-                );
-              })}
+          {/* Show empty state prominently if no products */}
+          {products.length === 0 && !loading ? (
+            <View style={styles.emptyStateContainer}>
+              <Ionicons 
+                name="cube-outline" 
+                size={64} 
+                color={colors.textLight} 
+              />
+              <Text style={styles.emptyText}>
+                No products found
+              </Text>
+              <Text style={styles.emptySubtext}>
+                Try adjusting your filters or check back later
+              </Text>
             </View>
-            
-            <View style={styles.masonryColumn}>
-              {products.filter((_, index) => index % 2 === 1).map((item) => {
-                if (!item || (!item.id && !(item as any)._id)) {
-                  return null;
-                }
-                
-                return (
-                  <View key={(item as any)._id || item.id || Math.random().toString()} style={styles.masonryItem}>
-                    <ProductCard
-                      product={item}
-                      onPress={() => handleProductPress(item)}
-                      variant="grid"
-                    />
-                  </View>
-                );
-              })}
+          ) : (
+            <View style={styles.masonryContainer}>
+              <View style={styles.masonryColumn}>
+                {products.filter((_, index) => index % 2 === 0).map((item) => {
+                  if (!item || (!item.id && !(item as any)._id)) {
+                    return null;
+                  }
+                  
+                  return (
+                    <View key={(item as any)._id || item.id || Math.random().toString()} style={styles.masonryItem}>
+                      <ProductCard
+                        product={item}
+                        onPress={() => handleProductPress(item)}
+                        variant="grid"
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+              
+              <View style={styles.masonryColumn}>
+                {products.filter((_, index) => index % 2 === 1).map((item) => {
+                  if (!item || (!item.id && !(item as any)._id)) {
+                    return null;
+                  }
+                  
+                  return (
+                    <View key={(item as any)._id || item.id || Math.random().toString()} style={styles.masonryItem}>
+                      <ProductCard
+                        product={item}
+                        onPress={() => handleProductPress(item)}
+                        variant="grid"
+                      />
+                    </View>
+                  );
+                })}
+              </View>
             </View>
-          </View>
+          )}
           
           {loadingMore && (
             <View style={styles.footerLoader}>
               <ActivityIndicator size="small" color={colors.primary} />
             </View>
+          )}
+
+          {/* Load More Button for Products */}
+          {!isShowingCategories && pagination.hasNext && !loadingMore && products.length > 0 && (
+            <TouchableOpacity 
+              style={styles.loadMoreButton}
+              onPress={() => loadProducts(pagination.page + 1)}
+            >
+              <Text style={styles.loadMoreText}>Load More Products</Text>
+            </TouchableOpacity>
           )}
 
           {/* Collections Section - Show first 5 collections (only if not showing all products) */}
@@ -632,7 +825,6 @@ export default function ProductListingPage() {
               <SectionHeader
                 title="Explore Collections"
                 subtitle="Curated product collections"
-                actionText="View All"
                 navigationSource={NavigationSource.HOME_COLLECTION}
                 onActionPress={() => router.push({
                   pathname: '/product-listing',
@@ -687,22 +879,6 @@ export default function ProductListingPage() {
                 }
               })}
             />
-          )}
-          
-          {products.length === 0 && !loading && (
-            <View style={styles.emptyContainer}>
-              <Ionicons 
-                name="cube-outline" 
-                size={64} 
-                color={colors.textLight} 
-              />
-              <Text style={styles.emptyText}>
-                No products found
-              </Text>
-              <Text style={styles.emptySubtext}>
-                Try adjusting your filters or check back later
-              </Text>
-            </View>
           )}
         </ScrollView>
       )}

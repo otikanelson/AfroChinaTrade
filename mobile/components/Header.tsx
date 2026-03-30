@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { Sidebar } from './Sidebar';
 
@@ -45,6 +45,8 @@ export const Header: React.FC<HeaderProps> = ({
   badge
 }) => {
   const router = useRouter();
+  const segments = useSegments();
+  const isAdminPage = segments.some(s => s === '(admin)' || s === 'admin');
   const { colors, fontSizes, fontWeights } = useTheme();
   const [sidebarVisible, setSidebarVisible] = useState(false);
 
@@ -283,7 +285,8 @@ export const Header: React.FC<HeaderProps> = ({
       
       <Sidebar 
         visible={sidebarVisible} 
-        onClose={() => setSidebarVisible(false)} 
+        onClose={() => setSidebarVisible(false)}
+        isAdminPage={isAdminPage}
       />
     </View>
   );

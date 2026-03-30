@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ThemeModal } from './ThemeModal';
@@ -21,6 +21,7 @@ const { width, height } = Dimensions.get('window');
 interface SidebarProps {
   visible: boolean;
   onClose: () => void;
+  isAdminPage?: boolean;
 }
 
 interface MenuItem {
@@ -38,7 +39,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   // Customer-only items
   { id: 'profile', title: 'Profile', icon: 'person-outline', route: '/profile', requiresAuth: true, customerOnly: true },
-  { id: 'orders', title: 'My Orders', icon: 'bag-outline', route: '/orders', requiresAuth: true, customerOnly: true },
+  { id: 'orders', title: 'My Orders', icon: 'bag-outline', route: '/my-orders', requiresAuth: true, customerOnly: true },
   { id: 'wishlist', title: 'Wishlist', icon: 'heart-outline', route: '/wishlist', requiresAuth: false, customerOnly: true },
   { id: 'addresses', title: 'Addresses', icon: 'location-outline', route: '/addresses', requiresAuth: true, customerOnly: true },
   { id: 'payment', title: 'Payment Methods', icon: 'card-outline', route: '/payment-methods', requiresAuth: true, customerOnly: true },
@@ -63,11 +64,14 @@ const settingsItems: MenuItem[] = [
   { id: 'about', title: 'About', icon: 'information-circle-outline', route: '/settings/about' },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage }) => {
   const router = useRouter();
+  const segments = useSegments();
   const { colors, fontSizes, fontWeights } = useTheme();
   const { isAuthenticated, isGuestMode, isAdmin, user, logout } = useAuth();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
+
+  const isInAdminView = isAdminPage ?? segments.some(s => s === '(admin)' || s === 'admin');
 
   // Filter menu items based on user role
   const filteredMenuItems = menuItems.filter(item => {
@@ -411,18 +415,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                         style={[styles.menuItem, styles.quickSwitchItem]}
                         onPress={() => {
                           onClose();
-                          router.push('/(tabs)/home');
+                          if (isInAdminView) {
+                            router.push('/(tabs)/home');
+                          } else {
+                            router.push('/(admin)/(tabs)/products');
+                          }
                         }}
                         activeOpacity={0.7}
                       >
                         <Ionicons 
-                          name="storefront-outline" 
+                          name={isInAdminView ? 'storefront-outline' : 'shield-checkmark-outline'} 
                           size={22} 
                           color={colors.primary} 
                           style={styles.menuIcon}
                         />
                         <Text style={[styles.menuText, styles.menuTextPrimary]}>
-                          Customer View
+                          {isInAdminView ? 'Customer View' : 'Admin View'}
                         </Text>
                         <Ionicons 
                           name="chevron-forward" 

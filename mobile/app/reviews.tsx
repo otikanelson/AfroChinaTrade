@@ -194,15 +194,22 @@ export default function ReviewsScreen() {
   const renderItem = useCallback(({ item }: { item: Review }) => (
     <TouchableOpacity 
       style={styles.reviewCard}
-      onPress={() => router.push(`/product-detail/${item.productId._id}`)}
+      onPress={() => {
+        const productId = typeof item.productId === 'object' ? item.productId._id : item.productId;
+        router.push(`/product-detail/${productId}`);
+      }}
     >
       <View style={styles.productInfo}>
         <Image
-          source={{ uri: item.productId.images[0] || 'https://via.placeholder.com/50' }}
+          source={{ 
+            uri: typeof item.productId === 'object' && item.productId.images?.[0] 
+              ? item.productId.images[0] 
+              : 'https://via.placeholder.com/50' 
+          }}
           style={styles.productImage}
         />
         <Text style={styles.productName} numberOfLines={2}>
-          {item.productId.name}
+          {typeof item.productId === 'object' ? item.productId.name : 'Product'}
         </Text>
       </View>
       

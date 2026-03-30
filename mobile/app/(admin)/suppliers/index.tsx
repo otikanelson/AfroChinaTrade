@@ -9,6 +9,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { Supplier } from '../../../types/product';
 
 export default function AdminSuppliersScreen() {
+  console.log('🔧 Admin SuppliersScreen component loaded');
   const router = useRouter();
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   

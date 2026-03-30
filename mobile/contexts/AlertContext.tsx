@@ -69,7 +69,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       <Toast
         visible={alertConfig.visible}
         type={alertConfig.type}
-        message={alertConfig.message || ''}
+        message={alertConfig.message ? `${alertConfig.title}: ${alertConfig.message}` : alertConfig.title}
         autoClose={alertConfig.autoClose}
         onClose={close}
       />

@@ -62,22 +62,11 @@ export class ProductCollectionService {
       if (dbStatus !== 'connected') {
         console.warn('⚠️  Database not connected, returning empty featured products');
         return {
-          status: 'error',
+          status: 'success',
           data: {
             products: [],
-            pagination: {
-              page,
-              limit,
-              total: 0,
-              pages: 0,
-              hasNext: false,
-              hasPrev: false
-            },
-            metadata: {
-              collectionType: 'featured',
-              generatedAt: new Date().toISOString(),
-              cached: false
-            }
+            pagination: { page, limit, total: 0, pages: 0, hasNext: false, hasPrev: false },
+            metadata: { collectionType: 'featured', generatedAt: new Date().toISOString(), cached: false }
           }
         };
       }
@@ -100,7 +89,7 @@ export class ProductCollectionService {
           .sort({ createdAt: -1, viewCount: -1 })
           .skip(skip)
           .limit(limit)
-          .populate('supplierId', 'name email verified rating location responseTime')
+          .populate('supplierId', 'name email verified rating location responseTime logo')
           .lean()
           .maxTimeMS(15000), // 15 second timeout
         Product.countDocuments(filter).maxTimeMS(10000) // 10 second timeout
@@ -131,25 +120,12 @@ export class ProductCollectionService {
       return response;
     } catch (error) {
       console.error('Error getting featured products:', error);
-      
-      // Return empty result instead of throwing error
       return {
-        status: 'error',
+        status: 'success',
         data: {
           products: [],
-          pagination: {
-            page,
-            limit,
-            total: 0,
-            pages: 0,
-            hasNext: false,
-            hasPrev: false
-          },
-          metadata: {
-            collectionType: 'featured',
-            generatedAt: new Date().toISOString(),
-            cached: false
-          }
+          pagination: { page, limit, total: 0, pages: 0, hasNext: false, hasPrev: false },
+          metadata: { collectionType: 'featured', generatedAt: new Date().toISOString(), cached: false }
         }
       };
     }
@@ -190,7 +166,7 @@ export class ProductCollectionService {
           .sort(sortObj)
           .skip(skip)
           .limit(limit)
-          .populate('supplierId', 'name email verified rating location responseTime')
+          .populate('supplierId', 'name email verified rating location responseTime logo')
           .lean(),
         Product.countDocuments(filter)
       ]);
@@ -233,22 +209,11 @@ export class ProductCollectionService {
       if (dbStatus !== 'connected') {
         console.warn('⚠️  Database not connected, returning empty seller favorites');
         return {
-          status: 'error',
+          status: 'success',
           data: {
             products: [],
-            pagination: {
-              page,
-              limit,
-              total: 0,
-              pages: 0,
-              hasNext: false,
-              hasPrev: false
-            },
-            metadata: {
-              collectionType: 'seller_favorites',
-              generatedAt: new Date().toISOString(),
-              cached: false
-            }
+            pagination: { page, limit, total: 0, pages: 0, hasNext: false, hasPrev: false },
+            metadata: { collectionType: 'seller_favorites', generatedAt: new Date().toISOString(), cached: false }
           }
         };
       }
@@ -271,7 +236,7 @@ export class ProductCollectionService {
           .sort({ viewCount: -1, rating: -1, createdAt: -1 })
           .skip(skip)
           .limit(limit)
-          .populate('supplierId', 'name email verified rating location responseTime')
+          .populate('supplierId', 'name email verified rating location responseTime logo')
           .lean()
           .maxTimeMS(15000), // 15 second timeout
         Product.countDocuments(filter).maxTimeMS(10000) // 10 second timeout
@@ -302,25 +267,12 @@ export class ProductCollectionService {
       return response;
     } catch (error) {
       console.error('Error getting seller favorites:', error);
-      
-      // Return empty result instead of throwing error
       return {
-        status: 'error',
+        status: 'success',
         data: {
           products: [],
-          pagination: {
-            page,
-            limit,
-            total: 0,
-            pages: 0,
-            hasNext: false,
-            hasPrev: false
-          },
-          metadata: {
-            collectionType: 'seller_favorites',
-            generatedAt: new Date().toISOString(),
-            cached: false
-          }
+          pagination: { page, limit, total: 0, pages: 0, hasNext: false, hasPrev: false },
+          metadata: { collectionType: 'seller_favorites', generatedAt: new Date().toISOString(), cached: false }
         }
       };
     }
@@ -344,22 +296,11 @@ export class ProductCollectionService {
       if (dbStatus !== 'connected') {
         console.warn('⚠️  Database not connected, returning empty trending products');
         return {
-          status: 'error',
+          status: 'success',
           data: {
             products: [],
-            pagination: {
-              page: 1,
-              limit,
-              total: 0,
-              pages: 0,
-              hasNext: false,
-              hasPrev: false
-            },
-            metadata: {
-              collectionType: 'trending',
-              generatedAt: new Date().toISOString(),
-              cached: false
-            }
+            pagination: { page: 1, limit, total: 0, pages: 0, hasNext: false, hasPrev: false },
+            metadata: { collectionType: 'trending', generatedAt: new Date().toISOString(), cached: false }
           }
         };
       }
@@ -501,7 +442,7 @@ export class ProductCollectionService {
           }
         },
         { $limit: limit }
-      ]).maxTimeMS(20000); // 20 second timeout for aggregation
+      ], { maxTimeMS: 20000 }); // 20 second timeout for aggregation
 
       const response: ProductResponse = {
         status: 'success',
@@ -529,25 +470,12 @@ export class ProductCollectionService {
       return response;
     } catch (error) {
       console.error('Error getting trending products:', error);
-      
-      // Return empty result instead of throwing error
       return {
-        status: 'error',
+        status: 'success',
         data: {
           products: [],
-          pagination: {
-            page: 1,
-            limit,
-            total: 0,
-            pages: 0,
-            hasNext: false,
-            hasPrev: false
-          },
-          metadata: {
-            collectionType: 'trending',
-            generatedAt: new Date().toISOString(),
-            cached: false
-          }
+          pagination: { page: 1, limit, total: 0, pages: 0, hasNext: false, hasPrev: false },
+          metadata: { collectionType: 'trending', generatedAt: new Date().toISOString(), cached: false }
         }
       };
     }

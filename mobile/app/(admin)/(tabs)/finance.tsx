@@ -680,23 +680,11 @@ export default function FinanceScreen() {
       <View style={styles.actionRow}>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('/(admin)/finance/refunds')}
-        >
-          <Ionicons name="list-outline" size={16} color={colors.primary} />
-          <Text style={styles.actionButtonText}>
-            Refund History {stats.pendingRefunds > 0 && `(${stats.pendingRefunds} pending)`}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionButton}
           onPress={() => router.push('/(admin)/refunds')}
         >
           <Ionicons name="settings-outline" size={16} color={colors.primary} />
           <Text style={styles.actionButtonText}>Manage Refunds</Text>
         </TouchableOpacity>
-      </View>
-
-      <View style={styles.actionRow}>
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => router.push('/(admin)/refunds/analytics')}

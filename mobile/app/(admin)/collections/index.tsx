@@ -129,25 +129,32 @@ export default function CollectionsManagement() {
   };
 
   const renderCollectionCard = ({ item: collection }: { item: Collection }) => (
-    <Card style={styles.collectionCard}>
+    <Card style={styles.collectionCard} elevation="md">
       <View style={styles.cardHeader}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.collectionName}>{collection.name}</Text>
-          <StatusBadge
-            status={collection.isActive ? 'active' : 'pending'}
-            label={collection.isActive ? 'Active' : 'Inactive'}
-          />
+        <View style={styles.titleRow}>
+          <View style={styles.iconContainer}>
+            <Ionicons name="albums" size={24} color={colors.text} />
+          </View>
+          <View style={styles.titleContainer}>
+            <Text style={styles.collectionName}>{collection.name}</Text>
+            <StatusBadge
+              status={collection.isActive ? 'active' : 'pending'}
+              label={collection.isActive ? 'Active' : 'Inactive'}
+            />
+          </View>
         </View>
         <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[styles.actionButton, styles.editButton]}
             onPress={() => handleEditCollection(collection)}
+            activeOpacity={0.7}
           >
-            <Ionicons name="pencil" size={16} color={colors.primary} />
+            <Ionicons name="pencil" size={16} color={colors.text} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[styles.actionButton, collection.isActive ? styles.pauseButton : styles.playButton]}
             onPress={() => handleToggleStatus(collection)}
+            activeOpacity={0.7}
           >
             <Ionicons 
               name={collection.isActive ? "pause" : "play"} 
@@ -156,39 +163,69 @@ export default function CollectionsManagement() {
             />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.actionButton}
+            style={[styles.actionButton, styles.deleteButton]}
             onPress={() => handleDeleteCollection(collection)}
+            activeOpacity={0.7}
           >
-            <Ionicons name="trash" size={16} color={colors.error} />
+            <Ionicons name="trash" size={16} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
 
       {collection.description && (
-        <Text style={styles.description}>{collection.description}</Text>
+        <View style={styles.descriptionContainer}>
+          <Text style={styles.description}>{collection.description}</Text>
+        </View>
       )}
 
-      <View style={styles.filtersContainer}>
-        <Text style={styles.filtersLabel}>Filters:</Text>
-        {collection.filters.map((filter, index) => (
-          <View key={index} style={styles.filterChip}>
-            <Text style={styles.filterText}>
-              {filter.type}: {typeof filter.value === 'object' 
-                ? `${(filter.value as any).min || 0} - ${(filter.value as any).max || '∞'}`
-                : filter.value
-              }
-            </Text>
-          </View>
-        ))}
+      <View style={styles.filtersSection}>
+        <View style={styles.filtersHeader}>
+          <Ionicons name="filter" size={16} color={colors.textSecondary} />
+          <Text style={styles.filtersLabel}>Filters ({collection.filters.length})</Text>
+        </View>
+        <View style={styles.filtersContainer}>
+          {collection.filters.slice(0, 3).map((filter, index) => (
+            <View key={index} style={styles.filterChip}>
+              <Text style={styles.filterText}>
+                {filter.type}: {typeof filter.value === 'object' 
+                  ? `${(filter.value as any).min || 0} - ${(filter.value as any).max || '∞'}`
+                  : String(filter.value).length > 15 
+                    ? `${String(filter.value).substring(0, 15)}...`
+                    : filter.value
+                }
+              </Text>
+            </View>
+          ))}
+          {collection.filters.length > 3 && (
+            <View style={styles.moreFiltersChip}>
+              <Text style={styles.moreFiltersText}>
+                +{collection.filters.length - 3} more
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={styles.cardFooter}>
-        <Text style={styles.productCount}>
-          {collection.productCount || 0} products
-        </Text>
-        <Text style={styles.displayOrder}>
-          Order: {collection.displayOrder}
-        </Text>
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Ionicons name="cube-outline" size={16} color={colors.primary} />
+            <Text style={styles.statText}>
+              {collection.productCount || 0} products
+            </Text>
+          </View>
+          <View style={styles.statItem}>
+            <Ionicons name="reorder-three-outline" size={16} color={colors.textSecondary} />
+            <Text style={styles.statText}>
+              Order: {collection.displayOrder}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.timestampContainer}>
+          <Text style={styles.timestamp}>
+            Created {new Date(collection.createdAt).toLocaleDateString()}
+          </Text>
+        </View>
       </View>
     </Card>
   );
@@ -207,107 +244,194 @@ export default function CollectionsManagement() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.lg,
-      borderRadius: borderRadius.md,
-      marginBottom: spacing.lg,
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.xl,
+      borderRadius: borderRadius.lg,
+      marginBottom: spacing.xl,
       gap: spacing.sm,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 6,
     },
     createButtonText: {
       color: colors.textInverse,
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.semibold,
+      fontSize: fontSizes.lg,
+      fontWeight: fontWeights.bold,
     },
     collectionCard: {
-      marginBottom: spacing.md,
-      padding: spacing.md,
+      marginBottom: spacing.lg,
+      padding: 0, // Remove padding since Card component handles it
     },
     cardHeader: {
+      marginBottom: spacing.md,
+    },
+    titleRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'flex-start',
       marginBottom: spacing.sm,
+    },
+    iconContainer: {
+      width: 48,
+      height: 48,
+      borderRadius: borderRadius.lg,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: spacing.md,
     },
     titleContainer: {
       flex: 1,
       gap: spacing.xs,
     },
     collectionName: {
-      fontSize: fontSizes.lg,
-      fontWeight: fontWeights.semibold,
+      fontSize: fontSizes.xl,
+      fontWeight: fontWeights.bold,
       color: colors.text,
+      lineHeight: fontSizes.xl * 1.2,
     },
     actionsContainer: {
       flexDirection: 'row',
-      gap: spacing.sm,
+      gap: spacing.xs,
+      marginTop: spacing.sm,
     },
     actionButton: {
       padding: spacing.sm,
       borderRadius: borderRadius.md,
-      backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.border,
       minWidth: 36,
       alignItems: 'center',
       justifyContent: 'center',
     },
+    editButton: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.primary,
+    },
+    playButton: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.success,
+    },
+    pauseButton: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.warning,
+    },
+    deleteButton: {
+      backgroundColor: colors.primaryLight,
+      borderColor: colors.error,
+    },
+    descriptionContainer: {
+      backgroundColor: colors.surface,
+      padding: spacing.md,
+      borderRadius: borderRadius.md,
+      marginBottom: spacing.md,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
     description: {
       fontSize: fontSizes.sm,
       color: colors.textSecondary,
+      lineHeight: fontSizes.sm * 1.4,
+    },
+    filtersSection: {
       marginBottom: spacing.md,
     },
-    filtersContainer: {
-      marginBottom: spacing.md,
+    filtersHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      marginBottom: spacing.sm,
     },
     filtersLabel: {
       fontSize: fontSizes.sm,
-      fontWeight: fontWeights.medium,
+      fontWeight: fontWeights.semibold,
       color: colors.text,
-      marginBottom: spacing.xs,
+    },
+    filtersContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
     },
     filterChip: {
-      backgroundColor: colors.primaryLight,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.sm,
-      marginRight: spacing.xs,
-      marginBottom: spacing.xs,
-      alignSelf: 'flex-start',
+      backgroundColor: colors.primary,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.full,
+      maxWidth: 200,
     },
     filterText: {
       fontSize: fontSizes.xs,
-      color: colors.text,
+      color: colors.textInverse,
+      fontWeight: fontWeights.medium,
+    },
+    moreFiltersChip: {
+      backgroundColor: colors.border,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.full,
+    },
+    moreFiltersText: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
       fontWeight: fontWeights.medium,
     },
     cardFooter: {
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      paddingTop: spacing.md,
+      gap: spacing.sm,
+    },
+    statsContainer: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
+      gap: spacing.lg,
+    },
+    statItem: {
+      flexDirection: 'row',
       alignItems: 'center',
+      gap: spacing.xs,
     },
-    productCount: {
+    statText: {
       fontSize: fontSizes.sm,
       color: colors.textSecondary,
+      fontWeight: fontWeights.medium,
     },
-    displayOrder: {
-      fontSize: fontSizes.sm,
-      color: colors.textSecondary,
+    timestampContainer: {
+      alignItems: 'flex-end',
+    },
+    timestamp: {
+      fontSize: fontSizes.xs,
+      color: colors.textLight,
+      fontStyle: 'italic',
     },
     emptyContainer: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
       padding: spacing.xl,
+      marginTop: spacing['4xl'],
+    },
+    emptyIconContainer: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.lg,
     },
     emptyText: {
-      fontSize: fontSizes.lg,
+      fontSize: fontSizes.xl,
+      fontWeight: fontWeights.semibold,
       color: colors.textSecondary,
       textAlign: 'center',
+      marginTop: spacing.lg,
       marginBottom: spacing.sm,
     },
     emptySubtext: {
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.base,
       color: colors.textLight,
       textAlign: 'center',
+      lineHeight: fontSizes.base * 1.4,
     },
   });
 
@@ -316,9 +440,13 @@ export default function CollectionsManagement() {
       <Header title="Collections" showBack />
       
       <View style={styles.content}>
-        <TouchableOpacity style={styles.createButton} onPress={handleCreateCollection}>
-          <Ionicons name="add" size={20} color={colors.textInverse} />
-          <Text style={styles.createButtonText}>Create Collection</Text>
+        <TouchableOpacity 
+          style={styles.createButton} 
+          onPress={handleCreateCollection}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add-circle" size={24} color={colors.textInverse} />
+          <Text style={styles.createButtonText}>Create New Collection</Text>
         </TouchableOpacity>
 
         <FlatList
@@ -337,10 +465,12 @@ export default function CollectionsManagement() {
           ListEmptyComponent={
             !loading ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="albums-outline" size={64} color={colors.textLight} />
+                <View style={styles.emptyIconContainer}>
+                  <Ionicons name="albums-outline" size={80} color={colors.primary} />
+                </View>
                 <Text style={styles.emptyText}>No collections found</Text>
                 <Text style={styles.emptySubtext}>
-                  Create your first collection to organize products
+                  Create your first collection to organize products into curated groups
                 </Text>
               </View>
             ) : null

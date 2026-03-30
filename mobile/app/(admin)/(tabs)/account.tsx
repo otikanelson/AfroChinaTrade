@@ -304,7 +304,7 @@ export default function AdminAccountTab() {
               icon="notifications"
               title="notifications"
               subtitle=""
-              onPress={() => router.push('/(admin)/notifications')}
+              onPress={() => router.push('/notifications')}
               variant="grid"
               showChevron={false}
             />
