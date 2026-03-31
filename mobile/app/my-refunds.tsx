@@ -12,13 +12,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useRequireAuth } from '../hooks/useRequireAuth';
 import { Header } from '../components/Header';
 import { refundService, Refund } from '../services/RefundService';
 import { spacing } from '../theme/spacing';
 
 export default function RefundsScreen() {
-  const { isAuthenticated } = useRequireAuth('Please sign in to view your refunds');
   const router = useRouter();
   const { colors, fontSizes, fontWeights, borderRadius } = useTheme();
   const { user } = useAuth();
@@ -103,6 +101,18 @@ export default function RefundsScreen() {
       fontSize: fontSizes.xs,
       color: colors.textLight,
     },
+    adminNote: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+      backgroundColor: colors.surface,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: 4,
+      marginTop: spacing.xs,
+      fontStyle: 'italic',
+    },
     errorText: {
       fontSize: fontSizes.base,
       color: colors.error,
@@ -153,10 +163,10 @@ export default function RefundsScreen() {
   }, [user?.id]);
 
   useEffect(() => {
-    if (isAuthenticated && user?.id) {
+    if (user?.id) {
       fetchRefunds();
     }
-  }, [isAuthenticated, user?.id, fetchRefunds]);
+  }, [user?.id, fetchRefunds]);
 
   const handleRefresh = useCallback(() => {
     fetchRefunds(true);
@@ -189,7 +199,9 @@ export default function RefundsScreen() {
   const renderItem = useCallback(({ item }: { item: Refund }) => (
     <View style={styles.refundCard}>
       <View style={styles.refundHeader}>
-        <Text style={styles.orderNumber}>Order #{item.orderId.slice(-8).toUpperCase()}</Text>
+        <Text style={styles.orderNumber}>
+          Order #{typeof item.orderId === 'object' ? (item.orderId as any).orderId : String(item.orderId).slice(-8).toUpperCase()}
+        </Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>
             {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
@@ -202,14 +214,13 @@ export default function RefundsScreen() {
       {item.processedAt && (
         <Text style={styles.refundDate}>Processed on {formatDate(item.processedAt)}</Text>
       )}
+      {item.adminNotes && (
+        <Text style={styles.adminNote}>💬 Admin: {item.adminNotes}</Text>
+      )}
     </View>
   ), [styles, colors]);
 
   const keyExtractor = useCallback((item: Refund) => item.id, []);
-
-  if (!isAuthenticated) {
-    return null;
-  }
 
   return (
     <View style={styles.container}>

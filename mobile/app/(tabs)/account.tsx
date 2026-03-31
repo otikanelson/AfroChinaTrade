@@ -397,7 +397,7 @@ export default function AccountTab() {
               icon="receipt"
               title="Orders"
               subtitle=""
-              onPress={() => router.push('/orders')}
+              onPress={() => router.push('/my-orders')}
               variant="grid"
               showChevron={false}
               disabled={isAdminViewingCustomer}
@@ -408,7 +408,7 @@ export default function AccountTab() {
               icon="refresh"
               title="Refunds"
               subtitle=""
-              onPress={() => router.push('/refunds')}
+              onPress={() => router.push('/my-refunds')}
               variant="grid"
               showChevron={false}
               disabled={isAdminViewingCustomer}

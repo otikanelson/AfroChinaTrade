@@ -31,6 +31,7 @@ export interface IOrder extends Document {
   paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
   trackingNumber?: string;
   notes?: string;
+  deliveredAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -151,10 +152,15 @@ const OrderSchema = new Schema<IOrder>(
     trackingNumber: {
       type: String,
       trim: true,
+      minlength: [8, 'Tracking number must be at least 8 characters'],
+      maxlength: [40, 'Tracking number cannot exceed 40 characters'],
     },
     notes: {
       type: String,
       trim: true,
+    },
+    deliveredAt: {
+      type: Date,
     },
   },
   {

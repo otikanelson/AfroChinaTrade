@@ -12,6 +12,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -23,6 +24,7 @@ import { Button } from '../../../components/admin/Button';
 import { mobileToastManager } from '../../../utils/toast';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Header } from '../../../components/Header';
+import { useTabRefundBadge, useManageRefundBadge } from '../../../hooks/useRefundBadge';
 
 interface RefundModalProps {
   visible: boolean;
@@ -93,9 +95,10 @@ function buildCsv(orders: Order[], refunds: Refund[], period: TimePeriod): strin
   lines.push('REFUNDS');
   lines.push(['Refund ID', 'Order ID', 'Type', 'Amount', 'Reason', 'Date'].map(escapeCsv).join(','));
   for (const r of periodRefunds) {
+    const orderRef = typeof r.orderId === 'object' ? r.orderId.orderId : String(r.orderId);
     lines.push([
       r.id,
-      r.orderId,
+      orderRef,
       r.type,
       (r.amount || 0).toFixed(2),
       r.reason,
@@ -110,11 +113,12 @@ function buildCsv(orders: Order[], refunds: Refund[], period: TimePeriod): strin
 
 interface CompactFinanceOrderProps {
   order: Order;
+  hasActiveRefund: boolean;
   onPress: () => void;
   onRefund: () => void;
 }
 
-const CompactFinanceOrder: React.FC<CompactFinanceOrderProps> = ({ order, onPress, onRefund }) => {
+const CompactFinanceOrder: React.FC<CompactFinanceOrderProps> = ({ order, hasActiveRefund, onPress, onRefund }) => {
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
   
   const getStatusColor = (status: string) => {
@@ -188,27 +192,45 @@ const CompactFinanceOrder: React.FC<CompactFinanceOrderProps> = ({ order, onPres
           ₦{order.totalAmount.toLocaleString()}
         </Text>
         {order.status === 'delivered' && (
-          <TouchableOpacity
-            style={{
+          hasActiveRefund ? (
+            <View style={{
               paddingHorizontal: spacing.sm,
               paddingVertical: 4,
               borderRadius: borderRadius.sm,
               borderWidth: 1,
-              borderColor: colors.error,
-            }}
-            onPress={(e) => {
-              e.stopPropagation();
-              onRefund();
-            }}
-          >
-            <Text style={{
-              fontSize: fontSizes.xs,
-              color: colors.error,
-              fontWeight: fontWeights.medium,
+              borderColor: colors.textLight,
             }}>
-              Refund
-            </Text>
-          </TouchableOpacity>
+              <Text style={{
+                fontSize: fontSizes.xs,
+                color: colors.textLight,
+                fontWeight: fontWeights.medium,
+              }}>
+                Refund Pending
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={{
+                paddingHorizontal: spacing.sm,
+                paddingVertical: 4,
+                borderRadius: borderRadius.sm,
+                borderWidth: 1,
+                borderColor: colors.error,
+              }}
+              onPress={(e) => {
+                e.stopPropagation();
+                onRefund();
+              }}
+            >
+              <Text style={{
+                fontSize: fontSizes.xs,
+                color: colors.error,
+                fontWeight: fontWeights.medium,
+              }}>
+                Refund
+              </Text>
+            </TouchableOpacity>
+          )
         )}
       </View>
     </TouchableOpacity>
@@ -218,6 +240,16 @@ const CompactFinanceOrder: React.FC<CompactFinanceOrderProps> = ({ order, onPres
 export default function FinanceScreen() {
   const router = useRouter();
   const { colors, fontSizes, spacing, borderRadius, fontWeights } = useTheme();
+  const { tabBadgeCount, markTabSeen, refreshTabBadge } = useTabRefundBadge();
+  const { manageBadgeCount, refreshManageBadge } = useManageRefundBadge();
+
+  // When finance tab comes into focus, mark tab as seen → badge moves to Manage Refunds button
+  useFocusEffect(
+    useCallback(() => {
+      markTabSeen();
+      refreshManageBadge();
+    }, [markTabSeen, refreshManageBadge])
+  );
   
   const styles = StyleSheet.create({
     screen: { 
@@ -562,14 +594,23 @@ export default function FinanceScreen() {
   );
 
   const renderOrder = useCallback(
-    ({ item }: { item: Order }) => (
-      <CompactFinanceOrder
-        order={item}
-        onPress={() => router.push({ pathname: '/(admin)/order/[id]', params: { id: item._id } })}
-        onRefund={() => setRefundModalOrder(item)}
-      />
-    ),
-    [router],
+    ({ item }: { item: Order }) => {
+      const hasActiveRefund = item.paymentStatus === 'refunded' || refunds.some(r => {
+        const oid = typeof r.orderId === 'object'
+          ? String((r.orderId as any).id || (r.orderId as any)._id || '')
+          : String(r.orderId);
+        return oid === String(item._id) && (r.status === 'pending' || r.status === 'approved');
+      });
+      return (
+        <CompactFinanceOrder
+          order={item}
+          hasActiveRefund={hasActiveRefund}
+          onPress={() => router.push({ pathname: '/(admin)/order/[id]', params: { id: item._id } })}
+          onRefund={() => setRefundModalOrder(item)}
+        />
+      );
+    },
+    [router, refunds],
   );
 
   const keyExtractor = useCallback((item: Order) => item._id, []);
@@ -625,6 +666,7 @@ export default function FinanceScreen() {
       <Header 
         title="Finance"
         subtitle="Track revenue"
+        badge={tabBadgeCount > 0 ? { count: tabBadgeCount, color: '#f59e0b' } : undefined}
         rightAction={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary, }}>
             <TouchableOpacity
@@ -684,6 +726,21 @@ export default function FinanceScreen() {
         >
           <Ionicons name="settings-outline" size={16} color={colors.primary} />
           <Text style={styles.actionButtonText}>Manage Refunds</Text>
+          {manageBadgeCount > 0 && (
+            <View style={{
+              backgroundColor: '#f59e0b',
+              borderRadius: 10,
+              minWidth: 18,
+              height: 18,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingHorizontal: 4,
+            }}>
+              <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
+                {manageBadgeCount}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionButton}

@@ -69,14 +69,20 @@ const ShippingModal: React.FC<ShippingModalProps> = ({ visible, onClose, onConfi
             placeholder="e.g. 1Z999AA10123456784"
             placeholderTextColor={theme.colors.textLight}
             autoCapitalize="characters"
+            maxLength={40}
             accessibilityLabel="Tracking number"
           />
+          <Text style={styles.trackingHint}>
+            {tracking.trim().length > 0 && tracking.trim().length < 8
+              ? 'Tracking number must be at least 8 characters'
+              : `${tracking.trim().length}/40`}
+          </Text>
           <View style={styles.modalActions}>
             <Button label="Cancel" variant="secondary" onPress={onClose} style={styles.modalBtn} />
             <Button
               label="Mark as Shipped"
               onPress={() => { onConfirm(tracking.trim()); setTracking(''); }}
-              disabled={!tracking.trim()}
+              disabled={tracking.trim().length < 8}
               style={styles.modalBtn}
             />
           </View>
@@ -160,12 +166,6 @@ export default function OrderDetailScreen() {
     updateStatus('shipped', { trackingNumber: tracking });
   };
 
-  const handleDeliver = () =>
-    Alert.alert('Mark Delivered', 'Mark this order as delivered?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Confirm', onPress: () => updateStatus('delivered') },
-    ]);
-
   if (loading) {
     return (
       <SafeAreaView style={styles.screen}>
@@ -201,7 +201,6 @@ export default function OrderDetailScreen() {
 
   const isPending    = order.status === 'pending';
   const isProcessing = order.status === 'processing';
-  const isShipped    = order.status === 'shipped';
   const isDelivered  = order.status === 'delivered';
   const isCancelled  = order.status === 'cancelled';
   const trackingNumber = (order as any).trackingNumber;
@@ -327,16 +326,6 @@ export default function OrderDetailScreen() {
                 label="Mark as Shipped"
                 icon="airplane-outline"
                 onPress={() => setShippingModalVisible(true)}
-                loading={actionLoading}
-                size="lg"
-                style={styles.actionBtn}
-              />
-            )}
-            {isShipped && (
-              <Button
-                label="Mark as Delivered"
-                icon="checkmark-done-outline"
-                onPress={handleDeliver}
                 loading={actionLoading}
                 size="lg"
                 style={styles.actionBtn}
@@ -482,6 +471,12 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.base,
     color: theme.colors.text,
     backgroundColor: theme.colors.surface,
+  },
+  trackingHint: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.textSecondary,
+    textAlign: 'right',
+    marginTop: -theme.spacing.xs,
   },
   modalActions: { flexDirection: 'row', gap: theme.spacing.sm },
   modalBtn: { flex: 1 },

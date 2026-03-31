@@ -87,9 +87,11 @@ export default function ProductListingPage() {
       loadCategories();
     } else {
       loadProducts();
+      // Only load collections when not navigated from a specific section
+      if (!collectionId && !collection && !category && showAll !== 'true') {
+        loadCollections();
+      }
     }
-    // Always load collections for the bottom section
-    loadCollections();
   }, [collectionId, collection, category, isShowingCategories, showAll]);
 
   const loadCategories = async () => {
@@ -687,54 +689,7 @@ export default function ProductListingPage() {
             </View>
           )}
 
-          {/* Collections Section */}
-          {collections.length > 0 && (
-            <View style={styles.bottomSection}>
-              <SectionHeader
-                title="Explore Collections"
-                subtitle="Curated product collections"
-                navigationSource={NavigationSource.HOME_COLLECTION}
-                onActionPress={() => router.push({
-                  pathname: '/product-listing',
-                  params: { 
-                    showCategories: 'true',
-                    title: 'All Collections'
-                  }
-                })}
-              />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.collectionsScrollView}
-              >
-                {collections.map(collection => (
-                  <TouchableOpacity
-                    key={collection.id}
-                    style={styles.collectionCard}
-                    onPress={() => router.push({
-                      pathname: '/product-listing',
-                      params: { 
-                        collectionId: collection.id,
-                        title: collection.name
-                      }
-                    })}
-                  >
-                    <View style={styles.collectionIconContainer}>
-                      <Ionicons name="albums-outline" size={24} color={colors.primary} />
-                    </View>
-                    <Text style={styles.collectionName} numberOfLines={2}>
-                      {collection.name}
-                    </Text>
-                    {collection.productCount && (
-                      <Text style={styles.collectionCount}>
-                        {collection.productCount} products
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+
         </ScrollView>
       ) : (
         <ScrollView
@@ -819,8 +774,8 @@ export default function ProductListingPage() {
             </TouchableOpacity>
           )}
 
-          {/* Collections Section - Show first 5 collections (only if not showing all products) */}
-          {collections.length > 0 && showAll !== 'true' && (
+          {/* Collections Section - Only show when not navigated from a specific section */}
+          {collections.length > 0 && showAll !== 'true' && !collectionId && !collection && !category && (
             <View style={styles.bottomSection}>
               <SectionHeader
                 title="Explore Collections"

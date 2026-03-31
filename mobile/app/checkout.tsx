@@ -176,7 +176,7 @@ export default function CheckoutScreen() {
           [
             {
               text: 'View Orders',
-              onPress: () => router.replace('/orders'),
+              onPress: () => router.replace('/my-orders'),
             },
           ]
         );

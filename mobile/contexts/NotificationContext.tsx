@@ -170,7 +170,7 @@ export function NotificationProvider({
           if (data.refundId) {
             router.push(`/refund/${data.refundId}`);
           } else {
-            router.push('/refunds');
+            router.push('/my-refunds');
           }
           break;
         case 'system':

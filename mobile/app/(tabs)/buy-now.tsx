@@ -429,6 +429,8 @@ export default function BuyNowTab() {
         subtitle="Get fast items for you"
         showRefresh={true}
         onRefreshPress={handleRefresh}
+        showCart={true}
+        onCartPress={() => router.push('/cart')}
       />
 
       <ScrollView
@@ -455,7 +457,7 @@ export default function BuyNowTab() {
 
           <TouchableOpacity
             style={styles.quickActionCard}
-            onPress={() => router.push('/orders')}
+            onPress={() => router.push('/my-orders')}
           >
             <Ionicons name="receipt" size={24} color={colors.primary} />
             <Text style={styles.quickActionText}>Orders</Text>

@@ -1,38 +1,51 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlertContext } from '../contexts/AlertContext';
 import { useRedirect } from '../contexts/RedirectContext';
 
-/**
- * Hook to require authentication for a screen
- * Redirects to login if user is not authenticated
- * Shows a message explaining why login is needed
- */
 export const useRequireAuth = (message?: string) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const alert = useAlertContext();
   const { setPendingRedirect } = useRedirect();
+  const mountedRef = useRef(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      // Store current path for redirect after login
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Clear any pending redirect timer when auth state changes
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // Only redirect when loading is fully done AND user is definitively not authenticated
+    // user being null confirms it's not just a tokenManager timing issue
+    if (!isLoading && !isAuthenticated && !user) {
       setPendingRedirect(pathname);
-      
+
       alert.showInfo(
         'Sign In Required',
         message || 'Please sign in to access this feature',
         3000
       );
-      
-      // Small delay to show the message before redirecting
-      setTimeout(() => {
-        router.push('/auth/login');
+
+      timerRef.current = setTimeout(() => {
+        if (mountedRef.current) {
+          router.push('/auth/login');
+        }
       }, 500);
     }
-  }, [isAuthenticated, isLoading, pathname]);
+  }, [isAuthenticated, isLoading, user, pathname]);
 
   return { isAuthenticated, isLoading };
 };

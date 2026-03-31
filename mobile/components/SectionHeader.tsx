@@ -44,7 +44,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
     <View style={[styles.container, { 
       paddingHorizontal: spacing.base, 
       marginBottom: spacing.sm, 
-    }]}>If there is no discount 
+    }]}>
       <View style={styles.textContainer}>
         <Text style={[styles.title, { 
           fontSize: fontSizes.lg, 

@@ -35,11 +35,11 @@ class NotificationService {
   }
 
   async markAsRead(id: string): Promise<ApiResponse<void>> {
-    return apiClient.patch<void>(`${this.basePath}/${id}/read`);
+    return apiClient.patch<void>(`${this.basePath}/${id}/read`, {});
   }
 
   async markAllAsRead(): Promise<ApiResponse<void>> {
-    return apiClient.patch<void>(`${this.basePath}/mark-all-read`);
+    return apiClient.patch<void>(`${this.basePath}/mark-all-read`, {});
   }
 
   async getUnreadCount(): Promise<ApiResponse<{ count: number }>> {

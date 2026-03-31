@@ -262,8 +262,17 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
     const validTransitions: { [key: string]: string[] } = {
       pending: ['processing', 'cancelled'],
       processing: ['shipped', 'cancelled'],
-      shipped: ['delivered'],
     };
+
+    // Only customers can mark as delivered — block it here (admin route)
+    if (status === 'delivered') {
+      res.status(403).json({
+        status: 'error',
+        message: 'Only the customer can confirm delivery',
+        errorCode: 'INSUFFICIENT_PERMISSIONS',
+      });
+      return;
+    }
 
     if (validTransitions[order.status] && !validTransitions[order.status].includes(status)) {
       res.status(400).json({
@@ -314,11 +323,7 @@ export const updateTrackingNumber = async (req: Request, res: Response): Promise
       return;
     }
 
-    const order = await Order.findByIdAndUpdate(
-      id,
-      { trackingNumber },
-      { new: true, runValidators: true }
-    );
+    const order = await Order.findById(id);
 
     if (!order) {
       res.status(404).json({
@@ -329,9 +334,21 @@ export const updateTrackingNumber = async (req: Request, res: Response): Promise
       return;
     }
 
+    if (order.status !== 'processing') {
+      res.status(400).json({
+        status: 'error',
+        message: `Cannot add tracking number to an order with status "${order.status}". Order must be in processing state.`,
+        errorCode: 'INVALID_ORDER_STATUS',
+      });
+      return;
+    }
+
+    order.trackingNumber = trackingNumber;
+    order.status = 'shipped';
+    await order.save();
     res.status(200).json({
       status: 'success',
-      message: 'Tracking number updated successfully',
+      message: 'Order marked as shipped',
       data: order,
     });
   } catch (error) {
@@ -407,6 +424,67 @@ export const cancelOrder = async (req: Request, res: Response): Promise<void> =>
         status: 'error',
         message: 'Failed to cancel order',
         errorCode: 'CANCEL_ORDER_FAILED',
+      });
+    }
+  }
+};
+
+// Confirm delivery (customer only)
+export const confirmDelivery = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const order = await Order.findById(id);
+
+    if (!order) {
+      res.status(404).json({
+        status: 'error',
+        message: 'Order not found',
+        errorCode: 'ORDER_NOT_FOUND',
+      });
+      return;
+    }
+
+    // Only the order owner can confirm delivery
+    if (order.userId.toString() !== req.userId) {
+      res.status(403).json({
+        status: 'error',
+        message: 'Insufficient permissions',
+        errorCode: 'INSUFFICIENT_PERMISSIONS',
+      });
+      return;
+    }
+
+    if (order.status !== 'shipped') {
+      res.status(400).json({
+        status: 'error',
+        message: `Cannot confirm delivery for an order with status "${order.status}". Order must be shipped first.`,
+        errorCode: 'INVALID_ORDER_STATUS',
+      });
+      return;
+    }
+
+    order.status = 'delivered';
+    order.deliveredAt = new Date();
+    await order.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Order marked as delivered',
+      data: order,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      res.status(500).json({
+        status: 'error',
+        message: error.message,
+        errorCode: 'CONFIRM_DELIVERY_FAILED',
+      });
+    } else {
+      res.status(500).json({
+        status: 'error',
+        message: 'Failed to confirm delivery',
+        errorCode: 'CONFIRM_DELIVERY_FAILED',
       });
     }
   }

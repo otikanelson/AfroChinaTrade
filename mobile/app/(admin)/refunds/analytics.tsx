@@ -45,7 +45,8 @@ export default function RefundAnalyticsScreen() {
       gap: spacing.xs,
     },
     periodButton: {
-      paddingHorizontal: spacing.sm,
+      marginHorizontal: 5,
+      paddingHorizontal: spacing.md,
       paddingVertical: spacing.xs,
       borderRadius: borderRadius.base,
       borderWidth: 1,

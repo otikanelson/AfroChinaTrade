@@ -24,6 +24,16 @@ export const createRefund = async (req: Request, res: Response) => {
       });
     }
 
+    // Enforce 24-hour refund window
+    const deliveredAt = order.deliveredAt || order.updatedAt;
+    const hoursSinceDelivery = (Date.now() - new Date(deliveredAt).getTime()) / (1000 * 60 * 60);
+    if (hoursSinceDelivery > 24) {
+      return res.status(400).json({
+        message: 'Refund window has expired. Refunds must be requested within 24 hours of delivery.',
+        errorCode: 'REFUND_WINDOW_EXPIRED',
+      });
+    }
+
     // Check if order is already refunded
     if (order.paymentStatus === 'refunded') {
       return res.status(400).json({ 
@@ -321,6 +331,17 @@ export const createRefundRequest = async (req: Request, res: Response) => {
       return res.status(400).json({ 
         success: false,
         message: 'Only delivered orders are eligible for refunds' 
+      });
+    }
+
+    // Enforce 24-hour refund window from delivery confirmation
+    const deliveredAt = order.deliveredAt || order.updatedAt;
+    const hoursSinceDelivery = (Date.now() - new Date(deliveredAt).getTime()) / (1000 * 60 * 60);
+    if (hoursSinceDelivery > 24) {
+      return res.status(400).json({
+        success: false,
+        message: 'Refund window has expired. Refunds must be requested within 24 hours of delivery confirmation.',
+        errorCode: 'REFUND_WINDOW_EXPIRED',
       });
     }
 

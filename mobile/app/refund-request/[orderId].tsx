@@ -227,7 +227,7 @@ export default function RefundRequestScreen() {
 
       if (response.success) {
         mobileToastManager.success('Refund request submitted successfully');
-        router.push('/refunds');
+        router.push('/my-refunds');
       } else {
         Alert.alert('Error', response.error?.message || 'Failed to submit refund request');
       }

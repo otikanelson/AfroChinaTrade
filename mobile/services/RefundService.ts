@@ -2,7 +2,7 @@ import apiClient, { ApiResponse } from './api/apiClient';
 
 export interface Refund {
   id: string;
-  orderId: string;
+  orderId: string | { _id: string; orderId: string; totalAmount: number; status: string };
   type: 'full' | 'partial';
   amount: number;
   reason: string;

@@ -105,9 +105,11 @@ export default function AdminHelpSupportScreen() {
     },
     statCard: {
       flex: 1,
-      backgroundColor: colors.primaryLight,
+      backgroundColor: colors.surface,
       padding: spacing.sm,
-      borderRadius: borderRadius.sm,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.primaryDark,
       alignItems: 'center',
     },
     statNumber: {

@@ -21,6 +21,7 @@ import { Button } from '../../../components/admin/Button';
 import { Header } from '../../../components/Header';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { mobileToastManager } from '../../../utils/toast';
+import { useManageRefundBadge } from '../../../hooks/useRefundBadge';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -43,6 +44,7 @@ const FILTERS = ['all', 'pending', 'approved', 'rejected', 'processed'];
 
 export default function RefundsManagementScreen() {
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
+  const { markManageSeen } = useManageRefundBadge();
   const [refunds, setRefunds] = useState<Refund[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,11 +164,17 @@ export default function RefundsManagementScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Mark all pending refunds as seen at manage level — clears both badges
+  useEffect(() => { markManageSeen(); }, [markManageSeen]);
+
   const filtered = useMemo(() => {
     const arr = Array.isArray(refunds) ? refunds : [];
     if (!search.trim()) return arr;
     const q = search.toLowerCase();
-    return arr.filter(r => r.orderId.toLowerCase().includes(q) || r.reason.toLowerCase().includes(q));
+    return arr.filter(r => {
+      const orderRef = typeof r.orderId === 'object' ? r.orderId.orderId : r.orderId;
+      return (orderRef || '').toLowerCase().includes(q) || r.reason.toLowerCase().includes(q);
+    });
   }, [refunds, search]);
 
   const stats = useMemo(() => {
@@ -216,7 +224,7 @@ export default function RefundsManagementScreen() {
       <View style={s.cardContent}>
         <View style={s.cardHeader}>
           <View style={s.cardInfo}>
-            <Text style={s.orderId}>Order #{item.orderId.slice(-8).toUpperCase()}</Text>
+            <Text style={s.orderId}>Order #{typeof item.orderId === 'object' ? item.orderId.orderId : String(item.orderId).slice(-8).toUpperCase()}</Text>
             <Text style={s.reason} numberOfLines={2}>{item.reason}</Text>
             <View style={s.metaRow}>
               <Text style={s.date}>{formatDate(item.createdAt)}</Text>
@@ -237,7 +245,7 @@ export default function RefundsManagementScreen() {
           <TouchableOpacity style={[s.actionBtn, s.actionBtnSecondary]} onPress={() => handleViewDetails(item)}>
             <Text style={[s.actionBtnText, s.actionBtnTextSecondary]}>View Details</Text>
           </TouchableOpacity>
-          {item.status === 'pending' && (
+          {(item.status === 'pending' || item.status === 'approved') && (
             <TouchableOpacity style={[s.actionBtn, s.actionBtnPrimary]} onPress={() => handleStatusUpdate(item)}>
               <Text style={[s.actionBtnText, s.actionBtnTextPrimary]}>Update Status</Text>
             </TouchableOpacity>
@@ -305,7 +313,7 @@ export default function RefundsManagementScreen() {
             <Text style={s.modalTitle}>Update Refund Status</Text>
             {selectedRefund && (
               <View style={s.modalSection}>
-                <Text style={s.modalLabel}>Order #{selectedRefund.orderId.slice(-8).toUpperCase()}</Text>
+                <Text style={s.modalLabel}>Order #{typeof selectedRefund.orderId === 'object' ? selectedRefund.orderId.orderId : String(selectedRefund.orderId).slice(-8).toUpperCase()}</Text>
                 <Text style={s.modalValue}>Amount: ₦{selectedRefund.amount.toFixed(2)} ({selectedRefund.type})</Text>
               </View>
             )}
@@ -339,7 +347,7 @@ export default function RefundsManagementScreen() {
             {selectedRefund && (
               <>
                 {[
-                  { label: 'Order ID', value: `#${selectedRefund.orderId}` },
+                  { label: 'Order ID', value: `#${typeof selectedRefund.orderId === 'object' ? selectedRefund.orderId.orderId : selectedRefund.orderId}` },
                   { label: 'Refund Type', value: selectedRefund.type.charAt(0).toUpperCase() + selectedRefund.type.slice(1) },
                   { label: 'Amount', value: `₦${selectedRefund.amount.toFixed(2)}` },
                   { label: 'Status', value: selectedRefund.status },
@@ -358,7 +366,7 @@ export default function RefundsManagementScreen() {
             )}
             <View style={s.modalActions}>
               <Button label="Close" variant="secondary" onPress={() => setDetailsModalVisible(false)} style={s.modalBtn} />
-              {selectedRefund?.status === 'pending' && (
+              {(selectedRefund?.status === 'pending' || selectedRefund?.status === 'approved') && (
                 <Button label="Update Status" onPress={() => { setDetailsModalVisible(false); handleStatusUpdate(selectedRefund!); }} style={s.modalBtn} />
               )}
             </View>

@@ -34,7 +34,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onStatusTog
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
   const isActive = product.isActive ?? true; // Default to true if not specified
   const imageUri = product.images?.[0];
-  const hasDiscount = product.discount && product.discount > 0;
+  const hasDiscount = !!product.discount && product.discount > 0;
 
   const formatPrice = (price: number) => {
     return `₦${price.toLocaleString()}`;
