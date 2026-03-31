@@ -1,19 +1,78 @@
 /**
- * Connection utilities for handling environment-specific networking
+ * Connection utilities with automatic fallback to Vercel when local fails.
  */
 
-import { API_BASE_URL, CONNECTION_CONFIG, APP_CONFIG } from '../constants/config';
+import {
+  API_BASE_URL,
+  FALLBACK_API_URL,
+  CONNECTION_CONFIG,
+  APP_CONFIG,
+} from '../constants/config';
 
 export interface ConnectionTestResult {
   success: boolean;
   responseTime: number;
+  url?: string;
   error?: string;
   isColdStart?: boolean;
+  usedFallback?: boolean;
   environment?: string;
 }
 
+// ─── Internal helpers ────────────────────────────────────────────────────────
+
+const pingUrl = async (baseUrl: string, timeoutMs: number): Promise<number> => {
+  const start = Date.now();
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`${baseUrl}/health`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+    });
+    clearTimeout(id);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return Date.now() - start;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+};
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+
 /**
- * Test connection with environment-specific retry logic
+ * Resolves the best available API URL.
+ * Tries the primary URL first; if it fails, falls back to FALLBACK_API_URL.
+ * Returns the URL that succeeded, or the fallback URL if both fail.
+ */
+export const resolveApiUrl = async (): Promise<{
+  url: string;
+  usedFallback: boolean;
+}> => {
+  // If primary and fallback are the same (e.g. production build), skip the probe
+  if (API_BASE_URL === FALLBACK_API_URL) {
+    return { url: API_BASE_URL, usedFallback: false };
+  }
+
+  try {
+    await pingUrl(API_BASE_URL, CONNECTION_CONFIG.timeout);
+    if (APP_CONFIG.debug) console.log('✅ Primary API reachable:', API_BASE_URL);
+    return { url: API_BASE_URL, usedFallback: false };
+  } catch {
+    if (APP_CONFIG.debug)
+      console.warn(
+        `⚠️ Primary API unreachable (${API_BASE_URL}). Switching to fallback: ${FALLBACK_API_URL}`
+      );
+    return { url: FALLBACK_API_URL, usedFallback: true };
+  }
+};
+
+/**
+ * Test connection with retry logic.
+ * Tries primary URL; on failure automatically retries with fallback.
  */
 export const testConnectionWithRetry = async (
   maxAttempts?: number,
@@ -21,163 +80,106 @@ export const testConnectionWithRetry = async (
 ): Promise<ConnectionTestResult> => {
   const attempts = maxAttempts || CONNECTION_CONFIG.retries;
   const timeout = timeoutMs || CONNECTION_CONFIG.timeout;
-  
-  let currentAttempt = 0;
-  let lastError: string = '';
-  
-  while (currentAttempt < attempts) {
-    currentAttempt++;
-    const startTime = Date.now();
-    
-    try {
-      if (APP_CONFIG.debug) {
-        console.log(`🔄 Connection attempt ${currentAttempt}/${attempts} to ${API_BASE_URL}/health`);
-      }
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-      
-      const response = await fetch(`${API_BASE_URL}/health`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
-      const responseTime = Date.now() - startTime;
-      
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (APP_CONFIG.debug) {
-          console.log(`✅ Connection successful (${responseTime}ms):`, data);
-        }
-        
+
+  const urls =
+    API_BASE_URL !== FALLBACK_API_URL
+      ? [API_BASE_URL, FALLBACK_API_URL]
+      : [API_BASE_URL];
+
+  for (const url of urls) {
+    let lastError = '';
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      if (APP_CONFIG.debug)
+        console.log(`🔄 Attempt ${attempt}/${attempts} → ${url}/health`);
+
+      try {
+        const responseTime = await pingUrl(url, timeout);
+        if (APP_CONFIG.debug)
+          console.log(`✅ Connected to ${url} in ${responseTime}ms`);
+
         return {
           success: true,
           responseTime,
+          url,
           isColdStart: responseTime > 5000,
+          usedFallback: url === FALLBACK_API_URL && url !== API_BASE_URL,
           environment: APP_CONFIG.environment,
         };
-      } else {
-        lastError = `HTTP ${response.status}: ${response.statusText}`;
-        if (APP_CONFIG.debug) {
-          console.warn(`⚠️ Connection failed (attempt ${currentAttempt}): ${lastError}`);
+      } catch (err: any) {
+        lastError = err?.message || 'Network error';
+        if (APP_CONFIG.debug)
+          console.warn(`❌ Attempt ${attempt} failed for ${url}: ${lastError}`);
+
+        if (attempt < attempts) {
+          await new Promise((r) =>
+            setTimeout(r, CONNECTION_CONFIG.retryDelay)
+          );
         }
       }
-    } catch (error: any) {
-      const responseTime = Date.now() - startTime;
-      lastError = error.message || 'Network error';
-      
-      if (APP_CONFIG.debug) {
-        console.error(`❌ Connection error (attempt ${currentAttempt}, ${responseTime}ms):`, lastError);
-      }
-      
-      // If it's a timeout and we have more attempts, wait before retrying
-      if ((error.name === 'AbortError' || error.name === 'TimeoutError') && currentAttempt < attempts) {
-        if (APP_CONFIG.debug) {
-          console.log(`🔄 Timeout detected, waiting ${CONNECTION_CONFIG.retryDelay}ms before retry...`);
-        }
-        await new Promise(resolve => setTimeout(resolve, CONNECTION_CONFIG.retryDelay));
-        continue;
-      }
     }
-    
-    // Wait between attempts (except for the last one)
-    if (currentAttempt < attempts) {
-      const waitTime = CONNECTION_CONFIG.retryDelay;
-      if (APP_CONFIG.debug) {
-        console.log(`⏳ Waiting ${waitTime}ms before next attempt...`);
-      }
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
+
+    if (APP_CONFIG.debug)
+      console.warn(`⛔ All attempts failed for ${url}. Last error: ${lastError}`);
   }
-  
+
   return {
     success: false,
     responseTime: 0,
-    error: lastError,
+    error: 'All endpoints unreachable',
     environment: APP_CONFIG.environment,
   };
 };
 
-/**
- * Quick connection test (single attempt)
- */
+/** Quick single-attempt connection test against the primary URL. */
 export const quickConnectionTest = async (): Promise<boolean> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/health`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(CONNECTION_CONFIG.timeout / 2),
-    });
-    return response.ok;
+    await pingUrl(API_BASE_URL, Math.floor(CONNECTION_CONFIG.timeout / 2));
+    return true;
   } catch {
     return false;
   }
 };
 
-/**
- * Get user-friendly connection error message based on environment
- */
-export const getConnectionErrorMessage = (result: ConnectionTestResult): string => {
+/** User-friendly error message based on environment and error type. */
+export const getConnectionErrorMessage = (
+  result: ConnectionTestResult
+): string => {
   if (result.success) return '';
-  
+
   const isDev = APP_CONFIG.isDevelopment;
-  
-  if (result.error?.includes('timeout') || result.error?.includes('AbortError')) {
-    if (isDev) {
-      return 'Cannot connect to local development server. Make sure your backend is running and the IP address is correct.';
-    } else {
-      return 'The server is starting up (this can take 10-15 seconds). Please try again in a moment.';
-    }
+
+  if (result.error?.includes('timeout') || result.error?.includes('Abort')) {
+    return isDev
+      ? 'Cannot connect to local server. Make sure your backend is running and the IP is correct.'
+      : 'The server is starting up (10–15 s). Please try again in a moment.';
   }
-  
-  if (result.error?.includes('Network')) {
-    if (isDev) {
-      return 'Network error. Check that your device and computer are on the same network.';
-    } else {
-      return 'Please check your internet connection and try again.';
-    }
+
+  if (result.error?.includes('Network') || result.error?.includes('unreachable')) {
+    return isDev
+      ? 'Network error. Check that your device and computer are on the same network.'
+      : 'Please check your internet connection and try again.';
   }
-  
-  if (isDev) {
-    return `Development server connection failed. Check your local backend server and network settings.`;
-  }
-  
-  return 'Unable to connect to the server. Please try again later.';
+
+  return isDev
+    ? 'Development server connection failed. Check your local backend and network settings.'
+    : 'Unable to connect to the server. Please try again later.';
 };
 
-/**
- * Warm up the server (call this proactively)
- */
+/** Fire-and-forget server warm-up. */
 export const warmUpServer = async (): Promise<void> => {
-  if (APP_CONFIG.debug) {
-    console.log('🔥 Warming up server...');
-  }
-  
-  try {
-    // Fire and forget - don't wait for response
-    fetch(`${API_BASE_URL}/health`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    }).catch(() => {
-      // Ignore errors - this is just a warm-up
-    });
-  } catch {
-    // Ignore errors
-  }
+  if (APP_CONFIG.debug) console.log('🔥 Warming up server...');
+  fetch(`${API_BASE_URL}/health`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  }).catch(() => {});
 };
 
-/**
- * Log current connection configuration (debug only)
- */
 export const logConnectionConfig = () => {
   if (APP_CONFIG.debug) {
     console.log('🔗 Connection Configuration:', {
-      apiUrl: API_BASE_URL,
+      primaryUrl: API_BASE_URL,
+      fallbackUrl: FALLBACK_API_URL,
       environment: APP_CONFIG.environment,
       timeout: CONNECTION_CONFIG.timeout,
       retries: CONNECTION_CONFIG.retries,

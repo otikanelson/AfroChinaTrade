@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import { API_BASE_URL } from '../../constants/config';
+import { API_BASE_URL, FALLBACK_API_URL, APP_CONFIG } from '../../constants/config';
 import { tokenManager } from './tokenManager';
+import { resolveApiUrl } from '../../utils/connectionUtils';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -30,6 +31,11 @@ class SimpleApiClient {
   private isRefreshing = false;
   private refreshSubscribers: ((token: string) => void)[] = [];
   private onTokenExpiredCallback: (() => void) | null = null;
+  /**
+   * Resolves once the best base URL has been determined.
+   * All outgoing requests wait on this so they never hit a dead local IP.
+   */
+  private readyPromise: Promise<void>;
 
   constructor() {
     this.client = axios.create({
@@ -42,6 +48,36 @@ class SimpleApiClient {
 
     this.setupInterceptors();
     this.setupTokenExpiryListeners();
+
+    // Kick off URL resolution immediately; requests will await readyPromise
+    this.readyPromise = this.initBaseUrl();
+  }
+
+  private async initBaseUrl(): Promise<void> {
+    try {
+      const { url, usedFallback } = await resolveApiUrl();
+      if (url !== this.client.defaults.baseURL) {
+        this.client.defaults.baseURL = url;
+      }
+      if (APP_CONFIG.debug) {
+        console.log(
+          usedFallback
+            ? `🔀 Using fallback API: ${url}`
+            : `✅ Using primary API: ${url}`
+        );
+      }
+    } catch {
+      // resolveApiUrl never throws, but just in case — keep the default
+    }
+  }
+
+  /** Switch to fallback URL (called externally if needed) */
+  useFallbackUrl() {
+    if (this.client.defaults.baseURL !== FALLBACK_API_URL) {
+      this.client.defaults.baseURL = FALLBACK_API_URL;
+      if (APP_CONFIG.debug)
+        console.warn('🔀 Manually switched to fallback API:', FALLBACK_API_URL);
+    }
   }
 
   private setupTokenExpiryListeners() {
@@ -117,14 +153,16 @@ class SimpleApiClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor - add token to requests
+    // Request interceptor — wait for URL resolution, then attach token
     this.client.interceptors.request.use(
       async (config) => {
+        // Wait until the best base URL is resolved before sending any request
+        await this.readyPromise;
+
         const token = await tokenManager.getAccessToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         } else {
-          // Ensure no Authorization header is sent for guest users
           delete config.headers.Authorization;
         }
 
@@ -137,7 +175,7 @@ class SimpleApiClient {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor - handle responses and errors
+    // Response interceptor — handle responses and errors
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
         if (__DEV__) {
@@ -147,6 +185,23 @@ class SimpleApiClient {
       },
       async (error: AxiosError) => {
         const originalRequest = error.config as any;
+
+        // ── Fallback retry on network error ──────────────────────────────────
+        // If the request failed with no HTTP response (network/timeout) and we
+        // haven't already retried with the fallback URL, switch silently and retry.
+        const isNetworkError = !error.response;
+        const isNotFallback = this.client.defaults.baseURL !== FALLBACK_API_URL;
+        const notYetFallbackRetried = !originalRequest._fallbackRetry;
+
+        if (isNetworkError && isNotFallback && notYetFallbackRetried) {
+          originalRequest._fallbackRetry = true;
+          this.client.defaults.baseURL = FALLBACK_API_URL;
+          originalRequest.baseURL = FALLBACK_API_URL;
+          if (APP_CONFIG.debug)
+            console.warn(`🔀 Network error on primary — retrying with fallback: ${FALLBACK_API_URL}`);
+          return this.client(originalRequest);
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         if (__DEV__) {
           console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
@@ -162,13 +217,11 @@ class SimpleApiClient {
           const errorData = error.response?.data as any;
           const errorCode = errorData?.errorCode || errorData?.data?.errorCode;
 
-          // Only attempt refresh if token expired, not for other auth errors
           if (errorCode === 'TOKEN_EXPIRED') {
             console.log('🔄 Attempting to refresh token...');
             const refreshed = await this.refreshAccessToken();
 
             if (refreshed) {
-              // Retry original request with new token
               const newToken = await tokenManager.getAccessToken();
               if (newToken) {
                 originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -177,7 +230,6 @@ class SimpleApiClient {
             }
           }
 
-          // If refresh failed or other auth error, clear tokens
           console.warn('🔒 Authentication failed, clearing tokens');
           await tokenManager.clearTokens();
         }
@@ -215,25 +267,24 @@ class SimpleApiClient {
     if (error.code === 'ECONNABORTED') {
       return {
         code: 'TIMEOUT_ERROR',
-        message: 'Request timeout. Please check your internet connection.',
+        message: 'Request timed out. Please try again.',
         status: 0,
       };
     }
 
     if (!error.response) {
-      console.error('🌐 Network Error Details:', {
-        code: error.code,
-        message: error.message,
-        config: {
+      // Only log in debug — this fires during the local probe and is expected
+      if (APP_CONFIG.debug) {
+        console.warn('🌐 Network error (may be expected during URL resolution):', {
+          code: error.code,
           url: error.config?.url,
-          method: error.config?.method,
           baseURL: error.config?.baseURL,
-        }
-      });
-      
+        });
+      }
+
       return {
         code: 'NETWORK_ERROR',
-        message: `Unable to connect to server at ${error.config?.baseURL || 'unknown URL'}. Please check your internet connection and ensure the backend server is running.`,
+        message: 'Unable to connect. Please check your internet connection.',
         status: 0,
       };
     }
