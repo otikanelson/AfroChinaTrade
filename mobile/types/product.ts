@@ -24,6 +24,7 @@ export interface Product {
   isSellerFavorite?: boolean;
   trendingScore?: number;
   lastViewedAt?: string;
+  createdAt?: string;
 }
 
 export interface CollectionFilter {

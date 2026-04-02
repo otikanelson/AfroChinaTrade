@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
@@ -53,12 +52,10 @@ export const Header: React.FC<HeaderProps> = ({
   const styles = StyleSheet.create({
     container: {
       backgroundColor: colors.background,
-      paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) - 30 : 0,
     },
     safeArea: {
       backgroundColor: colors.background,
-    },
-    header: {
+    },    header: {
       height: 60,
       paddingHorizontal: 16,
       flexDirection: 'row',
@@ -203,7 +200,7 @@ export const Header: React.FC<HeaderProps> = ({
         backgroundColor={colors.background} 
         translucent={false}
       />
-      <SafeAreaView style={styles.safeArea}>
+      <View style={styles.safeArea}>
         <View style={styles.header}>
           {/* Left Section */}
           <View style={styles.leftSection}>
@@ -281,7 +278,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </View>
         </View>
-      </SafeAreaView>
+      </View>
       
       <Sidebar 
         visible={sidebarVisible} 

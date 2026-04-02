@@ -21,6 +21,7 @@ import { Order, Refund } from '../../../types/product';
 import { refundService } from '../../../services/RefundService';
 import { orderService } from '../../../services/OrderService';
 import { Button } from '../../../components/admin/Button';
+import { StatCard } from '../../../components/admin/StatCard';
 import { mobileToastManager } from '../../../utils/toast';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Header } from '../../../components/Header';
@@ -113,14 +114,14 @@ function buildCsv(orders: Order[], refunds: Refund[], period: TimePeriod): strin
 
 interface CompactFinanceOrderProps {
   order: Order;
-  hasActiveRefund: boolean;
+  refund: Refund | null;
   onPress: () => void;
   onRefund: () => void;
 }
 
-const CompactFinanceOrder: React.FC<CompactFinanceOrderProps> = ({ order, hasActiveRefund, onPress, onRefund }) => {
+const CompactFinanceOrder: React.FC<CompactFinanceOrderProps> = ({ order, refund, onPress, onRefund }) => {
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
-  
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return '#f59e0b';
@@ -131,6 +132,19 @@ const CompactFinanceOrder: React.FC<CompactFinanceOrderProps> = ({ order, hasAct
       default: return colors.textSecondary;
     }
   };
+
+  const getRefundLabel = () => {
+    if (!refund) return null;
+    switch (refund.status) {
+      case 'pending':   return { label: 'Refund Pending',   color: '#f59e0b' };
+      case 'approved':  return { label: 'Refund Approved',  color: '#3b82f6' };
+      case 'processed': return { label: 'Refund Processed', color: '#10b981' };
+      case 'rejected':  return { label: 'Refund Rejected',  color: '#ef4444' };
+      default:          return null;
+    }
+  };
+
+  const refundBadge = getRefundLabel();
 
   return (
     <TouchableOpacity
@@ -192,20 +206,20 @@ const CompactFinanceOrder: React.FC<CompactFinanceOrderProps> = ({ order, hasAct
           ₦{order.totalAmount.toLocaleString()}
         </Text>
         {order.status === 'delivered' && (
-          hasActiveRefund ? (
+          refundBadge ? (
             <View style={{
               paddingHorizontal: spacing.sm,
               paddingVertical: 4,
               borderRadius: borderRadius.sm,
               borderWidth: 1,
-              borderColor: colors.textLight,
+              borderColor: refundBadge.color,
             }}>
               <Text style={{
                 fontSize: fontSizes.xs,
-                color: colors.textLight,
+                color: refundBadge.color,
                 fontWeight: fontWeights.medium,
               }}>
-                Refund Pending
+                {refundBadge.label}
               </Text>
             </View>
           ) : (
@@ -595,16 +609,17 @@ export default function FinanceScreen() {
 
   const renderOrder = useCallback(
     ({ item }: { item: Order }) => {
-      const hasActiveRefund = item.paymentStatus === 'refunded' || refunds.some(r => {
+      const refundsArray = Array.isArray(refunds) ? refunds : [];
+      const orderRefund = refundsArray.find(r => {
         const oid = typeof r.orderId === 'object'
           ? String((r.orderId as any).id || (r.orderId as any)._id || '')
           : String(r.orderId);
-        return oid === String(item._id) && (r.status === 'pending' || r.status === 'approved');
-      });
+        return oid === String(item._id);
+      }) ?? null;
       return (
         <CompactFinanceOrder
           order={item}
-          hasActiveRefund={hasActiveRefund}
+          refund={orderRefund}
           onPress={() => router.push({ pathname: '/(admin)/order/[id]', params: { id: item._id } })}
           onRefund={() => setRefundModalOrder(item)}
         />
@@ -686,36 +701,14 @@ export default function FinanceScreen() {
         }
       />
 
-      {/* Professional Stats */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { borderLeftColor: '#10b981' }]}>
-          <Text style={styles.statLabel}>Net Revenue</Text>
-          <Text style={styles.statValue}>₦{stats.revenue.toFixed(0)}</Text>
-        </View>
-        <View style={[styles.statCard, { borderLeftColor: '#f59e0b' }]}>
-          <Text style={styles.statLabel}>Pending Orders</Text>
-          <Text style={styles.statValue}>₦{stats.pending.toFixed(0)}</Text>
-        </View>
-        <View style={[styles.statCard, { borderLeftColor: colors.error }]}>
-          <Text style={styles.statLabel}>Refunded</Text>
-          <Text style={styles.statValue}>₦{stats.refunded.toFixed(0)}</Text>
-        </View>
-      </View>
-
-      {/* Refund Stats */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { borderLeftColor: '#8b5cf6' }]}>
-          <Text style={styles.statLabel}>Pending Refunds</Text>
-          <Text style={styles.statValue}>{stats.pendingRefunds}</Text>
-        </View>
-        <View style={[styles.statCard, { borderLeftColor: '#06b6d4' }]}>
-          <Text style={styles.statLabel}>Processed</Text>
-          <Text style={styles.statValue}>{stats.processedRefunds}</Text>
-        </View>
-        <View style={[styles.statCard, { borderLeftColor: '#64748b' }]}>
-          <Text style={styles.statLabel}>Total Requests</Text>
-          <Text style={styles.statValue}>{stats.totalRefundRequests}</Text>
-        </View>
+      {/* Stats */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.base, paddingVertical: spacing.sm, gap: spacing.sm }}>
+        <StatCard label="Net Revenue" value={`₦${(stats.revenue / 1000).toFixed(1)}k`} accent="#10b981" icon="trending-up-outline" />
+        <StatCard label="Pending Orders" value={`₦${(stats.pending / 1000).toFixed(1)}k`} accent="#f59e0b" icon="time-outline" />
+        <StatCard label="Refunded" value={`₦${(stats.refunded / 1000).toFixed(1)}k`} accent={colors.error} icon="return-down-back-outline" />
+        <StatCard label="Pending Refunds" value={String(stats.pendingRefunds)} accent="#8b5cf6" icon="hourglass-outline" />
+        <StatCard label="Processed" value={String(stats.processedRefunds)} accent="#06b6d4" icon="checkmark-circle-outline" />
+        <StatCard label="Total Requests" value={String(stats.totalRefundRequests)} accent="#64748b" icon="receipt-outline" />
       </View>
 
       {/* Action Buttons */}

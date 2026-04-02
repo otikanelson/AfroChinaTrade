@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { notificationService, Notification, NotificationSettings } from '../services/NotificationService';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -17,8 +17,7 @@ interface UseNotificationsReturn {
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   updateSettings: (settings: NotificationSettings) => Promise<void>;
-  startPolling: () => void;
-  stopPolling: () => void;
+  fetchUnreadCount: () => Promise<void>;
 }
 
 export const useNotifications = (): UseNotificationsReturn => {
@@ -33,9 +32,6 @@ export const useNotifications = (): UseNotificationsReturn => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isPollingRef = useRef(false);
 
   const fetchNotifications = useCallback(async (refresh: boolean = false) => {
     if (!user?.id) return;
@@ -170,27 +166,6 @@ export const useNotifications = (): UseNotificationsReturn => {
     }
   }, []);
 
-  const startPolling = useCallback(() => {
-    if (isPollingRef.current || !user?.id) return;
-
-    isPollingRef.current = true;
-    pollingIntervalRef.current = setInterval(() => {
-      fetchUnreadCount();
-      // Refresh notifications every 2 minutes
-      if (Math.random() < 0.1) { // 10% chance each poll (30s * 10 = 5min average)
-        fetchNotifications(true);
-      }
-    }, 30000); // Poll every 30 seconds
-  }, [user?.id, fetchUnreadCount, fetchNotifications]);
-
-  const stopPolling = useCallback(() => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-    isPollingRef.current = false;
-  }, []);
-
   // Initial data fetch
   useEffect(() => {
     if (user?.id) {
@@ -199,13 +174,6 @@ export const useNotifications = (): UseNotificationsReturn => {
       fetchSettings();
     }
   }, [user?.id]);
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      stopPolling();
-    };
-  }, [stopPolling]);
 
   return {
     notifications,
@@ -222,7 +190,6 @@ export const useNotifications = (): UseNotificationsReturn => {
     markAsRead,
     markAllAsRead,
     updateSettings,
-    startPolling,
-    stopPolling,
+    fetchUnreadCount,
   };
 };

@@ -157,79 +157,96 @@ export const CameraSearchModal: React.FC<CameraSearchModalProps> = ({ visible, o
     }
 
     return (
-      <View style={styles.optionsContainer}>
-        <TouchableOpacity
-          style={[styles.optionRow, { backgroundColor: colors.background, borderColor: colors.border }]}
-          onPress={handleCameraPress}
-          disabled={isCapturingCamera || isCapturingGallery}
-        >
-          <View style={[styles.optionIconWrap, { backgroundColor: colors.primaryLight }]}>
-            {isCapturingCamera
-              ? <ActivityIndicator size="small" color={colors.primary} />
-              : <Ionicons name="camera" size={24} color={colors.primary} />
-            }
-          </View>
-          <View style={styles.optionTextWrap}>
-            <Text style={[styles.optionTitle, { color: colors.text, fontFamily: fonts.medium, fontSize: fontSizes.base }]}>
-              Take Photo
-            </Text>
-            <Text style={[styles.optionSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: fontSizes.sm }]}>
-              Capture a product to find similar items
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-        </TouchableOpacity>
+      <View style={styles.sheetBackdrop}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
+        <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+          <Text style={[styles.sheetTitle, { color: colors.text }]}>Search by Image</Text>
 
-        <TouchableOpacity
-          style={[styles.optionRow, { backgroundColor: colors.background, borderColor: colors.border }]}
-          onPress={handleGalleryPress}
-          disabled={isCapturingCamera || isCapturingGallery}
-        >
-          <View style={[styles.optionIconWrap, { backgroundColor: colors.primaryLight }]}>
-            {isCapturingGallery
-              ? <ActivityIndicator size="small" color={colors.primary} />
-              : <Ionicons name="images" size={24} color={colors.primary} />
-            }
-          </View>
-          <View style={styles.optionTextWrap}>
-            <Text style={[styles.optionTitle, { color: colors.text, fontFamily: fonts.medium, fontSize: fontSizes.base }]}>
-              Choose from Gallery
-            </Text>
-            <Text style={[styles.optionSubtitle, { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: fontSizes.sm }]}>
-              Select an existing photo to search
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sheetOption, { borderColor: colors.border }]}
+            onPress={handleCameraPress}
+            disabled={isCapturingCamera || isCapturingGallery}
+          >
+            <View style={[styles.sheetIconBg, { backgroundColor: colors.primary + '18' }]}>
+              {isCapturingCamera
+                ? <ActivityIndicator size="small" color={colors.primary} />
+                : <Ionicons name="camera" size={22} color={colors.primary} />
+              }
+            </View>
+            <View style={styles.sheetOptionText}>
+              <Text style={[styles.sheetOptionTitle, { color: colors.text }]}>Camera</Text>
+              <Text style={[styles.sheetOptionSub, { color: colors.textSecondary }]}>Capture a product to find similar items</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textLight} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sheetOption, { borderColor: colors.border }]}
+            onPress={handleGalleryPress}
+            disabled={isCapturingCamera || isCapturingGallery}
+          >
+            <View style={[styles.sheetIconBg, { backgroundColor: colors.secondary + '18' }]}>
+              {isCapturingGallery
+                ? <ActivityIndicator size="small" color={colors.secondary} />
+                : <Ionicons name="images" size={22} color={colors.secondary} />
+              }
+            </View>
+            <View style={styles.sheetOptionText}>
+              <Text style={[styles.sheetOptionTitle, { color: colors.text }]}>Photo Library</Text>
+              <Text style={[styles.sheetOptionSub, { color: colors.textSecondary }]}>Choose from your gallery</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textLight} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.sheetCancel, { borderColor: colors.border }]} onPress={onClose}>
+            <Text style={[styles.sheetCancelText, { color: colors.textSecondary }]}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: colors.surface }]}>
-          {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fonts.semibold, fontSize: fontSizes.lg }]}>
-              Search by Image
-            </Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Body */}
-          <View style={styles.body}>
-            {renderContent()}
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      {!selectedImage && !searchResults && !isSearching ? (
+        renderContent()
+      ) : (
+        <View style={styles.overlay}>
+          <View style={[styles.container, { backgroundColor: colors.surface }]}>
+            {/* Header */}
+            <View style={[styles.header, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fonts.semibold, fontSize: fontSizes.lg }]}>
+                Search by Image
+              </Text>
+              <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            {/* Body */}
+            <View style={styles.body}>
+              {renderContent()}
+            </View>
           </View>
         </View>
-      </View>
+      )}
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  // Bottom sheet (source picker)
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36, gap: 12 },
+  sheetTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  sheetOption: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, padding: 14, gap: 12 },
+  sheetIconBg: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  sheetOptionText: { flex: 1 },
+  sheetOptionTitle: { fontSize: 15, fontWeight: '600' },
+  sheetOptionSub: { fontSize: 12, marginTop: 1 },
+  sheetCancel: { borderWidth: 1, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 4 },
+  sheetCancelText: { fontSize: 15, fontWeight: '500' },
+
+  // Centered card (search / results states)
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -250,90 +267,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
   },
-  headerTitle: {
-    flex: 1,
-  },
-  body: {
-    paddingVertical: spacing.md,
-  },
-  optionsContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    marginBottom: spacing.md,
-  },
-  optionIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  optionTextWrap: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  optionTitle: {
-    marginBottom: 2,
-  },
-  optionSubtitle: {
-    lineHeight: 18,
-  },
-  centered: {
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  previewImage: {
-    width: 200,
-    height: 200,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.lg,
-  },
-  actionButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-  },
-  searchButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  actionButtonText: {
-    marginLeft: spacing.sm,
-  },
-  resultsScroll: {
-    maxHeight: 400,
-    paddingHorizontal: spacing.lg,
-  },
-  resultsTitle: {
-    marginBottom: spacing.xs,
-  },
-  resultsSubtitle: {
-    marginBottom: spacing.lg,
-  },
-  productGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  productWrapper: {
-    width: '48%',
-    marginBottom: spacing.sm,
-  },
-  noResultsText: {
-    textAlign: 'center',
-    marginVertical: spacing.md,
-  },
+  headerTitle: { flex: 1 },
+  body: { paddingVertical: spacing.md },
+  centered: { alignItems: 'center', padding: spacing.xl },
+  loadingText: { marginTop: spacing.md, textAlign: 'center' },
+  previewImage: { width: 200, height: 200, borderRadius: borderRadius.lg, marginBottom: spacing.lg },
+  actionButton: { paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: borderRadius.lg },
+  searchButtonRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg },
+  actionButtonText: { marginLeft: spacing.sm },
+  resultsScroll: { maxHeight: 400, paddingHorizontal: spacing.lg },
+  resultsTitle: { marginBottom: spacing.xs },
+  resultsSubtitle: { marginBottom: spacing.lg },
+  productGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  productWrapper: { width: '48%', marginBottom: spacing.sm },
+  noResultsText: { textAlign: 'center', marginVertical: spacing.md },
 });

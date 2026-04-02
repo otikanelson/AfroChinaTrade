@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   StyleSheet, 
-  ActivityIndicator, 
   Text, 
   Alert, 
   RefreshControl,
@@ -15,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
 import { ProductCard } from '../components/ProductCard';
 import { ProductFilterModal } from '../components/ProductFilterModal';
+import { ProductSectionSkeleton } from '../components/ProductSectionSkeleton';
 import { SectionHeader } from '../components/SectionHeader';
 import { BrowseAllCard } from '../components/BrowseAllCard';
 import { productService } from '../services/ProductService';
@@ -27,6 +27,7 @@ import { NavigationSource } from '../types/navigation';
 import { spacing, borderRadius } from '../theme/spacing';
 
 const { width: screenWidth } = Dimensions.get('window');
+// screenWidth reserved for future responsive layout use
 
 // Helper function to convert sort options from modal to service format
 const getSortParams = (sortBy?: string): { sortBy?: 'price' | 'rating' | 'createdAt' | 'name'; sortOrder?: 'asc' | 'desc' } => {
@@ -599,12 +600,17 @@ export default function ProductListingPage() {
     return (
       <View style={styles.container}>
         <Header title={pageTitle} showBack />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>
-            {isShowingCategories ? 'Loading categories...' : 'Loading products...'}
-          </Text>
-        </View>
+        {!isShowingCategories && (
+          <View style={[styles.filterButton, { opacity: 0.4 }]} pointerEvents="none">
+            <Ionicons name="filter-outline" size={16} color={colors.text} />
+            <Text style={styles.filterButtonText}>Filter & Sort</Text>
+          </View>
+        )}
+        <ProductSectionSkeleton
+          variant={isShowingCategories ? 'grid' : 'grid'}
+          itemCount={6}
+          showHeader={false}
+        />
       </View>
     );
   }
@@ -759,9 +765,7 @@ export default function ProductListingPage() {
           )}
           
           {loadingMore && (
-            <View style={styles.footerLoader}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
+            <ProductSectionSkeleton variant="grid" itemCount={4} showHeader={false} />
           )}
 
           {/* Load More Button for Products */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   ScrollView,
   Modal,
   Dimensions,
-  Image
+  Image,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ThemeModal } from './ThemeModal';
 
 const { width, height } = Dimensions.get('window');
+const SIDEBAR_WIDTH = Math.min(320, width * 0.78);
 
 interface SidebarProps {
   visible: boolean;
@@ -48,9 +50,9 @@ const menuItems: MenuItem[] = [
   // Admin-only items
   { id: 'admin-users', title: 'Users', icon: 'people-outline', route: '/(admin)/users', requiresAuth: true, adminOnly: true },
   { id: 'admin-collections', title: 'Collections', icon: 'albums-outline', route: '/(admin)/collections', requiresAuth: true, adminOnly: true },
+  { id: 'admin-categories', title: 'Categories', icon: 'grid-outline', route: '/(admin)/categories', requiresAuth: true, adminOnly: true },
   { id: 'admin-reviews', title: 'Reviews', icon: 'star-outline', route: '/(admin)/reviews', requiresAuth: true, adminOnly: true },
   { id: 'admin-messages', title: 'Messages', icon: 'chatbubbles-outline', route: '/(admin)/(tabs)/messages', requiresAuth: true, adminOnly: true },
-  { id: 'admin-account', title: 'Settings', icon: 'settings-outline', route: '/(admin)/(tabs)/account', requiresAuth: true, adminOnly: true },
 ];
 
 const settingsItems: MenuItem[] = [
@@ -70,6 +72,42 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage 
   const { colors, fontSizes, fontWeights } = useTheme();
   const { isAuthenticated, isGuestMode, isAdmin, user, logout } = useAuth();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
+  const [modalMounted, setModalMounted] = useState(false);
+
+  const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setModalMounted(true);
+      Animated.parallel([
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          bounciness: 0,
+          speed: 20,
+        }),
+        Animated.timing(overlayOpacity, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(translateX, {
+          toValue: -SIDEBAR_WIDTH,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(overlayOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => setModalMounted(false));
+    }
+  }, [visible]);
 
   const isInAdminView = isAdminPage ?? segments.some(s => s === '(admin)' || s === 'admin');
 
@@ -124,7 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage 
       flexDirection: 'row',
     },
     sidebar: {
-      width: Math.min(320, width * 0.7),
+      width: SIDEBAR_WIDTH,
       height: '100%',
       backgroundColor: colors.background,
       shadowColor: '#000',
@@ -339,14 +377,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage 
 
   return (
     <Modal
-      visible={visible}
+      visible={modalMounted}
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={styles.overlay}>
-        <View style={styles.sidebar}>
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+        {/* Animated overlay */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFillObject,
+            { backgroundColor: 'rgba(0,0,0,0.45)', opacity: overlayOpacity },
+          ]}
+        />
+
+        {/* Animated sidebar panel */}
+        <Animated.View style={[styles.sidebar, { transform: [{ translateX }] }]}>
           <SafeAreaView style={styles.safeArea}>
               {/* Header */}
               <View style={styles.header}>
@@ -498,13 +545,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage 
               visible={themeModalVisible}
               onClose={() => setThemeModalVisible(false)}
             />
-          </View>
-        <TouchableOpacity 
-          style={{ flex: 1 }} 
-          activeOpacity={1} 
+          </Animated.View>
+
+        {/* Tap outside to close */}
+        <TouchableOpacity
+          style={{ flex: 1 }}
+          activeOpacity={1}
           onPress={onClose}
         />
       </View>
     </Modal>
   );
-  };
+};

@@ -32,6 +32,8 @@ import deliveryAddressRoutes from './routes/deliveryAddressRoutes';
 import locationRoutes from './routes/locationRoutes';
 import paymentMethodRoutes from './routes/paymentMethodRoutes';
 import notificationRoutes from './routes/notificationRoutes';
+import adRoutes from './routes/adRoutes';
+import pageLayoutRoutes from './routes/pageLayoutRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -93,6 +95,8 @@ app.use('/api/addresses', deliveryAddressRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/payment-methods', paymentMethodRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/ads', adRoutes);
+app.use('/api/page-layouts', pageLayoutRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

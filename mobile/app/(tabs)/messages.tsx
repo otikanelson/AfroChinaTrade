@@ -31,86 +31,33 @@ export function formatRelativeTime(iso: string): string {
 }
 
 export default function MessagesTab() {
-  const [threads, setThreads] = useState<MessageThread[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const { isAuthenticated, user } = useAuth();
-  const { unreadCount, refreshUnreadCount } = useMessages();
+  const { unreadCount, threads, refreshThreads, markThreadAsRead } = useMessages();
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
   const router = useRouter();
 
   const isAdmin = user?.role === 'admin';
-  
+
   useEffect(() => {
     if (isAuthenticated && !isAdmin) {
-      loadMessageThreads();
+      refreshThreads(true);
     }
   }, [isAuthenticated, isAdmin]);
 
-  // Auto-refresh when screen comes into focus (e.g., returning from a thread)
-  // This ensures that when users navigate back from conversation threads,
-  // the message list and unread counts are updated to reflect any messages
-  // that were marked as read while viewing the conversation
+  // On focus: refresh only if data is stale (no delay, no spinner)
   useFocusEffect(
     React.useCallback(() => {
       if (isAuthenticated && !isAdmin) {
-        // Set auto-refreshing state for visual feedback
-        setIsAutoRefreshing(true);
-        
-        // Add a small delay to ensure any read status updates are processed
-        const refreshTimeout = setTimeout(() => {
-          // Refresh both unread count and message threads
-          Promise.all([
-            refreshUnreadCount(),
-            loadMessageThreads(false, true) // isAutoRefresh = true
-          ]).finally(() => {
-            setIsAutoRefreshing(false);
-          });
-        }, 300); // 300ms delay
-        
-        // Cleanup timeout if component unmounts
-        return () => {
-          clearTimeout(refreshTimeout);
-          setIsAutoRefreshing(false);
-        };
+        refreshThreads(); // respects stale threshold — instant if fresh
       }
-    }, [isAuthenticated, isAdmin, refreshUnreadCount])
+    }, [isAuthenticated, isAdmin, refreshThreads])
   );
 
-  const loadMessageThreads = async (showRefreshIndicator = false, isAutoRefresh = false) => {
-    try {
-      if (showRefreshIndicator) {
-        setRefreshing(true);
-      } else if (!isAutoRefresh) {
-        setIsLoading(true);
-      }
-      
-      const response = await messageService.getThreads();
-      
-      if (response.success && response.data) {
-        setThreads(response.data);
-        // Also refresh unread count if not auto-refresh (to avoid double calls)
-        if (!isAutoRefresh) {
-          await refreshUnreadCount();
-        }
-      }
-    } catch (error: any) {
-      console.error('Failed to load message threads:', error);
-      
-      // Only show alert for non-network errors to avoid spam when backend is down
-      if (error?.code !== 'NETWORK_ERROR' && error?.code !== 'TIMEOUT_ERROR') {
-        Alert.alert('Error', 'Failed to load messages. Please try again.');
-      }
-      // For network errors, silently fail and show empty state
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
-
   const handleRefresh = async () => {
-    await loadMessageThreads(true);
+    setRefreshing(true);
+    await refreshThreads(true);
+    setRefreshing(false);
   };
 
   const handleThreadPress = (threadId: string) => {
@@ -138,7 +85,7 @@ export default function MessagesTab() {
               const response = await messageService.clearHistory();
               
               if (response.success) {
-                setThreads([]);
+                await refreshThreads(true);
                 Alert.alert('Success', 'Message history cleared successfully');
               } else {
                 Alert.alert('Error', response.error?.message || 'Failed to clear message history');
@@ -407,13 +354,10 @@ export default function MessagesTab() {
     );
   }
 
-  if (isLoading) {
+  if (threads.length === 0 && refreshing) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Messages"
-          subtitle="Start chatting to get quotes"
-        />
+        <Header title="Messages" subtitle="Start chatting to get quotes" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading messages...</Text>
@@ -426,12 +370,8 @@ export default function MessagesTab() {
     <View style={styles.container}>
       <Header
         title="Messages"
-        subtitle={isAutoRefreshing ? "Refreshing..." : "Start chatting to get quotes"}
+        subtitle="Start chatting to get quotes"
         rightAction={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            {isAutoRefreshing && (
-              <ActivityIndicator size="small" color={colors.primary} />
-            )}
             <TouchableOpacity
               style={styles.clearButton}
               onPress={handleClearHistory}
@@ -441,7 +381,6 @@ export default function MessagesTab() {
               <Ionicons name="trash-outline" size={20} color={colors.error} />
               <Text style={styles.clearButtonText}>Clear</Text>
             </TouchableOpacity>
-          </View>
         }
       />
 

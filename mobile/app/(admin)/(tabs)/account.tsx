@@ -281,6 +281,36 @@ export default function AdminAccountTab() {
         <View style={styles.gridContainer}>
           <View style={styles.gridItem}>
             <MenuItem
+              icon="megaphone"
+              title="Ads"
+              subtitle=""
+              onPress={() => router.push('/(admin)/ads')}
+              variant="grid"
+              showChevron={false}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <MenuItem
+              icon="albums-outline"
+              title="Collections"
+              subtitle=""
+              onPress={() => router.push('/(admin)/collections')}
+              variant="grid"
+              showChevron={false}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <MenuItem
+              icon="grid-outline"
+              title="Categories"
+              subtitle=""
+              onPress={() => router.push('/(admin)/categories')}
+              variant="grid"
+              showChevron={false}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <MenuItem
               icon="person"
               title="User management"
               subtitle=""
@@ -301,16 +331,6 @@ export default function AdminAccountTab() {
           </View>
           <View style={styles.gridItem}>
             <MenuItem
-              icon="notifications"
-              title="notifications"
-              subtitle=""
-              onPress={() => router.push('/notifications')}
-              variant="grid"
-              showChevron={false}
-            />
-          </View>
-          <View style={styles.gridItem}>
-            <MenuItem
               icon="star"
               title="Reviews"
               subtitle=""
@@ -321,8 +341,18 @@ export default function AdminAccountTab() {
           </View>
           <View style={styles.gridItem}>
             <MenuItem
-              icon="cog"
-              title="Settings"
+              icon="layers-outline"
+              title="Customer Page Layout"
+              subtitle=""
+              onPress={() => router.push('/(admin)/settings')}
+              variant="grid"
+              showChevron={false}
+            />
+          </View>
+                    <View style={styles.gridItem}>
+            <MenuItem
+              icon="happy"
+              title="Preferences"
               subtitle=""
               onPress={() => setThemeModalVisible(true)}
               variant="grid"
@@ -346,6 +376,13 @@ export default function AdminAccountTab() {
           title="Change Password"
           subtitle="Update your account password"
           onPress={() => router.push('/change-password')}
+        />
+
+        <MenuItem
+          icon="notifications-outline"
+          title="Notifications"
+          subtitle="Manage notification preferences"
+          onPress={() => router.push('/notifications')}
         />
         
         <MenuItem

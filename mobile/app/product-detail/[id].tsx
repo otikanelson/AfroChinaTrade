@@ -9,7 +9,11 @@ import {
   ActivityIndicator,
   Dimensions,
   Alert,
+  Share,
+  Clipboard,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -25,8 +29,15 @@ import { Header } from '../../components/Header';
 import { ViewTracker } from '../../components/ViewTracker';
 import { ChatOptionsModal } from '../../components/ChatOptionsModal';
 import { ProductReviews } from '../../components/ProductReviews';
+import { SectionHeader } from '../../components/SectionHeader';
+import { ProductCard } from '../../components/ProductCard';
+import { AdCarousel } from '../../components/AdCarousel';
+import { PromoTiles } from '../../components/PromoTiles';
 import { Toast } from '../../components/ui/Toast';
 import { spacing } from '../../theme/spacing';
+import { collectionService } from '../../services/CollectionService';
+import { adService, Ad } from '../../services/AdService';
+import { Collection } from '../../types/product';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -43,8 +54,17 @@ export default function ProductDetailScreen() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const toast = useToast();
   const chatModal = useModal();
+
+  // Related collections + ads
+  const [relatedCollections, setRelatedCollections] = useState<{ collection: Collection; products: any[] }[]>([]);
+  const [detailAds, setDetailAds] = useState<Ad[]>([]);
+  const [detailTiles, setDetailTiles] = useState<Ad[]>([]);
+  const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
+  const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
+  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
 
   const isAdmin = user?.role === 'admin';
 
@@ -459,6 +479,71 @@ export default function ProductDetailScreen() {
       color: themeColors.text,
       fontWeight: fontWeights.semibold,
     },
+    // Checkout preview
+    checkoutPreview: {
+      backgroundColor: themeColors.surface,
+      borderRadius: borderRadius.lg,
+      padding: themeSpacing.base,
+      marginBottom: themeSpacing.base,
+      ...shadows.sm,
+    },
+    checkoutPreviewTitle: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.bold,
+      color: themeColors.text,
+      marginBottom: themeSpacing.sm,
+    },
+    checkoutPreviewRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: themeSpacing.xs,
+    },
+    checkoutPreviewLabel: {
+      fontSize: fontSizes.sm,
+      color: themeColors.textSecondary,
+    },
+    checkoutPreviewValue: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.semibold,
+      color: themeColors.text,
+    },
+    checkoutPreviewTotal: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.bold,
+      color: themeColors.primary,
+    },
+    checkoutDivider: {
+      height: 1,
+      backgroundColor: themeColors.borderLight,
+      marginVertical: themeSpacing.sm,
+    },
+    checkoutButton: {
+      backgroundColor: themeColors.primary,
+      borderRadius: borderRadius.md,
+      paddingVertical: themeSpacing.sm,
+      alignItems: 'center',
+      marginTop: themeSpacing.sm,
+    },
+    checkoutButtonText: {
+      color: themeColors.textInverse,
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.bold,
+    },
+    // Section divider
+    sectionDivider: {
+      height: 1,
+      backgroundColor: themeColors.border,
+      marginVertical: themeSpacing.lg,
+      marginHorizontal: -spacing.base,
+    },
+    // Horizontal product scroll
+    horizontalProductScroll: {
+      paddingHorizontal: themeSpacing.base,
+      gap: themeSpacing.sm,
+    },
+    horizontalProductItem: {
+      width: 140,
+    },
   });
 
   useEffect(() => {
@@ -466,6 +551,79 @@ export default function ProductDetailScreen() {
       loadProduct();
     }
   }, [id]);
+
+  // Load 3 random collections + product-detail ads non-blocking
+  useEffect(() => {
+    collectionService.getActiveCollections().then(async res => {
+      if (!res.success || !res.data?.length) return;
+      const shuffled = [...res.data].sort(() => Math.random() - 0.5).slice(0, 3);
+      const loaded: { collection: any; products: any[] }[] = [];
+      for (const col of shuffled) {
+        const colId = (col as any)._id || col.id;
+        try {
+          const pr = await collectionService.getCollectionProducts(colId, 1, 8);
+          const products = pr.data?.products ?? [];
+          loaded.push({ collection: col, products });
+        } catch {
+          loaded.push({ collection: col, products: [] });
+        }
+      }
+      setRelatedCollections(loaded);
+    }).catch(() => {});
+
+    adService.getAds('product-detail', 'carousel').then(res => {
+      if (res.success && res.data) setDetailAds(res.data);
+    }).catch(() => {});
+    adService.getAds('product-detail', 'tile').then(res => {
+      if (res.success && res.data) setDetailTiles(res.data);
+    }).catch(() => {});
+
+    // Trending products
+    productService.getTrendingProducts('7d', 1, 10).then(res => {
+      if (res.success && res.data) {
+        const products = Array.isArray(res.data) ? res.data : (res.data as any)?.products || [];
+        setTrendingProducts(products);
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Load category products + recently viewed once product is known
+  useEffect(() => {
+    if (!product) return;
+
+    // Same category
+    if (product.category) {
+      productService.getProductsByCategory(product.category, { limit: 10 }).then(res => {
+        if (res.success && res.data) {
+          const others = (Array.isArray(res.data) ? res.data : [])
+            .filter((p: any) => (p._id || p.id) !== (product as any)._id && p.id !== product.id);
+          setCategoryProducts(others.slice(0, 10));
+        }
+      }).catch(() => {});
+    }
+
+    // Recently viewed — fetch from browsing history API
+    if (user?.id) {
+      const { API_BASE_URL } = require('../../constants/config');
+      const { tokenManager } = require('../../services/api/tokenManager');
+      tokenManager.getAccessToken().then((token: string | null) => {
+        if (!token) return;
+        fetch(`${API_BASE_URL}/users/${user.id}/browsing-history?page=1&limit=10&interactionType=view`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then(r => r.json())
+          .then(data => {
+            const items: any[] = data?.data?.history || data?.data || [];
+            const products = items
+              .map((item: any) => item.productId)
+              .filter((p: any) => p && (p._id || p.id) !== (product as any)._id && p.id !== product.id)
+              .slice(0, 10);
+            setRecentlyViewed(products);
+          })
+          .catch(() => {});
+      });
+    }
+  }, [product, user?.id]);
 
   const loadProduct = async () => {
     try {
@@ -586,8 +744,6 @@ export default function ProductDetailScreen() {
       ? `I'm interested in getting a quote for ${product.name}. Please provide pricing details and availability information.`
       : `I have a question about ${product.name}. Can you help me with more information?`;
     
-    // Navigate to message thread with product info and a temporary thread ID
-    // The thread will be created when the user sends the first message
     const tempThreadId = `temp_${product.id}_${Date.now()}`;
     
     router.push({
@@ -601,6 +757,57 @@ export default function ProductDetailScreen() {
         isNewProductThread: 'true'
       }
     });
+  };
+
+  const isSharingRef = React.useRef(false);
+  const cachedImageUriRef = React.useRef<string | null>(null);
+
+  const handleShare = async () => {
+    if (!product || isSharingRef.current) return;
+    isSharingRef.current = true;
+    setIsSharing(true);
+
+    const price = product.discount && product.discount > 0
+      ? `₦${Math.round(product.price * (1 - product.discount / 100)).toLocaleString()} (${product.discount}% OFF)`
+      : `₦${product.price.toLocaleString()}`;
+    const message = `Check out ${product.name} on AfroChinaTrade!\n\nPrice: ${price}\nCategory: ${product.category}\n\n${product.description?.slice(0, 120) || ''}`;
+
+    const imageUrl = product.images?.[0];
+
+    if (imageUrl && imageUrl.startsWith('http')) {
+      try {
+        const localUri = `${FileSystem.cacheDirectory}afrochinatrade_product_${product.id}.jpg`;
+        const info = await FileSystem.getInfoAsync(localUri);
+        if (!info.exists) {
+          await FileSystem.downloadAsync(imageUrl, localUri);
+        }
+
+        // Copy caption to clipboard before opening share sheet.
+        // WhatsApp blocks programmatic captions, so the user can paste it manually.
+        Clipboard.setString(message);
+        toast.info('Caption copied — paste it as your message after sharing the image');
+
+        await Sharing.shareAsync(localUri, {
+          mimeType: 'image/jpeg',
+          dialogTitle: product.name,
+          UTI: 'public.jpeg',
+        });
+        isSharingRef.current = false;
+        setIsSharing(false);
+        return;
+      } catch (err) {
+        console.warn('Image share failed, falling back to text share:', err);
+      }
+    }
+
+    // Fallback: text-only
+    try {
+      await Share.share({ title: product.name, message });
+    } catch {
+      // user cancelled
+    }
+    isSharingRef.current = false;
+    setIsSharing(false);
   };
 
   if (loading) {
@@ -650,6 +857,19 @@ export default function ProductDetailScreen() {
       <Header
         title="Product Details"
         showBack={true}
+        rightAction={
+          <TouchableOpacity
+            onPress={handleShare}
+            disabled={isSharing}
+            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {isSharing
+              ? <ActivityIndicator size="small" color={themeColors.primary} />
+              : <Ionicons name="share-social-outline" size={22} color={themeColors.primary} />
+            }
+          </TouchableOpacity>
+        }
       />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -796,6 +1016,20 @@ export default function ProductDetailScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Supplier Information</Text>
               <View style={styles.supplierDetails}>
+                {(() => {
+                  const logo = (product.supplier?.logo || (product.supplierId as any)?.logo);
+                  return logo ? (
+                    <Image
+                      source={{ uri: logo }}
+                      style={{ width: 48, height: 48, borderRadius: borderRadius.base, marginRight: themeSpacing.base }}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={{ width: 48, height: 48, borderRadius: borderRadius.base, marginRight: themeSpacing.base, backgroundColor: themeColors.surface, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="storefront-outline" size={24} color={themeColors.textSecondary} />
+                    </View>
+                  );
+                })()}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.supplierName}>
                     {(product.supplier?.name || (product.supplierId as any)?.name) || 'Unknown Supplier'}
@@ -833,8 +1067,168 @@ export default function ProductDetailScreen() {
             </View>
           )}
 
+          {/* Checkout Preview — non-admin only */}
+          {!isAdmin && (
+            <View style={styles.checkoutPreview}>
+              <Text style={styles.checkoutPreviewTitle}>Order Summary</Text>
+              <View style={styles.checkoutPreviewRow}>
+                <Text style={styles.checkoutPreviewLabel}>Unit price</Text>
+                <Text style={styles.checkoutPreviewValue}>
+                  ₦{product.discount && product.discount > 0
+                    ? Math.round(product.price * (1 - product.discount / 100)).toLocaleString()
+                    : product.price.toLocaleString()}
+                </Text>
+              </View>
+              <View style={styles.checkoutPreviewRow}>
+                <Text style={styles.checkoutPreviewLabel}>Quantity</Text>
+                <Text style={styles.checkoutPreviewValue}>{quantity}</Text>
+              </View>
+              <View style={styles.checkoutDivider} />
+              <View style={styles.checkoutPreviewRow}>
+                <Text style={styles.checkoutPreviewLabel}>Subtotal</Text>
+                <Text style={styles.checkoutPreviewTotal}>
+                  ₦{(
+                    (product.discount && product.discount > 0
+                      ? Math.round(product.price * (1 - product.discount / 100))
+                      : product.price) * quantity
+                  ).toLocaleString()}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.checkoutButton}
+                onPress={handleBuyNow}
+                disabled={addingToCart}
+              >
+                <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Product Reviews */}
           <ProductReviews productId={product.id} productName={product.name} />
+
+          {/* ── Post-reviews sections ── */}
+          <View style={styles.sectionDivider} />
+
+          {/* 1. Recently Viewed */}
+          {recentlyViewed.length > 0 && (
+            <View style={{ marginBottom: themeSpacing.lg, marginHorizontal: -spacing.base }}>
+              <SectionHeader
+                title="Recently Viewed"
+                actionText="See All"
+                icon="time-outline"
+                onActionPress={() => router.push('/browsing-history')}
+              />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalProductScroll}>
+                {recentlyViewed.map((p: any) => (
+                  <View key={p._id || p.id} style={styles.horizontalProductItem}>
+                    <ProductCard
+                      product={p}
+                      onPress={() => router.push({ pathname: '/product-detail/[id]', params: { id: p._id || p.id } })}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* 2. Same Category */}
+          {categoryProducts.length > 0 && (
+            <View style={{ marginBottom: themeSpacing.lg, marginHorizontal: -spacing.base }}>
+              <SectionHeader
+                title={`More in ${product.category}`}
+                actionText="See All"
+                icon="pricetag-outline"
+                onActionPress={() => router.push({
+                  pathname: '/product-listing',
+                  params: { category: product.category, title: `More in ${product.category}` },
+                })}
+              />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalProductScroll}>
+                {categoryProducts.map((p: any) => (
+                  <View key={p._id || p.id} style={styles.horizontalProductItem}>
+                    <ProductCard
+                      product={p}
+                      onPress={() => router.push({ pathname: '/product-detail/[id]', params: { id: p._id || p.id } })}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* 3. Ad Carousel */}
+          {detailAds.length > 0 && (
+            <View style={{ marginBottom: themeSpacing.lg, marginHorizontal: -spacing.base }}>
+              <AdCarousel ads={detailAds} />
+            </View>
+          )}
+
+          {/* 3b. Promo Tiles */}
+          {detailTiles.length > 0 && (
+            <View style={{ marginBottom: themeSpacing.md, marginHorizontal: -spacing.base }}>
+              <PromoTiles ads={detailTiles} />
+            </View>
+          )}
+
+          {/* 4. Same Collection (first relatedCollection) */}
+          {relatedCollections.slice(0, 1).map((item) =>
+            item.products.length > 0 ? (
+              <View key={(item.collection as any)._id || item.collection.id}
+                style={{ marginBottom: themeSpacing.lg, marginHorizontal: -spacing.base }}>
+                <SectionHeader
+                  title={item.collection.name}
+                  actionText="See All"
+                  icon="grid-outline"
+                  onActionPress={() => router.push({
+                    pathname: '/product-listing',
+                    params: { collectionId: (item.collection as any)._id || item.collection.id, title: item.collection.name },
+                  })}
+                />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.horizontalProductScroll}>
+                  {item.products.map((p: any) => (
+                    <View key={p._id || p.id} style={styles.horizontalProductItem}>
+                      <ProductCard
+                        product={p}
+                        onPress={() => router.push({ pathname: '/product-detail/[id]', params: { id: p._id || p.id } })}
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null
+          )}
+
+          {/* 5. Trending */}
+          {trendingProducts.length > 0 && (
+            <View style={{ marginBottom: themeSpacing.lg, marginHorizontal: -spacing.base }}>
+              <SectionHeader
+                title="Trending Now"
+                actionText="See All"
+                icon="trending-up-outline"
+                onActionPress={() => router.push({
+                  pathname: '/product-listing',
+                  params: { collection: 'trending', title: 'Trending Products' },
+                })}
+              />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalProductScroll}>
+                {trendingProducts.map((p: any) => (
+                  <View key={p._id || p.id} style={styles.horizontalProductItem}>
+                    <ProductCard
+                      product={p}
+                      onPress={() => router.push({ pathname: '/product-detail/[id]', params: { id: p._id || p.id } })}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          <View style={{ height: themeSpacing.xl }} />
         </View>
       </ScrollView>
 

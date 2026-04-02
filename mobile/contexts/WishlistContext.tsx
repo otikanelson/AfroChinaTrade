@@ -25,6 +25,7 @@ interface WishlistItem {
       rating: number;
       location: string;
       responseTime: string;
+      logo?: string;
     };
     supplierId?: {
       _id: string;
@@ -34,6 +35,7 @@ interface WishlistItem {
       rating: number;
       location: string;
       responseTime: string;
+      logo?: string;
     };
   };
   addedAt: string;

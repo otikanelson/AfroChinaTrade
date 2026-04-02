@@ -187,13 +187,16 @@ class SimpleApiClient {
         const originalRequest = error.config as any;
 
         // ── Fallback retry on network error ──────────────────────────────────
-        // If the request failed with no HTTP response (network/timeout) and we
-        // haven't already retried with the fallback URL, switch silently and retry.
+        // Only retry on the fallback if the request has NO Authorization header
+        // (i.e. public endpoints). Authenticated requests must NOT be retried
+        // on the fallback because the fallback (Vercel) uses a different
+        // JWT_SECRET and will reject valid tokens with INVALID_TOKEN.
         const isNetworkError = !error.response;
         const isNotFallback = this.client.defaults.baseURL !== FALLBACK_API_URL;
         const notYetFallbackRetried = !originalRequest._fallbackRetry;
+        const isAuthenticated = !!originalRequest.headers?.Authorization;
 
-        if (isNetworkError && isNotFallback && notYetFallbackRetried) {
+        if (isNetworkError && isNotFallback && notYetFallbackRetried && !isAuthenticated) {
           originalRequest._fallbackRetry = true;
           this.client.defaults.baseURL = FALLBACK_API_URL;
           originalRequest.baseURL = FALLBACK_API_URL;
@@ -228,10 +231,17 @@ class SimpleApiClient {
                 return this.client(originalRequest);
               }
             }
+            // Refresh failed — clear tokens
+            console.warn('🔒 Token refresh failed, clearing tokens');
+            await tokenManager.clearTokens();
+          } else if (errorCode === 'TOKEN_REVOKED' || errorCode === 'ACCOUNT_NOT_FOUND') {
+            // Genuine invalidation — clear tokens
+            console.warn('🔒 Token revoked or account removed, clearing tokens');
+            await tokenManager.clearTokens();
           }
-
-          console.warn('🔒 Authentication failed, clearing tokens');
-          await tokenManager.clearTokens();
+          // INVALID_TOKEN on upload/multipart requests: do NOT clear tokens.
+          // This can happen when the Authorization header is dropped during
+          // multipart form construction. The user is still authenticated.
         }
 
         return Promise.reject(this.formatError(error));
@@ -417,9 +427,13 @@ class SimpleApiClient {
       });
     }
 
+    // Explicitly fetch and attach the token — multipart requests can
+    // sometimes lose the Authorization header set by the request interceptor
+    const token = await tokenManager.getAccessToken();
     const config: AxiosRequestConfig = {
       headers: {
         'Content-Type': 'multipart/form-data',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     };
 

@@ -6,15 +6,20 @@ export const getCategories = async (req: Request, res: Response) => {
   try {
     const categories = await Category.find({ isActive: true }).sort({ name: 1 });
 
-    const categoriesWithCount = await Promise.all(
-      categories.map(async (cat) => {
-        const productCount = await Product.countDocuments({ category: cat.name });
-        return {
-          ...cat.toObject(),
-          productCount,
-        };
-      })
-    );
+    // Get product counts for all categories in a single aggregation query
+    const productCounts = await Product.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$category', count: { $sum: 1 } } }
+    ]);
+
+    // Create a map for quick lookup
+    const countMap = new Map(productCounts.map(pc => [pc._id, pc.count]));
+
+    // Attach counts to categories
+    const categoriesWithCount = categories.map(cat => ({
+      ...cat.toObject(),
+      productCount: countMap.get(cat.name) || 0,
+    }));
 
     res.json({
       success: true,

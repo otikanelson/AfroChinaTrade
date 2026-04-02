@@ -12,6 +12,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
+import { useCart } from '../contexts/CartContext';
 import { Header } from '../components/Header';
 import { ProductCard } from '../components/ProductCard';
 import { API_BASE_URL } from '../constants/config';
@@ -54,6 +55,7 @@ export default function BrowsingHistoryScreen() {
   const router = useRouter();
   const { colors, fontSizes, fontWeights, borderRadius } = useTheme();
   const { user } = useAuth();
+  const { cartCount } = useCart();
   
   const [history, setHistory] = useState<BrowsingHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -139,6 +141,61 @@ export default function BrowsingHistoryScreen() {
       fontSize: fontSizes.xs,
       color: colors.textSecondary,
       fontStyle: 'italic',
+    },
+    floatingCart: {
+      position: 'absolute',
+      bottom: 24,
+      right: 20,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 8,
+    },
+    floatingCartBadge: {
+      position: 'absolute',
+      top: -2,
+      right: -2,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 4,
+      borderWidth: 1.5,
+      borderColor: colors.background,
+    },
+    floatingCartBadgeText: {
+      color: colors.text,
+      fontSize: 10,
+      fontWeight: fontWeights.bold,
+    },
+    dateDivider: {
+      paddingHorizontal: spacing.xs,
+      paddingTop: spacing.base,
+      paddingBottom: spacing.xs,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    dateDividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.borderLight,
+    },
+    dateDividerText: {
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.semibold,
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
     },
   });
 
@@ -249,8 +306,47 @@ export default function BrowsingHistoryScreen() {
     fetchBrowsingHistory(1, true);
   }, [fetchBrowsingHistory]);
 
-  const renderItem = useCallback(({ item }: { item: BrowsingHistoryItem }) => {
-    const productData = item.productId;
+  const formatDateDivider = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  };
+
+  type HistoryListItem =
+    | { type: 'divider'; label: string; key: string }
+    | { type: 'product'; data: BrowsingHistoryItem; key: string };
+
+  const listItems: HistoryListItem[] = useMemo(() => {
+    const items: HistoryListItem[] = [];
+    let lastDateKey = '';
+    for (const entry of history) {
+      const dateKey = new Date(entry.timestamp).toDateString();
+      if (dateKey !== lastDateKey) {
+        lastDateKey = dateKey;
+        items.push({ type: 'divider', label: formatDateDivider(entry.timestamp), key: `divider_${dateKey}` });
+      }
+      items.push({ type: 'product', data: entry, key: entry._id });
+    }
+    return items;
+  }, [history]);
+
+  const renderItem = useCallback(({ item }: { item: HistoryListItem }) => {
+    if (item.type === 'divider') {
+      return (
+        <View style={styles.dateDivider}>
+          <View style={styles.dateDividerLine} />
+          <Text style={styles.dateDividerText}>{item.label}</Text>
+          <View style={styles.dateDividerLine} />
+        </View>
+      );
+    }
+
+    const productData = item.data.productId;
     const product = {
       id: productData._id,
       name: productData.name,
@@ -310,7 +406,7 @@ export default function BrowsingHistoryScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { position: 'relative' }]}>
       <Header 
         title="Browsing History" 
         showBack={true}
@@ -361,9 +457,9 @@ export default function BrowsingHistoryScreen() {
         </View>
       ) : (
         <FlatList
-          data={history}
+          data={listItems}
           renderItem={renderItem}
-          keyExtractor={keyExtractor}
+          keyExtractor={item => item.key}
           contentContainerStyle={styles.productsList}
           showsVerticalScrollIndicator={false}
           onEndReached={handleLoadMore}
@@ -388,6 +484,22 @@ export default function BrowsingHistoryScreen() {
           getItemLayout={getItemLayout}
         />
       )}
+
+      {/* Floating cart button */}
+      <TouchableOpacity
+        style={styles.floatingCart}
+        onPress={() => router.push('/cart')}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="cart" size={26} color={colors.textInverse} />
+        {cartCount > 0 && (
+          <View style={styles.floatingCartBadge}>
+            <Text style={styles.floatingCartBadgeText}>
+              {cartCount > 99 ? '99+' : cartCount}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }

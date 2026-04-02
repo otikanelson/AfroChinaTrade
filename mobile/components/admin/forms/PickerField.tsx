@@ -7,9 +7,9 @@ import {
   FlatList,
   StyleSheet,
   ViewStyle,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../theme';
 import { useTheme } from '../../../contexts/ThemeContext';

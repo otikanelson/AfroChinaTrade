@@ -24,6 +24,7 @@ interface OrderCardProps {
   onPress: () => void;
   showRefundButton?: boolean;
   onRefundPress?: () => void;
+  refundStatus?: 'pending' | 'approved' | 'processed' | 'rejected';
 }
 
 function orderStatusToBadge(status: OrderCardData['status']): StatusType {
@@ -57,9 +58,22 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   order, 
   onPress, 
   showRefundButton = false,
-  onRefundPress 
+  onRefundPress,
+  refundStatus,
 }) => {
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
+
+  const getRefundBadge = () => {
+    switch (refundStatus) {
+      case 'pending':   return { label: 'Refund Pending',   color: '#f59e0b' };
+      case 'approved':  return { label: 'Refund Approved',  color: '#3b82f6' };
+      case 'processed': return { label: 'Refund Processed', color: '#10b981' };
+      case 'rejected':  return { label: 'Refund Rejected',  color: '#ef4444' };
+      default: return null;
+    }
+  };
+
+  const refundBadge = getRefundBadge();
   
   const styles = StyleSheet.create({
     card: {
@@ -154,18 +168,26 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             <Text style={styles.date}>{formatDate(order.createdAt)}</Text>
             <Text style={styles.amount}>₦{order.totalAmount.toFixed(2)}</Text>
           </View>
-          {showRefundButton && order.status === 'delivered' && onRefundPress && (
-            <TouchableOpacity 
-              style={styles.refundButton} 
-              onPress={(e) => {
-                e.stopPropagation();
-                onRefundPress();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Process refund"
-            >
-              <Text style={styles.refundButtonText}>Refund</Text>
-            </TouchableOpacity>
+          {showRefundButton && order.status === 'delivered' && (
+            refundBadge ? (
+              <View style={[styles.refundButton, { borderColor: refundBadge.color }]}>
+                <Text style={[styles.refundButtonText, { color: refundBadge.color }]}>
+                  {refundBadge.label}
+                </Text>
+              </View>
+            ) : onRefundPress ? (
+              <TouchableOpacity 
+                style={styles.refundButton} 
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onRefundPress();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Process refund"
+              >
+                <Text style={styles.refundButtonText}>Refund</Text>
+              </TouchableOpacity>
+            ) : null
           )}
         </View>
         <Ionicons

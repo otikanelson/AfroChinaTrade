@@ -17,6 +17,7 @@ interface ProductCardProps {
   showAddButton?: boolean;
   variant?: 'grid' | 'list';
   showViewCount?: boolean;
+  isNew?: boolean;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -25,7 +26,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   badge, 
   showAddButton = false, 
   variant = 'grid',
-  showViewCount = true
+  showViewCount = true,
+  isNew,
 }) => {
   const { addToCart, isOperationPending } = useCart();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
@@ -48,6 +50,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const addingToCart = isOperationPending(productId);
   const hasDiscount = productDiscount > 0;
   const isOutOfStock = productStock === 0;
+
+  // New arrival: explicit prop OR created within last 7 days
+  const isNewProduct = isNew ?? (() => {
+    const createdAt = product.createdAt;
+    if (!createdAt) return false;
+    const age = Date.now() - new Date(createdAt).getTime();
+    return age < 7 * 24 * 60 * 60 * 1000;
+  })();
 
   // Safe formatting functions
   const formatPrice = (price: number): string => {
@@ -184,6 +194,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </View>
           )}
 
+          {/* New Arrival corner ribbon — top-right */}
+          {isNewProduct && (
+            <View style={[styles.ribbonCorner, styles.ribbonTopRight]}>
+              <View style={[styles.ribbonBand, styles.ribbonBandTopRight, { backgroundColor: '#16a34a' }]}>
+                <Text style={styles.ribbonText}>NEW</Text>
+              </View>
+            </View>
+          )}
+
           {/* Out of Stock Badge */}
           {isOutOfStock && (
             <View style={[styles.listOutOfStockBadge, { backgroundColor: 'rgba(220, 53, 69, 0.9)', paddingHorizontal: spacing.xs, paddingVertical: 2, borderRadius: borderRadius.sm }]}>
@@ -225,21 +244,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </Text>
 
           {/* Supplier Info */}
-          {supplier && supplier.name && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs }}>
+          {supplier && (supplier.name || supplier.logo) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs, gap: 4 }}>
               {supplier.verified && (
-                <Ionicons name='shield-checkmark-outline' size={12} color={colors.primary} style={{ marginRight: 4 }} />
+                <Ionicons name="shield-checkmark" size={11} color={colors.primary} />
               )}
-              {supplier.logo && (
-                <Image 
-                  source={{ uri: supplier.logo }} 
-                  style={{ width: 14, height: 14, borderRadius: 7, marginRight: 4 }} 
-                  resizeMode="cover"
+              {supplier.logo ? (
+                <Image
+                  source={{ uri: supplier.logo }}
+                  style={{ height: 16, width: 64 }}
+                  resizeMode="contain"
                 />
+              ) : (
+                <Text style={[styles.listSupplier, { fontSize: fontSizes.xs, color: colors.primary }]} numberOfLines={1}>
+                  {String(supplier.name)}
+                </Text>
               )}
-              <Text style={[styles.listSupplier, { fontSize: fontSizes.xs, color: colors.primary }]} numberOfLines={1}>
-                {String(supplier.name)}
-              </Text>
             </View>
           )}
 
@@ -345,7 +365,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           />
         </TouchableOpacity>
 
-        {/* Custom Badge */}
+        {/* Custom Badge — Seller Pick */}
         {badge && typeof badge === 'string' && badge.trim() && (
           <View style={[
             styles.badge, 
@@ -357,14 +377,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               borderBottomRightRadius: borderRadius.sm 
             }
           ]}>
-            <Text style={[
-              styles.badgeText, 
-              { 
-                color: colors.textInverse, 
-                fontSize: 10, 
-                fontWeight: fontWeights.semibold 
-              }
-            ]}>
+            <Text style={[styles.badgeText, { color: colors.textInverse, fontSize: 10, fontWeight: fontWeights.semibold }]}>
               {String(badge)}
             </Text>
           </View>
@@ -376,6 +389,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <Text style={[styles.discountText, { color: colors.textInverse, fontSize: 10, fontWeight: fontWeights.semibold }]}>
               {String(productDiscount)}% OFF
             </Text>
+          </View>
+        )}
+
+        {/* New Arrival corner ribbon — top-right */}
+        {isNewProduct && (
+          <View style={[styles.ribbonCorner, styles.ribbonTopRight]}>
+            <View style={[styles.ribbonBand, styles.ribbonBandTopRight, { backgroundColor: '#16a34a' }]}>
+              <Text style={styles.ribbonText}>NEW</Text>
+            </View>
           </View>
         )}
 
@@ -466,21 +488,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Supplier and Stats Row */}
         <View style={[styles.footer, { marginTop: spacing.xs }]}>
-          {supplier && supplier.name && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          {supplier && (supplier.name || supplier.logo) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 4 }}>
               {supplier.verified && (
-                <Ionicons name='shield-checkmark-outline' size={10} color={colors.primary} style={{ marginRight: 2 }} />
+                <Ionicons name="shield-checkmark" size={10} color={colors.primary} />
               )}
-              {supplier.logo && (
-                <Image 
-                  source={{ uri: supplier.logo }} 
-                  style={{ width: 12, height: 12, borderRadius: 6, marginRight: 2 }} 
-                  resizeMode="cover"
+              {supplier.logo ? (
+                <Image
+                  source={{ uri: supplier.logo }}
+                  style={{ height: 20, width: 80 }}
+                  resizeMode="contain"
                 />
+              ) : (
+                <Text style={[styles.supplier, { fontSize: 10, color: colors.primary }]} numberOfLines={1}>
+                  {String(supplier.name)}
+                </Text>
               )}
-              <Text style={[styles.supplier, { fontSize: 10, color: colors.primary }]} numberOfLines={1}>
-                {String(supplier.name)}
-              </Text>
             </View>
           )}
           {productReviewCount > 0 && (
@@ -587,11 +610,57 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  // Corner ribbon badge styles (New Arrival only)
+  ribbonCorner: {
+    position: 'absolute',
+    width: 64,
+    height: 64,
+    overflow: 'hidden',
+  },
+  ribbonTopLeft: {
+    top: 0,
+    left: 0,
+  },
+  ribbonTopRight: {
+    top: 0,
+    right: 0,
+  },
+  ribbonBottomLeft: {
+    bottom: 0,
+    left: 0,
+  },
+  ribbonBand: {
+    position: 'absolute',
+    width: 90,
+    paddingVertical: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-45deg' }],
+    top: 14,
+    left: -22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  ribbonBandTopRight: {
+    transform: [{ rotate: '45deg' }],
+    top: 14,
+    left: -4,
+  },
+  ribbonText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
   badge: {
     position: 'absolute',
     bottom: spacing.sm,
-    left: 0,
-    paddingVertical: spacing.xs,
+    left: spacing.xs,
+    borderRadius: borderRadius.sm,
   },
   badgeText: {},
   discountBadge: {

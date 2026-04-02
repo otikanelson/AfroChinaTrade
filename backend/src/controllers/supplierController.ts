@@ -133,7 +133,7 @@ export const createSupplierReview = async (req: Request, res: Response) => {
   try {
     const { supplierId } = req.params;
     const { rating, comment } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.userId;
 
     if (!userId) {
       return res.status(401).json({ message: 'Authentication required' });
@@ -218,7 +218,7 @@ export const updateSupplierReview = async (req: Request, res: Response) => {
   try {
     const { supplierId, reviewId } = req.params;
     const { rating, comment } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.userId;
 
     if (!userId) {
       return res.status(401).json({ message: 'Authentication required' });

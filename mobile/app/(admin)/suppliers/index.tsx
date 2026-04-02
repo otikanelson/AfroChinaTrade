@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../../../components/Header';
@@ -175,6 +175,11 @@ export default function AdminSuppliersScreen() {
       color: colors.textSecondary,
       textAlign: 'center',
       marginTop: spacing.sm,
+    },
+    loadingContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
   });
 
@@ -386,23 +391,29 @@ export default function AdminSuppliersScreen() {
           <Text style={styles.addButtonText}>Add New Supplier</Text>
         </TouchableOpacity>
 
-        <FlatList
-          data={filteredSuppliers}
-          renderItem={renderSupplier}
-          keyExtractor={(item) => (item._id || item.id || item.name)}
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="business-outline" size={48} color={colors.textLight} />
-              <Text style={styles.emptyText}>
-                {searchQuery ? 'No suppliers match your search' : 'No suppliers found'}
-              </Text>
-            </View>
-          }
-          contentContainerStyle={{ paddingBottom: spacing.xl }}
-          showsVerticalScrollIndicator={false}
-        />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredSuppliers}
+            renderItem={renderSupplier}
+            keyExtractor={(item) => (item._id || item.id || item.name)}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons name="business-outline" size={48} color={colors.textLight} />
+                <Text style={styles.emptyText}>
+                  {searchQuery ? 'No suppliers match your search' : 'No suppliers found'}
+                </Text>
+              </View>
+            }
+            contentContainerStyle={{ paddingBottom: spacing.xl }}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
       </View>
     </View>
   );

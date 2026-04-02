@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { collectionService } from '../services/CollectionService';
 import { CollectionFilter } from '../models/Collection';
+import PushDeliveryService from '../services/PushDeliveryService';
+import User from '../models/User';
 
 /**
  * Create a new collection
@@ -136,6 +138,36 @@ export const toggleCollectionStatus = async (req: Request, res: Response): Promi
     const { id } = req.params;
 
     const result = await collectionService.toggleCollectionStatus(id);
+    
+    // If collection was toggled to active, send push notification to all users
+    if (result.status === 'success' && result.data?.collection?.isActive) {
+      // Fire-and-forget push notification - don't await, don't block response
+      (async () => {
+        try {
+          const collection = result.data.collection;
+          if (!collection) return;
+          
+          // Get all user IDs
+          const users = await User.find({}, { _id: 1 }).lean();
+          const userIds = users.map(u => u._id.toString());
+
+          if (userIds.length > 0) {
+            await PushDeliveryService.send({
+              userIds,
+              title: `New Collection: ${collection.name}`,
+              body: collection.description || 'Check out our new collection!',
+              data: {
+                screen: 'collection',
+                collectionId: collection._id.toString(),
+              },
+              settingKey: 'promotions',
+            });
+          }
+        } catch (pushError) {
+          console.error('[toggleCollectionStatus] Push notification failed:', pushError);
+        }
+      })();
+    }
     
     res.status(result.status === 'success' ? 200 : 404).json(result);
   } catch (error) {

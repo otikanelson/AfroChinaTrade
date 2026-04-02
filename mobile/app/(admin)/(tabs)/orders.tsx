@@ -14,7 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Order } from '../../../types/product';
 import { orderService } from '../../../services/OrderService';
+import { refundService, Refund } from '../../../services/RefundService';
 import { SearchBar } from '../../../components/admin/SearchBar';
+import { StatCard } from '../../../components/admin/StatCard';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Header } from '../../../components/Header';
 
@@ -42,10 +44,11 @@ function isWithinPeriod(iso: string, period: TimePeriod): boolean {
 
 interface CompactOrderItemProps {
   order: Order;
+  refund: Refund | null;
   onPress: () => void;
 }
 
-const CompactOrderItem: React.FC<CompactOrderItemProps> = ({ order, onPress }) => {
+const CompactOrderItem: React.FC<CompactOrderItemProps> = ({ order, refund, onPress }) => {
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
   
   const getStatusColor = (status: string) => {
@@ -58,6 +61,19 @@ const CompactOrderItem: React.FC<CompactOrderItemProps> = ({ order, onPress }) =
       default: return colors.textSecondary;
     }
   };
+
+  const getRefundBadge = () => {
+    if (!refund) return null;
+    switch (refund.status) {
+      case 'pending':   return { label: 'Refund Pending',   color: '#f59e0b' };
+      case 'approved':  return { label: 'Refund Approved',  color: '#3b82f6' };
+      case 'processed': return { label: 'Refund Processed', color: '#10b981' };
+      case 'rejected':  return { label: 'Refund Rejected',  color: '#ef4444' };
+      default: return null;
+    }
+  };
+
+  const refundBadge = getRefundBadge();
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -120,6 +136,24 @@ const CompactOrderItem: React.FC<CompactOrderItemProps> = ({ order, onPress }) =
               {order.status}
             </Text>
           </View>
+          {refundBadge && (
+            <View style={{
+              backgroundColor: refundBadge.color + '20',
+              paddingHorizontal: spacing.xs,
+              paddingVertical: 2,
+              borderRadius: borderRadius.sm,
+              alignSelf: 'flex-start',
+              marginTop: spacing.xs,
+            }}>
+              <Text style={{
+                fontSize: fontSizes.xs,
+                color: refundBadge.color,
+                fontWeight: fontWeights.semibold,
+              }}>
+                {refundBadge.label}
+              </Text>
+            </View>
+          )}
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text style={{
@@ -193,6 +227,7 @@ export default function OrdersScreen() {
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
 
   const [orders, setOrders] = useState<Order[]>([]);
+  const [refunds, setRefunds] = useState<Refund[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -334,17 +369,19 @@ export default function OrdersScreen() {
       else setLoading(true);
       setError(null);
       
-      const response = await orderService.getOrders({
-        page: 1,
-        limit: 100, // Get all orders for now
-        sortBy: 'createdAt',
-        sortOrder: 'desc'
-      });
+      const [ordersResponse, refundsResponse] = await Promise.all([
+        orderService.getOrders({ page: 1, limit: 100, sortBy: 'createdAt', sortOrder: 'desc' }),
+        refundService.getRefunds({ page: 1, limit: 100 }),
+      ]);
       
-      if (response.success && response.data) {
-        setOrders(response.data);
+      if (ordersResponse.success && ordersResponse.data) {
+        setOrders(ordersResponse.data);
       } else {
-        throw new Error(response.error?.message || 'Failed to load orders');
+        throw new Error(ordersResponse.error?.message || 'Failed to load orders');
+      }
+
+      if (refundsResponse.success && refundsResponse.data) {
+        setRefunds(refundsResponse.data);
       }
     } catch (err) {
       console.error('Error fetching orders:', err);
@@ -418,10 +455,22 @@ export default function OrdersScreen() {
   // ── Render helpers ─────────────────────────────────────────────────────────
 
   const renderOrder = useCallback(
-    ({ item }: { item: Order }) => (
-      <CompactOrderItem order={item} onPress={() => handleOrderPress(item)} />
-    ),
-    [handleOrderPress],
+    ({ item }: { item: Order }) => {
+      const orderRefund = (Array.isArray(refunds) ? refunds : []).find(r => {
+        const oid = typeof r.orderId === 'object'
+          ? String((r.orderId as any).id || (r.orderId as any)._id || '')
+          : String(r.orderId);
+        return oid === String(item._id);
+      }) ?? null;
+      return (
+        <CompactOrderItem
+          order={item}
+          refund={orderRefund}
+          onPress={() => handleOrderPress(item)}
+        />
+      );
+    },
+    [handleOrderPress, refunds],
   );
 
   const keyExtractor = useCallback((item: Order) => item._id, []);
@@ -472,24 +521,12 @@ export default function OrdersScreen() {
         }
       />
 
-      {/* Professional Stats */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { borderLeftColor: colors.primary }]}>
-          <Text style={styles.statLabel}>Total Orders</Text>
-          <Text style={styles.statValue}>{stats.total}</Text>
-        </View>
-        <View style={[styles.statCard, { borderLeftColor: '#f59e0b' }]}>
-          <Text style={styles.statLabel}>Pending</Text>
-          <Text style={styles.statValue}>{stats.pending}</Text>
-        </View>
-        <View style={[styles.statCard, { borderLeftColor: '#8b5cf6' }]}>
-          <Text style={styles.statLabel}>Pending Revenue</Text>
-          <Text style={styles.statValue}>₦{stats.pendingRevenue.toLocaleString()}</Text>
-        </View>
-        <View style={[styles.statCard, { borderLeftColor: '#10b981' }]}>
-          <Text style={styles.statLabel}>Net Revenue</Text>
-          <Text style={styles.statValue}>₦{stats.netRevenue.toLocaleString()}</Text>
-        </View>
+      {/* Stats */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.base, paddingVertical: spacing.sm, gap: spacing.sm }}>
+        <StatCard label="Total Orders" value={String(stats.total)} accent={colors.primary} icon="receipt-outline" />
+        <StatCard label="Pending" value={String(stats.pending)} accent="#f59e0b" icon="time-outline" />
+        <StatCard label="Pending Revenue" value={`₦${(stats.pendingRevenue / 1000).toFixed(1)}k`} accent="#8b5cf6" icon="hourglass-outline" />
+        <StatCard label="Net Revenue" value={`₦${(stats.netRevenue / 1000).toFixed(1)}k`} accent="#10b981" icon="trending-up-outline" />
       </View>
 
       {/* Filters */}

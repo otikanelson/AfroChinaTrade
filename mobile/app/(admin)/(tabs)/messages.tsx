@@ -407,7 +407,9 @@ export default function MessagesScreen() {
       marginHorizontal: spacing.base,
       marginBottom: spacing.sm,
       backgroundColor: colors.surface,
-      borderRadius: borderRadius.md,
+      borderRadius: borderRadius.sm,
+      borderWidth: 1,
+      borderColor: colors.primary,
       padding: spacing.xs,
     },
     tab: {

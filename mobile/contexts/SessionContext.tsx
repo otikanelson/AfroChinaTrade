@@ -14,169 +14,157 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
-const SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes (1 hour) in milliseconds
-const TOKEN_REFRESH_INTERVAL = 50 * 60 * 1000; // Refresh token every 50 minutes
-const ACTIVITY_CHECK_INTERVAL = 60 * 1000; // Check session every minute
+const SESSION_TIMEOUT = 60 * 60 * 1000;        // 60 min inactivity timeout
+const TOKEN_REFRESH_INTERVAL = 50 * 60 * 1000; // Fallback refresh every 50 min
+const ACTIVITY_CHECK_INTERVAL = 60 * 1000;     // Check inactivity every minute
+const ACTIVITY_REFRESH_DEBOUNCE = 5 * 60 * 1000; // Refresh token at most once per 5 min
 const LAST_ACTIVITY_KEY = 'last_activity';
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
   const [isSessionActive, setIsSessionActive] = useState(true);
   const [lastActivity, setLastActivity] = useState<Date | null>(null);
-  const sessionCheckInterval = useRef<NodeJS.Timeout | null>(null);
-  const tokenRefreshInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Update last activity timestamp
-  const updateActivity = useCallback(async () => {
-    const now = new Date();
-    setLastActivity(now);
-    await AsyncStorage.setItem(LAST_ACTIVITY_KEY, now.toISOString());
-  }, []);
+  // Refs for values used inside intervals/callbacks — avoids stale closures
+  // without adding them to useEffect dependency arrays
+  const lastActivityRef = useRef<Date | null>(null);
+  const isSessionActiveRef = useRef(true);
+  const lastRefreshTimeRef = useRef<number>(0);
+  const logoutRef = useRef(logout);
+  const userRef = useRef(user);
 
-  // Load last activity from storage
-  const loadLastActivity = useCallback(async () => {
-    try {
-      const stored = await AsyncStorage.getItem(LAST_ACTIVITY_KEY);
-      if (stored) {
-        const lastActivityDate = new Date(stored);
-        setLastActivity(lastActivityDate);
-        
-        // Check if session has expired while app was closed
-        const now = new Date();
-        const timeSinceActivity = now.getTime() - lastActivityDate.getTime();
-        
-        if (timeSinceActivity > SESSION_TIMEOUT) {
-          console.log('⏰ Session expired while app was closed');
-          setIsSessionActive(false);
-          logout();
-          return;
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to load last activity:', error);
-    }
-  }, [logout]);
+  // Keep refs in sync with latest values
+  useEffect(() => { logoutRef.current = logout; }, [logout]);
+  useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => {
+    isSessionActiveRef.current = isSessionActive;
+  }, [isSessionActive]);
 
-  // Refresh session token
+  // ─── Core: refresh session token ──────────────────────────────────────────
+
   const refreshSession = useCallback(async () => {
     try {
-      const refreshToken = await AsyncStorage.getItem('refresh_token');
-      if (!refreshToken) {
-        throw new Error('No refresh token available');
-      }
+      const refreshToken = tokenManager.getRefreshToken();
+      if (!refreshToken) return; // Normal on first mount — skip silently
 
       const response = await apiClient.post('/auth/refresh', { refreshToken });
-      
       if (response.data?.token) {
         await tokenManager.setTokens(response.data.token, refreshToken);
         console.log('🔄 Session token refreshed successfully');
       }
     } catch (error: any) {
       console.error('❌ Failed to refresh session:', error);
-      
-      // If refresh fails due to invalid token, clear everything and logout
-      if (error?.code === 'UNKNOWN_ERROR' && error?.status === 401) {
-        console.log('🔑 Invalid refresh token, clearing all session data');
-        await AsyncStorage.multiRemove(['auth_token', 'refresh_token', 'last_activity']);
+      const status = error?.status || error?.response?.status;
+      if (status === 401) {
+        console.log('🔑 Refresh token rejected, logging out');
+        await tokenManager.clearTokens();
+        await AsyncStorage.removeItem(LAST_ACTIVITY_KEY);
+        setIsSessionActive(false);
+        logoutRef.current();
       }
-      
-      setIsSessionActive(false);
-      logout();
     }
-  }, [logout]);
+  }, []); // stable — no deps that change
 
-  // Check if session should be expired due to inactivity
-  const checkSessionTimeout = useCallback(async () => {
-    if (!user || !lastActivity) return;
+  // ─── Update activity timestamp + debounced token refresh ──────────────────
 
+  const updateActivity = useCallback(async () => {
     const now = new Date();
-    const timeSinceActivity = now.getTime() - lastActivity.getTime();
+    lastActivityRef.current = now;
+    setLastActivity(now);
+    await AsyncStorage.setItem(LAST_ACTIVITY_KEY, now.toISOString());
 
-    // If session has expired (60 minutes of inactivity)
-    if (timeSinceActivity > SESSION_TIMEOUT) {
-      console.log('⏰ Session expired due to 60 minutes of inactivity');
-      setIsSessionActive(false);
-      logout();
+    const nowMs = now.getTime();
+    if (nowMs - lastRefreshTimeRef.current >= ACTIVITY_REFRESH_DEBOUNCE) {
+      lastRefreshTimeRef.current = nowMs;
+      refreshSession().catch(() => {});
     }
-  }, [user, lastActivity, logout]);
+  }, [refreshSession]); // refreshSession is stable
 
-  // Handle app state changes
-  const handleAppStateChange = useCallback((nextAppState: AppStateStatus) => {
-    if (nextAppState === 'active') {
-      // App became active, update activity
-      updateActivity();
-      checkSessionTimeout();
-    } else if (nextAppState === 'background' || nextAppState === 'inactive') {
-      // App went to background, record the time
-      updateActivity();
-    }
-  }, [updateActivity, checkSessionTimeout]);
-
-  // Set up automatic token refresh (every 25 minutes)
-  const startTokenRefresh = useCallback(() => {
-    if (tokenRefreshInterval.current) {
-      clearInterval(tokenRefreshInterval.current);
-    }
-
-    tokenRefreshInterval.current = setInterval(async () => {
-      if (user && isSessionActive) {
-        await refreshSession();
-      }
-    }, TOKEN_REFRESH_INTERVAL);
-  }, [user, isSessionActive, refreshSession]);
-
-  // Set up session timeout checking (every minute)
-  const startSessionCheck = useCallback(() => {
-    if (sessionCheckInterval.current) {
-      clearInterval(sessionCheckInterval.current);
-    }
-
-    sessionCheckInterval.current = setInterval(() => {
-      checkSessionTimeout();
-    }, ACTIVITY_CHECK_INTERVAL);
-  }, [checkSessionTimeout]);
+  // ─── Main session lifecycle — runs only when user changes ─────────────────
 
   useEffect(() => {
     if (!user) {
-      // User logged out, clear session data
       setIsSessionActive(false);
       setLastActivity(null);
+      lastActivityRef.current = null;
       AsyncStorage.removeItem(LAST_ACTIVITY_KEY);
-      
-      if (sessionCheckInterval.current) {
-        clearInterval(sessionCheckInterval.current);
-        sessionCheckInterval.current = null;
-      }
-      if (tokenRefreshInterval.current) {
-        clearInterval(tokenRefreshInterval.current);
-        tokenRefreshInterval.current = null;
-      }
       return;
     }
 
-    // Load last activity and start session management
-    loadLastActivity();
-    updateActivity();
-    
-    // Set up app state listener
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    
-    // Start automatic token refresh and session checking
-    startTokenRefresh();
-    startSessionCheck();
+    // User just logged in — mark session active and seed the refresh timer
+    // so the first updateActivity doesn't immediately re-refresh a brand-new token
+    setIsSessionActive(true);
+    lastRefreshTimeRef.current = Date.now();
 
-    return () => {
-      subscription?.remove();
-      if (sessionCheckInterval.current) {
-        clearInterval(sessionCheckInterval.current);
-        sessionCheckInterval.current = null;
+    // Load persisted last activity and check if session expired while app was closed
+    const initSession = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(LAST_ACTIVITY_KEY);
+        if (stored) {
+          const storedDate = new Date(stored);
+          const elapsed = Date.now() - storedDate.getTime();
+          if (elapsed > SESSION_TIMEOUT) {
+            console.log('⏰ Session expired while app was closed');
+            setIsSessionActive(false);
+            logoutRef.current();
+            return;
+          }
+          lastActivityRef.current = storedDate;
+          setLastActivity(storedDate);
+        }
+      } catch {
+        // ignore storage errors
       }
-      if (tokenRefreshInterval.current) {
-        clearInterval(tokenRefreshInterval.current);
-        tokenRefreshInterval.current = null;
+      // Record fresh activity now
+      const now = new Date();
+      lastActivityRef.current = now;
+      setLastActivity(now);
+      await AsyncStorage.setItem(LAST_ACTIVITY_KEY, now.toISOString());
+    };
+
+    initSession();
+
+    // ── Inactivity check (every minute) ──
+    const sessionCheckTimer = setInterval(() => {
+      if (!userRef.current || !lastActivityRef.current) return;
+      const elapsed = Date.now() - lastActivityRef.current.getTime();
+      if (elapsed > SESSION_TIMEOUT) {
+        console.log('⏰ Session expired due to inactivity');
+        setIsSessionActive(false);
+        logoutRef.current();
+      }
+    }, ACTIVITY_CHECK_INTERVAL);
+
+    // ── Fallback token refresh (every 50 min) ──
+    const tokenRefreshTimer = setInterval(() => {
+      if (userRef.current && isSessionActiveRef.current) {
+        refreshSession().catch(() => {});
+      }
+    }, TOKEN_REFRESH_INTERVAL);
+
+    // ── App state changes ──
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === 'active' || nextState === 'background' || nextState === 'inactive') {
+        updateActivity();
+        if (nextState === 'active' && lastActivityRef.current) {
+          const elapsed = Date.now() - lastActivityRef.current.getTime();
+          if (elapsed > SESSION_TIMEOUT) {
+            console.log('⏰ Session expired while app was backgrounded');
+            setIsSessionActive(false);
+            logoutRef.current();
+          }
+        }
       }
     };
-  }, [user, loadLastActivity, updateActivity, handleAppStateChange, startTokenRefresh, startSessionCheck]);
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      clearInterval(sessionCheckTimer);
+      clearInterval(tokenRefreshTimer);
+      subscription.remove();
+    };
+  }, [user]); // only re-run when user logs in/out
 
   const value: SessionContextType = {
     isSessionActive,

@@ -34,7 +34,7 @@ export const searchProducts = async (req: Request, res: Response) => {
     const { q, categories, minPrice, maxPrice, minRating, inStock, page = 1, limit = 10 } = req.query;
 
     const pageNum = parseInt(page as string) || 1;
-    const limitNum = parseInt(limit as string) || 10;
+    const limitNum = Math.min(parseInt(limit as string) || 10, 100); // Cap at 100
     const skip = (pageNum - 1) * limitNum;
 
     const filter: any = { isActive: true };
@@ -67,7 +67,12 @@ export const searchProducts = async (req: Request, res: Response) => {
       filter.stock = { $gt: 0 };
     }
 
-    let query = Product.find(filter).skip(skip).limit(limitNum).populate('supplierId', 'name email verified rating location responseTime logo');
+    let query = Product.find(filter)
+      .skip(skip)
+      .limit(limitNum)
+      .populate('supplierId', 'name verified rating logo')
+      .select('-specifications -policies') // Exclude heavy fields
+      .lean(); // Use lean for faster queries
 
     // Search result ranking based on relevance score
     if (q) {
@@ -76,8 +81,10 @@ export const searchProducts = async (req: Request, res: Response) => {
       query = query.sort({ createdAt: -1 });
     }
 
-    const products = await query;
-    const total = await Product.countDocuments(filter);
+    const [products, total] = await Promise.all([
+      query,
+      Product.countDocuments(filter)
+    ]);
 
     // Return empty array when no results match
     res.json({

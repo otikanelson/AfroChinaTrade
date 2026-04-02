@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import Order from '../models/Order';
 import Product from '../models/Product';
 import DeliveryAddress from '../models/DeliveryAddress';
+import PushDeliveryService from '../services/PushDeliveryService';
+import User from '../models/User';
 
 // Create new order
 export const createOrder = async (req: Request, res: Response): Promise<void> => {
@@ -83,6 +85,25 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       paymentMethod,
       notes,
     });
+
+    // Send admin alert push notification (fire-and-forget)
+    (async () => {
+      try {
+        const adminUsers = await User.find({ role: { $in: ['admin', 'super_admin'] } }, { _id: 1 });
+        const adminUserIds = adminUsers.map(u => u._id.toString());
+        
+        if (adminUserIds.length > 0) {
+          await PushDeliveryService.send({
+            userIds: adminUserIds,
+            title: 'New Order Placed',
+            body: `Order #${order._id.toString().slice(-8)} - ₦${totalAmount.toFixed(2)}`,
+            data: { screen: 'admin-order', orderId: order._id.toString() },
+          });
+        }
+      } catch (error) {
+        console.error('[orderController] Error sending admin alert push:', error);
+      }
+    })();
 
     res.status(201).json({
       status: 'success',
@@ -286,6 +307,29 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
     order.status = status;
     await order.save();
 
+    // Send customer push notification (fire-and-forget)
+    (async () => {
+      try {
+        const statusMessages: { [key: string]: string } = {
+          pending: 'is pending',
+          processing: 'is being processed',
+          shipped: 'has been shipped',
+          delivered: 'has been delivered',
+          cancelled: 'has been cancelled',
+        };
+
+        await PushDeliveryService.send({
+          userIds: [order.userId.toString()],
+          title: 'Order Status Update',
+          body: `Order #${order._id.toString().slice(-8)} ${statusMessages[status] || status}`,
+          data: { screen: 'order-detail', orderId: order._id.toString() },
+          settingKey: 'orderUpdates',
+        });
+      } catch (error) {
+        console.error('[orderController] Error sending order status push:', error);
+      }
+    })();
+
     res.status(200).json({
       status: 'success',
       message: 'Order status updated successfully',
@@ -346,6 +390,22 @@ export const updateTrackingNumber = async (req: Request, res: Response): Promise
     order.trackingNumber = trackingNumber;
     order.status = 'shipped';
     await order.save();
+
+    // Send customer push notification (fire-and-forget)
+    (async () => {
+      try {
+        await PushDeliveryService.send({
+          userIds: [order.userId.toString()],
+          title: 'Order Status Update',
+          body: `Order #${order._id.toString().slice(-8)} has been shipped`,
+          data: { screen: 'order-detail', orderId: order._id.toString() },
+          settingKey: 'orderUpdates',
+        });
+      } catch (error) {
+        console.error('[orderController] Error sending order shipped push:', error);
+      }
+    })();
+
     res.status(200).json({
       status: 'success',
       message: 'Order marked as shipped',
@@ -407,6 +467,21 @@ export const cancelOrder = async (req: Request, res: Response): Promise<void> =>
     order.status = 'cancelled';
     await order.save();
 
+    // Send customer push notification (fire-and-forget)
+    (async () => {
+      try {
+        await PushDeliveryService.send({
+          userIds: [order.userId.toString()],
+          title: 'Order Status Update',
+          body: `Order #${order._id.toString().slice(-8)} has been cancelled`,
+          data: { screen: 'order-detail', orderId: order._id.toString() },
+          settingKey: 'orderUpdates',
+        });
+      } catch (error) {
+        console.error('[orderController] Error sending order cancelled push:', error);
+      }
+    })();
+
     res.status(200).json({
       status: 'success',
       message: 'Order cancelled successfully',
@@ -467,6 +542,21 @@ export const confirmDelivery = async (req: Request, res: Response): Promise<void
     order.status = 'delivered';
     order.deliveredAt = new Date();
     await order.save();
+
+    // Send customer push notification (fire-and-forget)
+    (async () => {
+      try {
+        await PushDeliveryService.send({
+          userIds: [order.userId.toString()],
+          title: 'Order Status Update',
+          body: `Order #${order._id.toString().slice(-8)} has been delivered`,
+          data: { screen: 'order-detail', orderId: order._id.toString() },
+          settingKey: 'orderUpdates',
+        });
+      } catch (error) {
+        console.error('[orderController] Error sending order delivered push:', error);
+      }
+    })();
 
     res.status(200).json({
       status: 'success',
@@ -592,6 +682,25 @@ export const checkout = async (req: Request, res: Response): Promise<void> => {
       paymentMethod: paymentMethodId,
       status: 'pending',
     });
+
+    // Send admin alert push notification (fire-and-forget)
+    (async () => {
+      try {
+        const adminUsers = await User.find({ role: { $in: ['admin', 'super_admin'] } }, { _id: 1 });
+        const adminUserIds = adminUsers.map(u => u._id.toString());
+        
+        if (adminUserIds.length > 0) {
+          await PushDeliveryService.send({
+            userIds: adminUserIds,
+            title: 'New Order Placed',
+            body: `Order #${order._id.toString().slice(-8)} - ₦${totalAmount.toFixed(2)}`,
+            data: { screen: 'admin-order', orderId: order._id.toString() },
+          });
+        }
+      } catch (error) {
+        console.error('[orderController] Error sending admin alert push:', error);
+      }
+    })();
 
     res.status(201).json({
       success: true,

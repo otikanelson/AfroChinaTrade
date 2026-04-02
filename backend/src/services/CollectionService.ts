@@ -65,7 +65,7 @@ export class CollectionService {
   }
 
   /**
-   * Get all active collections
+   * Get all active collections with product counts
    */
   async getActiveCollections(): Promise<CollectionResponse> {
     try {
@@ -73,9 +73,21 @@ export class CollectionService {
         .sort({ displayOrder: 1, createdAt: -1 })
         .populate('createdBy', 'name email');
 
+      // Get product counts for all collections in parallel
+      const collectionsWithCounts = await Promise.all(
+        collections.map(async (collection) => {
+          const query = this.buildProductQuery(collection.filters);
+          const productCount = await Product.countDocuments(query);
+          return {
+            ...collection.toObject(),
+            productCount
+          };
+        })
+      );
+
       return {
         status: 'success',
-        data: { collections }
+        data: { collections: collectionsWithCounts as any }
       };
     } catch (error) {
       throw error;
@@ -108,7 +120,7 @@ export class CollectionService {
           .sort({ createdAt: -1, viewCount: -1 })
           .skip(skip)
           .limit(limit)
-          .populate('supplierId', 'name logo'),
+          .populate('supplierId', 'name email verified rating location responseTime logo'),
         Product.countDocuments(query)
       ]);
 

@@ -331,7 +331,60 @@ export default function SupplierFormScreen() {
               images={logoImages}
               onImagesChange={handleLogoChange}
               maxImages={1}
+              aspectRatio={[3, 1]}
+              previewShape="square"
             />
+            <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: -spacing.xs }}>
+              Upload a PNG with a transparent background. Wide/landscape format (e.g. 300 × 80px) works best for logos that include the company name. The logo will appear directly on product cards — no background will be added.
+            </Text>
+
+            {/* Live preview of how logo appears on product card */}
+            {formData.logo ? (
+              <View style={{
+                backgroundColor: colors.surface,
+                borderRadius: borderRadius.md,
+                padding: spacing.sm,
+                borderWidth: 1,
+                borderColor: colors.border,
+                marginTop: spacing.xs,
+              }}>
+                <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary, marginBottom: spacing.xs }}>
+                  Preview on product card:
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                  {formData.verified && (
+                    <Ionicons name="shield-checkmark" size={12} color={colors.primary} />
+                  )}
+                  <Image
+                    source={{ uri: formData.logo }}
+                    style={{ height: 18, width: 64, borderRadius: 3 }}
+                    resizeMode="contain"
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={{
+                backgroundColor: colors.surface,
+                borderRadius: borderRadius.md,
+                padding: spacing.sm,
+                borderWidth: 1,
+                borderColor: colors.border,
+                marginTop: spacing.xs,
+              }}>
+                <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary, marginBottom: spacing.xs }}>
+                  Example — how a logo with company name looks on a product card:
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                  <Ionicons name="shield-checkmark" size={12} color={colors.primary} />
+                  <View style={{ height: 18, width: 64, borderRadius: 3, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: '#fff', fontSize: 7, fontWeight: '700' }}>BRAND NAME</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 10, color: colors.textLight, marginTop: spacing.xs }}>
+                  Upload a logo above to see your actual preview here.
+                </Text>
+              </View>
+            )}
             
             <FormField
               label="Description"

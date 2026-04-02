@@ -2,415 +2,363 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { connectDatabase } from '../config/database';
 import Product from '../models/Product';
+import Collection from '../models/Collection';
 import Supplier from '../models/Supplier';
+import Category from '../models/Category';
 
 dotenv.config();
 
 /**
- * Seeds additional products for specific collections:
- * - Home & Living (category: Furniture) — 4 new products
- * - Bestsellers (tag: bestseller) — 5 new products
- * - Top Rated (rating >= 4.5) — 3 new products
- * - Customer Favorites (rating >= 4.0) — 3 new products
- *
- * Some products intentionally belong to multiple collections.
+ * Seed Collection Products
+ * Ensures every collection has products by creating products that match collection filters
  */
-
-const newProducts = [
-  // ── Home & Living (Furniture category) ──────────────────────────────────────
-
-  {
-    name: 'Luxury Velvet Sofa 3-Seater',
-    description:
-      'Elegant three-seater sofa upholstered in premium velvet fabric. Features solid wood frame, high-density foam cushions, and tapered legs for a modern aesthetic.',
-    price: 320000,
-    currency: 'NGN',
-    images: [
-      'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&h=800&fit=crop&crop=center',
-      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=800&h=800&fit=crop&crop=center',
-    ],
-    category: 'Furniture',
-    subcategory: 'Living Room',
-    rating: 4.7,
-    reviewCount: 412,
-    stock: 15,
-    tags: ['bestseller'],
-    specifications: new Map([
-      ['Dimensions', '220cm x 90cm x 85cm'],
-      ['Material', 'Velvet & Solid Wood'],
-      ['Seating Capacity', '3 persons'],
-      ['Weight Capacity', '300kg'],
-      ['Warranty', '2 years'],
-    ]),
-    discount: 10,
-    isNewProduct: false,
-    isFeatured: true,
-    isActive: true,
-    viewCount: 4200,
-    isSellerFavorite: true,
-    trendingScore: 88,
-    lastViewedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-  },
-
-  {
-    name: 'Minimalist Wooden Dining Table',
-    description:
-      'Solid oak dining table with a clean minimalist design. Seats up to 6 people comfortably. Scratch-resistant finish and easy to clean surface.',
-    price: 185000,
-    currency: 'NGN',
-    images: [
-      'https://images.unsplash.com/photo-1617806118233-18e1de247200?w=800&h=800&fit=crop&crop=center',
-      'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=800&h=800&fit=crop&crop=center',
-    ],
-    category: 'Furniture',
-    subcategory: 'Dining Room',
-    rating: 4.6,
-    reviewCount: 289,
-    stock: 20,
-    tags: ['bestseller'],
-    specifications: new Map([
-      ['Dimensions', '180cm x 90cm x 76cm'],
-      ['Material', 'Solid Oak'],
-      ['Seating Capacity', '6 persons'],
-      ['Finish', 'Matte Lacquer'],
-      ['Warranty', '3 years'],
-    ]),
-    discount: 5,
-    isNewProduct: false,
-    isFeatured: true,
-    isActive: true,
-    viewCount: 3100,
-    isSellerFavorite: true,
-    trendingScore: 74,
-    lastViewedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-  },
-
-  {
-    name: 'Floating Wall Shelves Set of 3',
-    description:
-      'Modern floating wall shelves crafted from solid pine wood. Easy to install with hidden brackets. Perfect for displaying books, plants, and decor.',
-    price: 28000,
-    currency: 'NGN',
-    images: [
-      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=800&fit=crop&crop=center',
-      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&h=800&fit=crop&crop=center',
-    ],
-    category: 'Furniture',
-    subcategory: 'Storage',
-    rating: 4.5,
-    reviewCount: 634,
-    stock: 80,
-    tags: ['bestseller'],
-    specifications: new Map([
-      ['Dimensions', '60cm x 20cm x 3cm each'],
-      ['Material', 'Solid Pine'],
-      ['Weight Capacity', '15kg per shelf'],
-      ['Finish', 'Natural Wood'],
-      ['Includes', 'Mounting hardware'],
-    ]),
-    discount: 0,
-    isNewProduct: true,
-    isFeatured: false,
-    isActive: true,
-    viewCount: 5800,
-    isSellerFavorite: false,
-    trendingScore: 92,
-    lastViewedAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
-  },
-
-  {
-    name: 'King Size Platform Bed Frame',
-    description:
-      'Contemporary king size platform bed frame with upholstered headboard. No box spring needed. Features under-bed storage space and sturdy slat support.',
-    price: 275000,
-    currency: 'NGN',
-    images: [
-      'https://images.unsplash.com/photo-1505693314120-0d443867891c?w=800&h=800&fit=crop&crop=center',
-      'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800&h=800&fit=crop&crop=center',
-    ],
-    category: 'Furniture',
-    subcategory: 'Bedroom',
-    rating: 4.8,
-    reviewCount: 521,
-    stock: 10,
-    tags: ['bestseller'],
-    specifications: new Map([
-      ['Size', 'King (180cm x 200cm)'],
-      ['Material', 'Engineered Wood & Fabric'],
-      ['Headboard Height', '120cm'],
-      ['Weight Capacity', '400kg'],
-      ['Warranty', '2 years'],
-    ]),
-    discount: 15,
-    isNewProduct: false,
-    isFeatured: true,
-    isActive: true,
-    viewCount: 6700,
-    isSellerFavorite: true,
-    trendingScore: 110,
-    lastViewedAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
-  },
-
-  // ── Bestsellers only (non-Furniture) ────────────────────────────────────────
-
-  {
-    name: 'Stainless Steel Cookware Set 10-Piece',
-    description:
-      'Professional-grade stainless steel cookware set including pots, pans, and lids. Tri-ply construction for even heat distribution. Dishwasher safe and oven safe up to 260°C.',
-    price: 95000,
-    currency: 'NGN',
-    images: [
-      'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=800&fit=crop&crop=center',
-      'https://images.unsplash.com/photo-1584990347449-a2d4c2c044c9?w=800&h=800&fit=crop&crop=center',
-    ],
-    category: 'Kitchen',
-    subcategory: 'Cookware',
-    rating: 4.8,
-    reviewCount: 1876,
-    stock: 55,
-    tags: ['bestseller'],
-    specifications: new Map([
-      ['Pieces', '10'],
-      ['Material', '18/10 Stainless Steel'],
-      ['Compatible', 'All stovetops including induction'],
-      ['Oven Safe', 'Up to 260°C'],
-      ['Dishwasher Safe', 'Yes'],
-    ]),
-    discount: 20,
-    isNewProduct: false,
-    isFeatured: true,
-    isActive: true,
-    viewCount: 9200,
-    isSellerFavorite: true,
-    trendingScore: 145,
-    lastViewedAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-  },
-
-  // ── Top Rated (rating >= 4.5) + Bestsellers ──────────────────────────────────
-
-  {
-    name: 'Premium Leather Wallet Slim',
-    description:
-      'Handcrafted genuine leather slim wallet with RFID blocking technology. Holds up to 8 cards and cash. Available in classic brown and black.',
-    price: 18500,
-    currency: 'NGN',
-    images: [
-      'https://images.unsplash.com/photo-1627123424574-724758594e93?w=800&h=800&fit=crop&crop=center',
-      'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&h=800&fit=crop&crop=center',
-    ],
-    category: 'Fashion',
-    subcategory: 'Accessories',
-    rating: 4.9,
-    reviewCount: 2341,
-    stock: 120,
-    tags: ['bestseller'],
-    specifications: new Map([
-      ['Material', 'Genuine Leather'],
-      ['Card Slots', '8'],
-      ['RFID Blocking', 'Yes'],
-      ['Dimensions', '11cm x 8.5cm x 0.8cm'],
-      ['Colors', 'Brown, Black'],
-    ]),
-    discount: 0,
-    isNewProduct: false,
-    isFeatured: true,
-    isActive: true,
-    viewCount: 11500,
-    isSellerFavorite: true,
-    trendingScore: 160,
-    lastViewedAt: new Date(Date.now() - 30 * 60 * 1000),
-  },
-
-  {
-    name: 'Ceramic Pour-Over Coffee Set',
-    description:
-      'Artisan ceramic pour-over coffee dripper with matching carafe and two mugs. Brews a clean, flavorful cup. Microwave and dishwasher safe.',
-    price: 22000,
-    currency: 'NGN',
-    images: [
-      'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&h=800&fit=crop&crop=center',
-      'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&h=800&fit=crop&crop=center',
-    ],
-    category: 'Kitchen',
-    subcategory: 'Coffee & Tea',
-    rating: 4.7,
-    reviewCount: 987,
-    stock: 65,
-    tags: ['bestseller'],
-    specifications: new Map([
-      ['Material', 'Ceramic'],
-      ['Capacity', '600ml carafe'],
-      ['Includes', 'Dripper, carafe, 2 mugs, filters'],
-      ['Microwave Safe', 'Yes'],
-      ['Dishwasher Safe', 'Yes'],
-    ]),
-    discount: 8,
-    isNewProduct: true,
-    isFeatured: false,
-    isActive: true,
-    viewCount: 4500,
-    isSellerFavorite: false,
-    trendingScore: 78,
-    lastViewedAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
-  },
-
-  {
-    name: 'Bamboo Bathroom Organizer Set',
-    description:
-      'Eco-friendly bamboo bathroom organizer with soap dispenser, toothbrush holder, cup, and tray. Water-resistant finish. Adds a natural spa-like feel to any bathroom.',
-    price: 14500,
-    currency: 'NGN',
-    images: [
-      'https://images.unsplash.com/photo-1620626011761-996317702519?w=800&h=800&fit=crop&crop=center',
-      'https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=800&h=800&fit=crop&crop=center',
-    ],
-    category: 'Home & Garden',
-    subcategory: 'Bathroom',
-    rating: 4.6,
-    reviewCount: 743,
-    stock: 90,
-    tags: ['bestseller'],
-    specifications: new Map([
-      ['Material', 'Natural Bamboo'],
-      ['Pieces', '4 (dispenser, holder, cup, tray)'],
-      ['Finish', 'Water-resistant lacquer'],
-      ['Eco-Friendly', 'Yes'],
-      ['Dimensions', 'Tray: 30cm x 10cm'],
-    ]),
-    discount: 5,
-    isNewProduct: false,
-    isFeatured: false,
-    isActive: true,
-    viewCount: 3800,
-    isSellerFavorite: false,
-    trendingScore: 65,
-    lastViewedAt: new Date(Date.now() - 8 * 60 * 60 * 1000),
-  },
-
-  // ── Customer Favorites only (rating >= 4.0, not already covered above) ──────
-
-  {
-    name: 'Portable Bluetooth Speaker Waterproof',
-    description:
-      'Compact waterproof Bluetooth speaker with 360° surround sound and 20-hour battery life. IPX7 rated, perfect for outdoor use. Pairs with two devices simultaneously.',
-    price: 38000,
-    currency: 'NGN',
-    images: [
-      'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=800&h=800&fit=crop&crop=center',
-      'https://images.unsplash.com/photo-1545454675-3531b543be5d?w=800&h=800&fit=crop&crop=center',
-    ],
-    category: 'Electronics',
-    subcategory: 'Audio',
-    rating: 4.4,
-    reviewCount: 1562,
-    stock: 75,
-    tags: ['trending'],
-    specifications: new Map([
-      ['Battery Life', '20 hours'],
-      ['Waterproof Rating', 'IPX7'],
-      ['Connectivity', 'Bluetooth 5.0'],
-      ['Output Power', '20W'],
-      ['Weight', '540g'],
-    ]),
-    discount: 12,
-    isNewProduct: false,
-    isFeatured: false,
-    isActive: true,
-    viewCount: 7300,
-    isSellerFavorite: false,
-    trendingScore: 98,
-    lastViewedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-  },
-
-  {
-    name: 'Adjustable Laptop Stand Aluminum',
-    description:
-      'Ergonomic aluminum laptop stand with 6 adjustable height levels. Foldable and portable. Compatible with laptops 10–17 inches. Improves posture and reduces neck strain.',
-    price: 16500,
-    currency: 'NGN',
-    images: [
-      'https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=800&h=800&fit=crop&crop=center',
-      'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=800&h=800&fit=crop&crop=center',
-    ],
-    category: 'Electronics',
-    subcategory: 'Accessories',
-    rating: 4.3,
-    reviewCount: 2108,
-    stock: 140,
-    tags: ['trending'],
-    specifications: new Map([
-      ['Material', 'Aluminum Alloy'],
-      ['Height Levels', '6'],
-      ['Compatible', '10–17 inch laptops'],
-      ['Weight Capacity', '10kg'],
-      ['Foldable', 'Yes'],
-    ]),
-    discount: 0,
-    isNewProduct: true,
-    isFeatured: false,
-    isActive: true,
-    viewCount: 6100,
-    isSellerFavorite: false,
-    trendingScore: 85,
-    lastViewedAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
-  },
-];
 
 async function seedCollectionProducts() {
   try {
-    console.log('🚀 Seeding collection products...\n');
+    console.log('🚀 Starting collection products seeding...\n');
+    
     await connectDatabase();
     console.log('✅ Connected to database\n');
 
-    // Find or create a supplier
-    let supplier = await Supplier.findOne({ name: 'Demo Supplier' });
-    if (!supplier) {
-      supplier = new Supplier({
-        name: 'Demo Supplier',
-        email: 'demo@supplier.com',
-        phone: '+234 123 456 7890',
+    // Get all collections
+    const collections = await Collection.find({ isActive: true });
+    console.log(`📦 Found ${collections.length} active collections\n`);
+
+    // Get or create default supplier
+    let defaultSupplier = await Supplier.findOne({ verified: true });
+    if (!defaultSupplier) {
+      defaultSupplier = await Supplier.create({
+        name: 'Premium Marketplace Supplier',
+        email: 'supplier@afrochinatrade.com',
+        phone: '+234 8012345678',
         address: 'Lagos, Nigeria',
-        businessType: 'Manufacturer',
+        location: 'Lagos, Nigeria',
         verified: true,
         rating: 4.7,
-        totalOrders: 1250,
-        responseTime: '2 hours',
-        isActive: true,
+        reviewCount: 250,
+        responseTime: '2 hours'
       });
-      await supplier.save();
-      console.log('Created demo supplier');
+      console.log('✅ Created default supplier\n');
     }
 
-    let created = 0;
-    let skipped = 0;
+    let totalCreated = 0;
+    let collectionsWithProducts = 0;
+    let emptyCollections = 0;
 
-    for (const productData of newProducts) {
-      const exists = await Product.findOne({ name: productData.name });
-      if (exists) {
-        console.log(`⏭️  Skipped (exists): ${productData.name}`);
-        skipped++;
+    // Process each collection
+    for (const collection of collections) {
+      console.log(`\n📂 Processing: "${collection.name}"`);
+      
+      // Build query based on collection filters
+      const query: any = { isActive: true };
+      
+      for (const filter of collection.filters) {
+        switch (filter.type) {
+          case 'category':
+            query.category = filter.value;
+            break;
+          case 'tag':
+            if (Array.isArray(filter.value)) {
+              query.tags = { $in: filter.value };
+            } else {
+              query.tags = { $in: [filter.value] };
+            }
+            break;
+          case 'price_range':
+            if (typeof filter.value === 'object' && filter.value !== null) {
+              const priceRange = filter.value as { min?: number; max?: number };
+              if (priceRange.min !== undefined) query.price = { ...query.price, $gte: priceRange.min };
+              if (priceRange.max !== undefined) query.price = { ...query.price, $lte: priceRange.max };
+            }
+            break;
+          case 'rating_min':
+            query.rating = { $gte: filter.value };
+            break;
+          case 'discount_min':
+            query.discount = { $gte: filter.value };
+            break;
+        }
+      }
+
+      // Check if products exist for this collection
+      const productCount = await Product.countDocuments(query);
+      
+      if (productCount > 0) {
+        console.log(`   ✓ Collection has products (${productCount} found)`);
+        collectionsWithProducts++;
         continue;
       }
 
-      await Product.create({ ...productData, supplierId: supplier._id });
-      console.log(`✅ Created: ${productData.name}`);
-      created++;
+      console.log(`   ⚠️  Collection is empty, creating products...`);
+      emptyCollections++;
+
+      // Create products based on collection type
+      const productsToCreate = generateProductsForCollection(collection, defaultSupplier._id);
+      
+      for (const productData of productsToCreate) {
+        try {
+          const product = new Product(productData);
+          await product.save();
+          console.log(`   ✅ Created: ${product.name}`);
+          totalCreated++;
+        } catch (error: any) {
+          if (error.code === 11000) {
+            console.log(`   ⏭️  Product already exists: ${productData.name}`);
+          } else {
+            console.error(`   ❌ Failed to create product:`, error.message);
+          }
+        }
+      }
     }
 
-    console.log(`\n🎉 Done! Created: ${created}, Skipped: ${skipped}`);
-    console.log('\nCollection coverage:');
-    console.log('  Home & Living  (Furniture category) → 4 products');
-    console.log('  Bestsellers    (tag: bestseller)    → 8 products (some shared)');
-    console.log('  Top Rated      (rating >= 4.5)      → 8 products (some shared)');
-    console.log('  Customer Favs  (rating >= 4.0)      → all 10 products qualify');
+    console.log('\n=====================================');
+    console.log('🎉 Collection products seeding completed!');
+    console.log(`📊 Summary:`);
+    console.log(`   ✅ Collections with products: ${collectionsWithProducts}`);
+    console.log(`   🔨 Empty collections fixed: ${emptyCollections}`);
+    console.log(`   📦 New products created: ${totalCreated}`);
+    console.log(`   📋 Total collections: ${collections.length}`);
+
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error seeding collection products:', error);
     process.exit(1);
   } finally {
     await mongoose.connection.close();
     console.log('\n🔌 Database connection closed');
     process.exit(0);
   }
+}
+
+function generateProductsForCollection(collection: any, supplierId: mongoose.Types.ObjectId): any[] {
+  const products: any[] = [];
+  const filter = collection.filters[0]; // Use primary filter
+
+  // Generate 2-3 products per collection
+  const productCount = Math.floor(Math.random() * 2) + 2;
+
+  for (let i = 0; i < productCount; i++) {
+    const baseProduct = {
+      supplierId,
+      currency: 'NGN',
+      isActive: true,
+      stock: Math.floor(Math.random() * 50) + 10,
+      rating: 4.0 + Math.random() * 1.0,
+      reviewCount: Math.floor(Math.random() * 200) + 20,
+      viewCount: Math.floor(Math.random() * 1000) + 100,
+      trendingScore: Math.floor(Math.random() * 50) + 20,
+      lastViewedAt: new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)),
+      specifications: new Map([
+        ['Brand', 'Premium Brand'],
+        ['Warranty', '1 year manufacturer warranty'],
+        ['Quality', 'High quality materials']
+      ]),
+      policies: {
+        paymentPolicy: 'Multiple payment options available',
+        shippingPolicy: 'Fast shipping nationwide',
+        refundPolicy: '14-day return policy',
+        guidelines: 'Follow product instructions',
+        suggestions: 'Contact seller for bulk orders'
+      }
+    };
+
+    let product: any;
+
+    switch (filter.type) {
+      case 'category':
+        product = generateCategoryProduct(filter.value as string, i, baseProduct);
+        break;
+      case 'tag':
+        product = generateTagProduct(filter.value as string, i, baseProduct);
+        break;
+      case 'price_range':
+        product = generatePriceRangeProduct(filter.value as any, i, baseProduct);
+        break;
+      case 'rating_min':
+        product = generateRatingProduct(filter.value as number, i, baseProduct);
+        break;
+      case 'discount_min':
+        product = generateDiscountProduct(filter.value as number, i, baseProduct);
+        break;
+      default:
+        product = generateGenericProduct(collection.name, i, baseProduct);
+    }
+
+    if (product) {
+      products.push(product);
+    }
+  }
+
+  return products;
+}
+
+function generateCategoryProduct(category: string, index: number, base: any): any {
+  const productTemplates: Record<string, any> = {
+    'Electronics': {
+      names: ['Wireless Bluetooth Headphones Pro', 'Smart LED TV 55 Inch 4K', 'Portable Power Bank 20000mAh'],
+      descriptions: [
+        'High-quality wireless headphones with active noise cancellation and 30-hour battery life',
+        'Ultra HD 4K Smart TV with HDR support and built-in streaming apps',
+        'Fast-charging power bank with dual USB ports and LED display'
+      ],
+      prices: [45000, 285000, 18500],
+      tags: ['trending', 'premium', 'new']
+    },
+    'Fashion': {
+      names: ['Designer Sneakers Premium', 'Elegant Evening Dress', 'Leather Wallet Classic'],
+      descriptions: [
+        'Comfortable premium sneakers with breathable mesh and cushioned sole',
+        'Stunning evening dress perfect for special occasions',
+        'Genuine leather wallet with multiple card slots and RFID protection'
+      ],
+      prices: [35000, 65000, 15000],
+      tags: ['premium', 'bestseller', 'trending']
+    },
+    'Furniture': {
+      names: ['Modern Office Chair Ergonomic', 'Wooden Dining Table Set', 'Comfortable Sofa 3-Seater'],
+      descriptions: [
+        'Ergonomic office chair with lumbar support and adjustable height',
+        'Solid wood dining table with 6 matching chairs',
+        'Comfortable 3-seater sofa with premium fabric upholstery'
+      ],
+      prices: [75000, 185000, 245000],
+      tags: ['premium', 'new', 'trending']
+    },
+    'Automotive': {
+      names: ['Car Tire Set Premium 4pcs', 'LED Headlight Bulbs Pair', 'Car Floor Mats Universal'],
+      descriptions: [
+        'High-performance tires with excellent grip and durability',
+        'Bright LED headlight bulbs with easy installation',
+        'Waterproof car floor mats with anti-slip backing'
+      ],
+      prices: [95000, 22000, 12500],
+      tags: ['premium', 'bestseller', 'sale']
+    },
+    'Books and Media': {
+      names: ['Business Strategy Handbook', 'Classic Movie Collection DVD', 'Educational Audio Course Set'],
+      descriptions: [
+        'Comprehensive guide to modern business strategy and management',
+        'Collection of timeless classic movies on DVD',
+        'Professional audio course for skill development'
+      ],
+      prices: [12000, 8500, 25000],
+      tags: ['bestseller', 'new', 'trending']
+    }
+  };
+
+  const template = productTemplates[category] || {
+    names: [`${category} Product ${index + 1}`, `Premium ${category} Item`, `Quality ${category} Product`],
+    descriptions: [`High-quality ${category.toLowerCase()} product`, `Premium ${category.toLowerCase()} item`, `Quality ${category.toLowerCase()} product`],
+    prices: [25000, 45000, 65000],
+    tags: ['premium', 'new']
+  };
+
+  const idx = index % template.names.length;
+
+  return {
+    ...base,
+    name: `${template.names[idx]} - ${Date.now()}-${index}`,
+    description: template.descriptions[idx],
+    price: template.prices[idx],
+    category,
+    subcategory: 'General',
+    tags: template.tags,
+    images: [
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=800&fit=crop'
+    ],
+    discount: Math.floor(Math.random() * 15)
+  };
+}
+
+function generateTagProduct(tag: string, index: number, base: any): any {
+  return {
+    ...base,
+    name: `${tag.charAt(0).toUpperCase() + tag.slice(1)} Product ${Date.now()}-${index}`,
+    description: `Premium product featuring ${tag} technology and design`,
+    price: 35000 + Math.floor(Math.random() * 50000),
+    category: 'Electronics',
+    subcategory: 'General',
+    tags: [tag, 'premium', 'new'],
+    images: [
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=800&fit=crop'
+    ],
+    discount: Math.floor(Math.random() * 20)
+  };
+}
+
+function generatePriceRangeProduct(priceRange: { min?: number; max?: number }, index: number, base: any): any {
+  const min = priceRange.min || 10000;
+  const max = priceRange.max || 500000;
+  const price = min + Math.floor(Math.random() * (max - min));
+
+  return {
+    ...base,
+    name: `Quality Product ${Date.now()}-${index}`,
+    description: `Premium product in the ₦${min.toLocaleString()} - ₦${max.toLocaleString()} range`,
+    price,
+    category: 'Electronics',
+    subcategory: 'General',
+    tags: ['premium', 'bestseller', 'sale'],
+    images: [
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=800&fit=crop'
+    ],
+    discount: Math.floor(Math.random() * 15)
+  };
+}
+
+function generateRatingProduct(minRating: number, index: number, base: any): any {
+  return {
+    ...base,
+    name: `Top Rated Product ${Date.now()}-${index}`,
+    description: 'Highly rated product with excellent customer reviews and satisfaction',
+    price: 45000 + Math.floor(Math.random() * 80000),
+    category: 'Electronics',
+    subcategory: 'General',
+    tags: ['bestseller', 'premium', 'trending'],
+    rating: minRating + Math.random() * (5 - minRating),
+    reviewCount: Math.floor(Math.random() * 500) + 100,
+    images: [
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=800&fit=crop'
+    ],
+    discount: Math.floor(Math.random() * 10)
+  };
+}
+
+function generateDiscountProduct(minDiscount: number, index: number, base: any): any {
+  return {
+    ...base,
+    name: `Hot Deal Product ${Date.now()}-${index}`,
+    description: 'Amazing discount on quality product - limited time offer',
+    price: 55000 + Math.floor(Math.random() * 70000),
+    category: 'Electronics',
+    subcategory: 'General',
+    tags: ['sale', 'limited', 'trending'],
+    discount: minDiscount + Math.floor(Math.random() * (50 - minDiscount)),
+    images: [
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=800&fit=crop'
+    ]
+  };
+}
+
+function generateGenericProduct(collectionName: string, index: number, base: any): any {
+  return {
+    ...base,
+    name: `${collectionName} Product ${Date.now()}-${index}`,
+    description: `Quality product for ${collectionName} collection`,
+    price: 35000 + Math.floor(Math.random() * 60000),
+    category: 'Electronics',
+    subcategory: 'General',
+    tags: ['premium', 'new'],
+    images: [
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=800&fit=crop'
+    ],
+    discount: Math.floor(Math.random() * 15)
+  };
 }
 
 if (require.main === module) {

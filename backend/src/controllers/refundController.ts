@@ -3,6 +3,7 @@ import Refund from '../models/Refund';
 import Order from '../models/Order';
 import User from '../models/User';
 import { notifyAdminsOfRefundRequest, createNotification, notifyAdmins } from './notificationController';
+import PushDeliveryService from '../services/PushDeliveryService';
 
 export const createRefund = async (req: Request, res: Response) => {
   try {
@@ -73,15 +74,20 @@ export const createRefund = async (req: Request, res: Response) => {
       reason,
     });
 
+    // Get user details for notification
+    const user = await User.findById(order.userId).select('name');
+    const customerName = user?.name || 'Unknown Customer';
+    const refundAmount = type === 'full' ? order.totalAmount : amount;
+
     // Populate the refund with order details for response
     const populatedRefund = await Refund.findById(refund._id)
       .populate('orderId', 'orderId totalAmount status');
 
     // Notify admins about new refund request
     await notifyAdmins(
-      'refund_request',
+      'new_refund_request',
       'New Refund Request',
-      `A new ${type} refund request has been submitted for order #${order.orderId}`,
+      `${customerName} requested a ${type} refund for order #${order.orderId} - ₦${refundAmount.toFixed(2)}`,
       {
         refundId: refund._id,
         orderId: order._id,
@@ -89,6 +95,25 @@ export const createRefund = async (req: Request, res: Response) => {
         type: refund.type,
       }
     );
+
+    // Send admin alert push notification (fire-and-forget)
+    (async () => {
+      try {
+        const adminUsers = await User.find({ role: { $in: ['admin', 'super_admin'] } }, { _id: 1 });
+        const adminUserIds = adminUsers.map(u => u._id.toString());
+        
+        if (adminUserIds.length > 0) {
+          await PushDeliveryService.send({
+            userIds: adminUserIds,
+            title: 'New Refund Request',
+            body: `${customerName} requested a ${type} refund - ₦${refundAmount.toFixed(2)}`,
+            data: { screen: 'admin-refund', refundId: refund._id.toString() },
+          });
+        }
+      } catch (error) {
+        console.error('[refundController] Error sending admin refund alert push:', error);
+      }
+    })();
 
     res.status(201).json({
       message: 'Refund request created successfully',
@@ -243,6 +268,21 @@ export const updateRefundStatus = async (req: Request, res: Response) => {
             status: status,
           }
         );
+
+        // Send customer push notification (fire-and-forget)
+        (async () => {
+          try {
+            await PushDeliveryService.send({
+              userIds: [(order.userId as any)._id.toString()],
+              title: `Refund ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+              body: statusMessages[status as keyof typeof statusMessages],
+              data: { screen: 'my-refunds', refundId: refund._id.toString() },
+              settingKey: 'orderUpdates',
+            });
+          } catch (error) {
+            console.error('[refundController] Error sending refund status push:', error);
+          }
+        })();
       }
     }
 
@@ -410,9 +450,9 @@ export const createRefundRequest = async (req: Request, res: Response) => {
 
     // Notify admins about new refund request
     await notifyAdmins(
-      'refund_request',
+      'new_refund_request',
       'New Refund Request',
-      `A new ${type} refund request has been submitted for order #${order.orderId}`,
+      `${customerName} requested a ${type} refund for order #${order.orderId} - ₦${refundAmount.toFixed(2)}`,
       {
         refundId: refund._id,
         orderId: order._id,
@@ -420,6 +460,25 @@ export const createRefundRequest = async (req: Request, res: Response) => {
         type: refund.type,
       }
     );
+
+    // Send admin alert push notification (fire-and-forget)
+    (async () => {
+      try {
+        const adminUsers = await User.find({ role: { $in: ['admin', 'super_admin'] } }, { _id: 1 });
+        const adminUserIds = adminUsers.map(u => u._id.toString());
+        
+        if (adminUserIds.length > 0) {
+          await PushDeliveryService.send({
+            userIds: adminUserIds,
+            title: 'New Refund Request',
+            body: `${customerName} requested a ${type} refund - ₦${refundAmount.toFixed(2)}`,
+            data: { screen: 'admin-refund', refundId: refund._id.toString() },
+          });
+        }
+      } catch (error) {
+        console.error('[refundController] Error sending admin refund alert push:', error);
+      }
+    })();
 
     res.status(201).json({
       success: true,

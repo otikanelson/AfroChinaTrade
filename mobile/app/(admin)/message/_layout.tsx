@@ -1,26 +1,9 @@
 import { Stack } from 'expo-router';
-import { theme } from '../../../theme';
 
 export default function MessageStackLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: theme.colors.primary,
-        },
-        headerTintColor: theme.colors.background,
-        headerTitleStyle: {
-          fontWeight: theme.fontWeights.semibold,
-        },
-      }}
-    >
-      <Stack.Screen
-        name="[threadId]"
-        options={{
-          title: 'Conversation',
-        }}
-      />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="[threadId]" />
     </Stack>
   );
 }

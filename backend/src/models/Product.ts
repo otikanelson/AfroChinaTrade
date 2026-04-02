@@ -105,13 +105,6 @@ const ProductSchema = new Schema<IProduct>(
     tags: {
       type: [String],
       default: [],
-      validate: {
-        validator: function (tags: string[]) {
-          const validTags = ['trending', 'new', 'sale', 'bestseller', 'limited', 'premium', 'eco-friendly'];
-          return tags.every(tag => validTags.includes(tag));
-        },
-        message: 'Invalid tag. Valid tags are: trending, new, sale, bestseller, limited, premium, eco-friendly',
-      },
     },
     specifications: {
       type: Map,
@@ -202,6 +195,12 @@ ProductSchema.index({ trendingScore: -1 });
 
 // Index on lastViewedAt for trending timeframe queries
 ProductSchema.index({ lastViewedAt: -1 });
+
+// Compound index for search with category filter (optimizes search page)
+ProductSchema.index({ isActive: 1, category: 1, createdAt: -1 });
+
+// Compound index for price range queries
+ProductSchema.index({ isActive: 1, price: 1 });
 
 // Create and export the Product model
 const Product = mongoose.model<IProduct>('Product', ProductSchema);

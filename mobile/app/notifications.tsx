@@ -204,8 +204,6 @@ export default function NotificationsScreen() {
     markAsRead,
     markAllAsRead,
     updateSettings,
-    startPolling,
-    stopPolling,
   } = useNotifications();
 
   const [showSettings, setShowSettings] = useState(false);
@@ -217,14 +215,6 @@ export default function NotificationsScreen() {
       setLocalSettings(settings);
     }
   }, [settings]);
-
-  // Start/stop polling based on screen focus and authentication
-  useEffect(() => {
-    if (isAuthenticated && user?.id) {
-      startPolling();
-      return () => stopPolling();
-    }
-  }, [isAuthenticated, user?.id, startPolling, stopPolling]);
 
   const styles = StyleSheet.create({
     container: {
@@ -418,8 +408,10 @@ export default function NotificationsScreen() {
     }
 
     // Navigate based on notification type and data
-    if (notification.data?.orderId) {
-      router.push(`/order/${notification.data.orderId}`);
+    if (notification.data?.refundId) {
+      router.push('/my-refunds');
+    } else if (notification.data?.orderId) {
+      router.push(`/order-detail/${notification.data.orderId}`);
     } else if (notification.data?.threadId) {
       router.push(`/message-thread/${notification.data.threadId}`);
     }

@@ -172,19 +172,19 @@ export default function EditProductScreen() {
       minWidth: 140,
     },
     actions: {
+      flexDirection: 'row',
       marginTop: spacing.xl,
       gap: spacing.base,
+      flex: 1,
+      justifyContent: 'center',
     },
     saveButton: {
-      width: '100%',
-      ...shadows.md,
-    },
-    deleteButton: {
-      width: '100%',
+      width: '45%',
       ...shadows.sm,
     },
-    cancelButton: {
-      width: '100%',
+    deleteButton: {
+      width: '45%',
+      ...shadows.sm,
     },
     discountPreview: {
       backgroundColor: colors.background,
@@ -626,7 +626,7 @@ export default function EditProductScreen() {
         <ImagePickerField
           label="Product Images"
           images={form.images}
-          onImagesChange={(imgs) => setField('images', imgs)}
+          onImagesChange={(imgs: PickedImage[]) => setField('images', imgs)}
           maxImages={8}
           helperText="Add up to 8 photos"
           testID="edit-product-images"
@@ -812,7 +812,7 @@ export default function EditProductScreen() {
             onPress={handleSubmit}
             loading={saving}
             icon="checkmark-circle-outline"
-            size="lg"
+            size="md"
             style={styles.saveButton}
             testID="edit-product-save"
           />
@@ -822,19 +822,10 @@ export default function EditProductScreen() {
             loading={deleting}
             variant="destructive"
             icon="trash-outline"
-            size="lg"
+            size="md"
             disabled={saving}
             style={styles.deleteButton}
             testID="edit-product-delete"
-          />
-          <Button
-            label="Cancel"
-            onPress={() => router.back()}
-            variant="secondary"
-            size="lg"
-            disabled={saving || deleting}
-            style={styles.cancelButton}
-            testID="edit-product-cancel"
           />
         </View>
       </ScrollView>

@@ -13,6 +13,14 @@ export interface IAddress {
   locationSummary?: string;
 }
 
+// Push token record subdocument interface
+export interface IPushTokenRecord {
+  token: string;
+  deviceId: string;
+  platform: 'ios' | 'android';
+  createdAt: Date;
+}
+
 // Notification settings interface
 export interface INotificationSettings {
   orderUpdates: boolean;
@@ -40,6 +48,7 @@ export interface IUser extends Document {
   addresses: IAddress[];
   avatar?: string;
   notificationSettings: INotificationSettings;
+  pushTokens: IPushTokenRecord[];
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -76,6 +85,27 @@ const AddressSchema = new Schema<IAddress>({
   },
   locationSummary: {
     type: String,
+  },
+}, { _id: false });
+
+// Push token record subdocument schema
+const PushTokenRecordSchema = new Schema<IPushTokenRecord>({
+  token: {
+    type: String,
+    required: true,
+  },
+  deviceId: {
+    type: String,
+    required: true,
+  },
+  platform: {
+    type: String,
+    enum: ['ios', 'android'],
+    required: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
   },
 }, { _id: false });
 
@@ -195,6 +225,14 @@ const UserSchema = new Schema<IUser>(
       type: NotificationSettingsSchema,
       default: () => ({}), // Will use schema defaults
     },
+    pushTokens: {
+      type: [PushTokenRecordSchema],
+      default: [],
+      validate: {
+        validator: (arr: IPushTokenRecord[]) => arr.length <= 10,
+        message: 'A user may not have more than 10 push tokens',
+      },
+    },
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt
@@ -204,6 +242,8 @@ const UserSchema = new Schema<IUser>(
 // Indexes
 // Compound index on role and status for efficient queries
 UserSchema.index({ role: 1, status: 1 });
+// Index for push token lookup during cleanup
+UserSchema.index({ 'pushTokens.token': 1 });
 
 // Pre-save hook to hash password
 UserSchema.pre<IUser>('save', async function () {

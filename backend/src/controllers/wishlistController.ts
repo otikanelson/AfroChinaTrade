@@ -14,7 +14,7 @@ export const getWishlist = async (req: Request, res: Response) => {
         select: 'name price images category stock isActive supplierId discount viewCount reviewCount',
         populate: {
           path: 'supplierId',
-          select: 'name email verified rating location responseTime'
+          select: 'name email verified rating location responseTime logo'
         }
       })
       .sort({ addedAt: -1 });
@@ -76,7 +76,7 @@ export const addToWishlist = async (req: Request, res: Response) => {
       select: 'name price images category supplierId discount viewCount reviewCount stock',
       populate: {
         path: 'supplierId',
-        select: 'name email verified rating location responseTime'
+        select: 'name email verified rating location responseTime logo'
       }
     });
 

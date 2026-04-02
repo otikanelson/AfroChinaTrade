@@ -53,6 +53,14 @@ class NotificationService {
   async updateNotificationSettings(settings: NotificationSettings): Promise<ApiResponse<NotificationSettings>> {
     return apiClient.put<NotificationSettings>('/users/notification-settings', settings);
   }
+
+  async registerPushToken(token: string, deviceId: string, platform: 'ios' | 'android'): Promise<ApiResponse<void>> {
+    return apiClient.post<void>('/push-tokens', { token, deviceId, platform });
+  }
+
+  async removePushToken(token: string): Promise<ApiResponse<void>> {
+    return apiClient.delete<void>('/push-tokens', { data: { token } });
+  }
 }
 
 export const notificationService = new NotificationService();

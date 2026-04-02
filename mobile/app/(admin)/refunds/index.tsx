@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,6 +11,7 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { refundService } from '../../../services/RefundService';
@@ -219,41 +220,114 @@ export default function RefundsManagementScreen() {
     }
   };
 
-  const renderRefund = ({ item }: { item: Refund }) => (
-    <Card style={s.card}>
-      <View style={s.cardContent}>
-        <View style={s.cardHeader}>
-          <View style={s.cardInfo}>
-            <Text style={s.orderId}>Order #{typeof item.orderId === 'object' ? item.orderId.orderId : String(item.orderId).slice(-8).toUpperCase()}</Text>
-            <Text style={s.reason} numberOfLines={2}>{item.reason}</Text>
-            <View style={s.metaRow}>
-              <Text style={s.date}>{formatDate(item.createdAt)}</Text>
-              <View style={[s.typeBadge, { backgroundColor: item.type === 'full' ? '#fee2e2' : '#fef3c7' }]}>
-                <Text style={s.typeBadgeText}>{item.type === 'full' ? 'Full' : 'Partial'}</Text>
+  // ── Drag-to-dismiss for details sheet ─────────────────────────────────────
+  const sheetTranslateY = useRef(new Animated.Value(0)).current;
+  const isClosing = useRef(false);
+
+  // Animate in when modal opens
+  useEffect(() => {
+    if (detailsModalVisible) {
+      sheetTranslateY.setValue(700);
+      Animated.spring(sheetTranslateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        bounciness: 0,
+        speed: 20,
+      }).start();
+    }
+  }, [detailsModalVisible]);
+
+  const closeDetailsSheet = () => {
+    if (isClosing.current) return;
+    isClosing.current = true;
+    Animated.timing(sheetTranslateY, {
+      toValue: 700,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(() => {
+      sheetTranslateY.setValue(0);
+      isClosing.current = false;
+      setDetailsModalVisible(false);
+    });
+  };
+
+  const handleSheetScrollEnd = (e: any) => {
+    // If user scrolled up past the top (negative offset = overscroll down on iOS,
+    // or we detect a downward drag via contentOffset.y < -40)
+    if (e.nativeEvent.contentOffset.y < -40) {
+      closeDetailsSheet();
+    }
+  };
+
+  const renderRefund = ({ item }: { item: Refund }) => {
+    const statusColor = STATUS_COLORS[item.status] ?? '#999';
+    const orderId = typeof item.orderId === 'object' ? item.orderId.orderId : String(item.orderId).slice(-8).toUpperCase();
+    return (
+      <TouchableOpacity
+        style={{
+          marginHorizontal: spacing.base,
+          marginVertical: spacing.xs,
+          backgroundColor: colors.background,
+          borderRadius: borderRadius.lg,
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: colors.borderLight,
+        }}
+        activeOpacity={0.85}
+        onPress={() => handleViewDetails(item)}
+      >
+        {/* Colored top strip */}
+        <View style={{ height: 4, backgroundColor: statusColor }} />
+
+        <View style={{ padding: spacing.md }}>
+          {/* Top row: order id + amount */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary, marginBottom: 2 }}>Order</Text>
+              <Text style={{ fontSize: fontSizes.base, fontWeight: fontWeights.bold as any, color: colors.text }}>
+                #{orderId}
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ fontSize: fontSizes.xl, fontWeight: fontWeights.bold as any, color: statusColor }}>
+                ₦{item.amount.toFixed(0)}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                <View style={{ backgroundColor: statusColor + '20', borderRadius: borderRadius.full, paddingHorizontal: spacing.sm, paddingVertical: 2 }}>
+                  <Text style={{ fontSize: 10, fontWeight: fontWeights.semibold as any, color: statusColor, textTransform: 'capitalize' }}>
+                    {item.status}
+                  </Text>
+                </View>
+                <View style={{ backgroundColor: item.type === 'full' ? '#fee2e2' : '#fef3c7', borderRadius: borderRadius.full, paddingHorizontal: spacing.sm, paddingVertical: 2 }}>
+                  <Text style={{ fontSize: 10, color: colors.text, textTransform: 'capitalize' }}>{item.type}</Text>
+                </View>
               </View>
             </View>
-            {item.processedBy && <Text style={s.processedBy}>Processed by: {item.processedBy.name}</Text>}
           </View>
-          <View style={s.cardRight}>
-            <Text style={s.amount}>₦{item.amount.toFixed(2)}</Text>
-            <View style={[s.statusBadge, { backgroundColor: STATUS_COLORS[item.status] ?? '#999' }]}>
-              <Text style={s.statusText}>{item.status}</Text>
-            </View>
+
+          {/* Reason */}
+          <Text style={{ fontSize: fontSizes.sm, color: colors.textSecondary, marginBottom: spacing.sm }} numberOfLines={2}>
+            {item.reason}
+          </Text>
+
+          {/* Footer: date + action */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: fontSizes.xs, color: colors.textLight }}>{formatDate(item.createdAt)}</Text>
+            {(item.status === 'pending' || item.status === 'approved') && (
+              <TouchableOpacity
+                style={{ backgroundColor: colors.primary, borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}
+                onPress={(e) => { e.stopPropagation(); handleStatusUpdate(item); }}
+              >
+                <Text style={{ fontSize: fontSizes.xs, fontWeight: fontWeights.semibold as any, color: colors.textInverse }}>
+                  Update Status
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
-        <View style={s.actionButtons}>
-          <TouchableOpacity style={[s.actionBtn, s.actionBtnSecondary]} onPress={() => handleViewDetails(item)}>
-            <Text style={[s.actionBtnText, s.actionBtnTextSecondary]}>View Details</Text>
-          </TouchableOpacity>
-          {(item.status === 'pending' || item.status === 'approved') && (
-            <TouchableOpacity style={[s.actionBtn, s.actionBtnPrimary]} onPress={() => handleStatusUpdate(item)}>
-              <Text style={[s.actionBtnText, s.actionBtnTextPrimary]}>Update Status</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    </Card>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={s.screen}>
@@ -339,38 +413,129 @@ export default function RefundsManagementScreen() {
         </View>
       </Modal>
 
-      {/* Details Modal */}
-      <Modal visible={detailsModalVisible} transparent animationType="fade" onRequestClose={() => setDetailsModalVisible(false)}>
-        <View style={s.overlay}>
-          <ScrollView style={s.modalBox} showsVerticalScrollIndicator={false}>
-            <Text style={s.modalTitle}>Refund Details</Text>
+      {/* Details Modal — bottom sheet */}
+      <Modal visible={detailsModalVisible} transparent animationType="none" onRequestClose={closeDetailsSheet}>
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          {/* Backdrop — tap to close */}
+          <TouchableOpacity
+            style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' }}
+            activeOpacity={1}
+            onPress={closeDetailsSheet}
+          />
+          <Animated.View style={{
+            backgroundColor: colors.background,
+            borderTopLeftRadius: 24, borderTopRightRadius: 24,
+            maxHeight: '85%',
+            overflow: 'hidden',
+            transform: [{ translateY: sheetTranslateY }],
+          }}>
             {selectedRefund && (
               <>
-                {[
-                  { label: 'Order ID', value: `#${typeof selectedRefund.orderId === 'object' ? selectedRefund.orderId.orderId : selectedRefund.orderId}` },
-                  { label: 'Refund Type', value: selectedRefund.type.charAt(0).toUpperCase() + selectedRefund.type.slice(1) },
-                  { label: 'Amount', value: `₦${selectedRefund.amount.toFixed(2)}` },
-                  { label: 'Status', value: selectedRefund.status },
-                  { label: 'Reason', value: selectedRefund.reason },
-                  { label: 'Created At', value: formatDate(selectedRefund.createdAt) },
-                  ...(selectedRefund.processedBy ? [{ label: 'Processed By', value: selectedRefund.processedBy.name }] : []),
-                  ...(selectedRefund.processedAt ? [{ label: 'Processed At', value: formatDate(selectedRefund.processedAt) }] : []),
-                  ...(selectedRefund.adminNotes ? [{ label: 'Admin Notes', value: selectedRefund.adminNotes }] : []),
-                ].map(({ label, value }) => (
-                  <View key={label} style={s.modalSection}>
-                    <Text style={s.modalLabel}>{label}</Text>
-                    <Text style={s.modalValue}>{value}</Text>
+                {/* Drag handle — visual only, drag via ScrollView overscroll */}
+                <View style={{ paddingTop: spacing.md, paddingBottom: spacing.sm, alignItems: 'center' }}>
+                  <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
+                </View>
+
+                {/* Colored status header */}
+                <View style={{
+                  backgroundColor: STATUS_COLORS[selectedRefund.status] ?? colors.textSecondary,
+                  paddingHorizontal: spacing.lg,
+                  paddingBottom: spacing.xl,
+                  paddingTop: spacing.sm,
+                }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <View>
+                      <Text style={{ fontSize: fontSizes.xs, color: 'rgba(255,255,255,0.75)', marginBottom: 2 }}>Refund Request</Text>
+                      <Text style={{ fontSize: fontSizes.xl, fontWeight: fontWeights.bold as any, color: '#fff' }}>
+                        ₦{selectedRefund.amount.toFixed(2)}
+                      </Text>
+                      <Text style={{ fontSize: fontSizes.sm, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                        Order #{typeof selectedRefund.orderId === 'object' ? selectedRefund.orderId.orderId : String(selectedRefund.orderId).slice(-8).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{
+                      backgroundColor: 'rgba(255,255,255,0.25)',
+                      borderRadius: borderRadius.full,
+                      paddingHorizontal: spacing.md,
+                      paddingVertical: spacing.xs,
+                    }}>
+                      <Text style={{ fontSize: fontSizes.sm, fontWeight: fontWeights.bold as any, color: '#fff', textTransform: 'capitalize' }}>
+                        {selectedRefund.status}
+                      </Text>
+                    </View>
                   </View>
-                ))}
+                </View>
+
+                {/* Content */}
+                <ScrollView style={{ paddingHorizontal: spacing.lg }} showsVerticalScrollIndicator={false}
+                  bounces={true}
+                  onScrollEndDrag={handleSheetScrollEnd}
+                >
+                  {/* Type + Date row */}
+                  <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, marginBottom: spacing.base }}>
+                    <View style={{ flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.md, alignItems: 'center' }}>
+                      <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary, marginBottom: 4 }}>Type</Text>
+                      <View style={{ backgroundColor: selectedRefund.type === 'full' ? '#fee2e2' : '#fef3c7', borderRadius: borderRadius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 }}>
+                        <Text style={{ fontSize: fontSizes.sm, fontWeight: fontWeights.semibold as any, color: colors.text, textTransform: 'capitalize' }}>
+                          {selectedRefund.type}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ flex: 2, backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.md }}>
+                      <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary, marginBottom: 4 }}>Requested</Text>
+                      <Text style={{ fontSize: fontSizes.sm, color: colors.text, fontWeight: fontWeights.medium as any }}>
+                        {formatDate(selectedRefund.createdAt)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Reason */}
+                  <View style={{ backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm }}>
+                    <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary, marginBottom: 4 }}>Reason</Text>
+                    <Text style={{ fontSize: fontSizes.base, color: colors.text, lineHeight: 22 }}>{selectedRefund.reason}</Text>
+                  </View>
+
+                  {/* Processed info */}
+                  {(selectedRefund.processedBy || selectedRefund.processedAt || selectedRefund.adminNotes) && (
+                    <View style={{ backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm, borderLeftWidth: 3, borderLeftColor: STATUS_COLORS[selectedRefund.status] ?? colors.primary }}>
+                      {selectedRefund.processedBy && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                          <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary }}>Processed by</Text>
+                          <Text style={{ fontSize: fontSizes.sm, color: colors.text, fontWeight: fontWeights.medium as any }}>{selectedRefund.processedBy.name}</Text>
+                        </View>
+                      )}
+                      {selectedRefund.processedAt && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                          <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary }}>Processed at</Text>
+                          <Text style={{ fontSize: fontSizes.sm, color: colors.text }}>{formatDate(selectedRefund.processedAt)}</Text>
+                        </View>
+                      )}
+                      {selectedRefund.adminNotes && (
+                        <>
+                          <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary, marginBottom: 4 }}>Admin notes</Text>
+                          <Text style={{ fontSize: fontSizes.sm, color: colors.text, fontStyle: 'italic' }}>{selectedRefund.adminNotes}</Text>
+                        </>
+                      )}
+                    </View>
+                  )}
+
+                  <View style={{ height: spacing.xl }} />
+                </ScrollView>
+
+                {/* Action buttons */}
+                <View style={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+                  <Button label="Close" variant="secondary" onPress={closeDetailsSheet} style={{ flex: 1 }} />
+                  {(selectedRefund.status === 'pending' || selectedRefund.status === 'approved') && (
+                    <Button
+                      label="Update Status"
+                      onPress={() => { closeDetailsSheet(); setTimeout(() => handleStatusUpdate(selectedRefund!), 250); }}
+                      style={{ flex: 1 }}
+                    />
+                  )}
+                </View>
               </>
             )}
-            <View style={s.modalActions}>
-              <Button label="Close" variant="secondary" onPress={() => setDetailsModalVisible(false)} style={s.modalBtn} />
-              {(selectedRefund?.status === 'pending' || selectedRefund?.status === 'approved') && (
-                <Button label="Update Status" onPress={() => { setDetailsModalVisible(false); handleStatusUpdate(selectedRefund!); }} style={s.modalBtn} />
-              )}
-            </View>
-          </ScrollView>
+          </Animated.View>
         </View>
       </Modal>
     </SafeAreaView>

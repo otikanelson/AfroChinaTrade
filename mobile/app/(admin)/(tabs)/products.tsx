@@ -228,7 +228,7 @@ export default function ProductsScreen() {
     quickActionsContainer: {
       flexDirection: 'row',
       paddingHorizontal: themeSpacing.base,
-      paddingVertical: themeSpacing.md,
+      paddingVertical: themeSpacing.sm,
       gap: themeSpacing.sm,
       backgroundColor: themeColors.surface,
       borderBottomWidth: 1,
@@ -240,7 +240,7 @@ export default function ProductsScreen() {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: themeColors.primary,
-      paddingVertical: themeSpacing.md,
+      paddingVertical: themeSpacing.sm,
       paddingHorizontal: themeSpacing.lg,
       borderRadius: borderRadius.md,
       gap: themeSpacing.sm,
@@ -251,7 +251,7 @@ export default function ProductsScreen() {
       borderColor: themeColors.primary,
     },
     quickActionText: {
-      fontSize: fontSizes.base,
+      fontSize: fontSizes.xs,
       fontWeight: fontWeights.semibold as any,
       color: themeColors.textInverse,
     },
@@ -665,6 +665,17 @@ export default function ProductsScreen() {
           <Ionicons name="albums-outline" size={20} color={themeColors.primary} />
           <Text style={[styles.quickActionText, styles.quickActionTextSecondary]}>
             Collections {collectionsCount > 0 && `(${collectionsCount})`}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.quickActionButton, styles.quickActionButtonSecondary]}
+          onPress={() => router.push('/(admin)/categories')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="grid-outline" size={20} color={themeColors.primary} />
+          <Text style={[styles.quickActionText, styles.quickActionTextSecondary]}>
+            Categories
           </Text>
         </TouchableOpacity>
       </View>

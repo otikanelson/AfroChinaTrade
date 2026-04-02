@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import Notification from '../models/Notification';
 import User from '../models/User';
+import PushDeliveryService from '../services/PushDeliveryService';
 
 // Get notifications for a user
 export const getNotifications = async (req: Request, res: Response) => {
@@ -120,7 +121,7 @@ export const getUnreadCount = async (req: Request, res: Response) => {
 // Create notification (internal use)
 export const createNotification = async (
   userId: string,
-  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'price_drop' | 'new_product',
+  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'price_drop' | 'new_product' | 'new_order' | 'new_refund_request',
   title: string,
   message: string,
   data?: Record<string, any>
@@ -144,7 +145,7 @@ export const createNotification = async (
 // Bulk create notifications for multiple users
 export const createBulkNotifications = async (
   userIds: string[],
-  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'price_drop' | 'new_product',
+  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'price_drop' | 'new_product' | 'new_order' | 'new_refund_request',
   title: string,
   message: string,
   data?: Record<string, any>
@@ -344,7 +345,7 @@ export const notifyAdminsOfRefundRequest = async (
 
 // Generic function to notify all admins
 export const notifyAdmins = async (
-  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'price_drop' | 'new_product',
+  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'price_drop' | 'new_product' | 'new_order' | 'new_refund_request',
   title: string,
   message: string,
   data?: any
@@ -369,5 +370,239 @@ export const notifyAdmins = async (
   } catch (error) {
     console.error('Error notifying admins:', error);
     return false;
+  }
+};
+
+// Register push token for the current user
+export const registerPushToken = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    const { token, deviceId, platform } = req.body;
+
+    // Validate required fields
+    if (!token || typeof token !== 'string' || token.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Token is required and must be a non-empty string',
+      });
+    }
+
+    if (!deviceId || typeof deviceId !== 'string' || deviceId.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Device ID is required and must be a non-empty string',
+      });
+    }
+
+    if (!platform || !['ios', 'android'].includes(platform)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Platform is required and must be either "ios" or "android"',
+      });
+    }
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Check if token already exists for this user
+    const existingTokenIndex = user.pushTokens.findIndex(
+      (t) => t.token === token
+    );
+
+    if (existingTokenIndex !== -1) {
+      // Token already exists, no need to add it again
+      return res.json({
+        success: true,
+        message: 'Push token already registered',
+      });
+    }
+
+    // If we're at the cap of 10 tokens, remove the oldest one
+    if (user.pushTokens.length >= 10) {
+      // Sort by createdAt and remove the oldest
+      user.pushTokens.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      user.pushTokens.shift(); // Remove the oldest
+    }
+
+    // Add the new token
+    user.pushTokens.push({
+      token,
+      deviceId,
+      platform: platform as 'ios' | 'android',
+      createdAt: new Date(),
+    });
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Push token registered successfully',
+    });
+  } catch (error: any) {
+    console.error('Error registering push token:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// Remove push token for the current user
+export const removePushToken = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    const { token } = req.body;
+
+    // Validate required field
+    if (!token || typeof token !== 'string' || token.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Token is required and must be a non-empty string',
+      });
+    }
+
+    // Find the user and remove the token
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Filter out the token
+    const initialLength = user.pushTokens.length;
+    user.pushTokens = user.pushTokens.filter((t) => t.token !== token);
+
+    // Check if any token was removed
+    if (user.pushTokens.length === initialLength) {
+      return res.status(404).json({
+        success: false,
+        message: 'Push token not found',
+      });
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Push token removed successfully',
+    });
+  } catch (error: any) {
+    console.error('Error removing push token:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// Broadcast notification to all users or a segment (admin only)
+export const broadcastNotification = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    const { title, message, data, segment = 'all' } = req.body;
+
+    // Validate required fields
+    if (!title || typeof title !== 'string' || title.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Title is required and must be a non-empty string',
+      });
+    }
+
+    if (!message || typeof message !== 'string' || message.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Message is required and must be a non-empty string',
+      });
+    }
+
+    // Check if user is admin or super_admin
+    const user = await User.findById(userId);
+    if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin privileges required.',
+      });
+    }
+
+    // Build query based on segment
+    const query: any = { status: 'active' };
+    if (segment !== 'all') {
+      // Future: add segment filtering logic here (e.g., by role, location, etc.)
+      // For now, 'all' is the only supported segment
+    }
+
+    // Get all targeted users
+    const targetedUsers = await User.find(query, { _id: 1 });
+    const userIds = targetedUsers.map((u) => u._id.toString());
+
+    // Save in-app notification for every targeted user
+    await createBulkNotifications(
+      userIds,
+      'promotion',
+      title,
+      message,
+      data || {}
+    );
+
+    // Send push notifications (fire-and-forget)
+    // Count tokens before sending to get tokensDispatched count
+    let tokensDispatched = 0;
+    try {
+      // Fetch tokens for all users to count them
+      const usersWithTokens = await User.find(
+        { _id: { $in: userIds } },
+        { pushTokens: 1, notificationSettings: 1 }
+      ).lean();
+
+      // Count tokens that will actually be dispatched (respecting settings)
+      for (const u of usersWithTokens) {
+        if (u.pushTokens && u.pushTokens.length > 0) {
+          // Check if user has push notifications and promotions enabled
+          if (
+            u.notificationSettings?.pushNotifications &&
+            u.notificationSettings?.promotions
+          ) {
+            tokensDispatched += u.pushTokens.length;
+          }
+        }
+      }
+
+      // Send push notifications asynchronously
+      PushDeliveryService.send({
+        userIds,
+        title,
+        body: message,
+        data: data || {},
+        settingKey: 'promotions',
+      }).catch((error) => {
+        console.error('Error sending broadcast push notifications:', error);
+      });
+    } catch (error) {
+      console.error('Error counting tokens for broadcast:', error);
+    }
+
+    res.json({
+      success: true,
+      message: 'Broadcast notification sent successfully',
+      data: {
+        usersTargeted: userIds.length,
+        tokensDispatched,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error broadcasting notification:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

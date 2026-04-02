@@ -19,4 +19,15 @@ async function seedSampleReviews() {
     
     // Connect to database
     await connectDatabase();
-    console.log('✅ Connected to datab
+    console.log('✅ Connected to database');
+    
+    console.log('✅ Sample reviews seeding completed');
+  } catch (error) {
+    console.error('❌ Error seeding sample reviews:', error);
+    process.exit(1);
+  } finally {
+    await mongoose.disconnect();
+  }
+}
+
+seedSampleReviews();

@@ -1,4 +1,4 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
@@ -11,20 +11,24 @@ export default function AdminLayout() {
   const { colors, spacing, fontSizes, fontWeights } = useTheme();
   const router = useRouter();
   const segments = useSegments();
+  const navState = useRootNavigationState();
 
   console.log('🔧 AdminLayout - isAuthenticated:', isAuthenticated, 'isAdmin:', isAdmin, 'segments:', segments);
 
   useEffect(() => {
+    // Wait until the root navigator is fully mounted before redirecting
+    if (!navState?.key) return;
+
     console.log('🔧 AdminLayout useEffect - isAuthenticated:', isAuthenticated, 'isAdmin:', isAdmin);
-    // Redirect non-admin users to home (allow guest mode)
-    if (!isAuthenticated) {
-      console.log('🔐 Admin access denied: Not authenticated, redirecting to home');
-      router.replace('/(tabs)/home');
-    } else if (!isAdmin) {
-      console.log('🔐 Admin access denied: Not admin user, redirecting to home');
-      router.replace('/(tabs)/home');
+    if (!isAuthenticated || !isAdmin) {
+      console.log('🔐 Admin access denied, redirecting to home');
+      // Small delay to let the current render cycle finish
+      const t = setTimeout(() => {
+        router.replace('/(tabs)/home');
+      }, 50);
+      return () => clearTimeout(t);
     }
-  }, [isAuthenticated, isAdmin, router]);
+  }, [isAuthenticated, isAdmin, navState?.key]);
 
   const styles = StyleSheet.create({
     container: {
@@ -101,42 +105,20 @@ export default function AdminLayout() {
             headerShown: false,
           }}
         />
-        <Stack.Screen
-          name="moderation"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="users"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="suppliers"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="ticket"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="refunds"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="finance"
-          options={{
-            headerShown: false,
-          }}
-        />
+        <Stack.Screen name="moderation" options={{ headerShown: false }} />
+        <Stack.Screen name="users/index" options={{ headerShown: false }} />
+        <Stack.Screen name="users/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="suppliers/index" options={{ headerShown: false }} />
+        <Stack.Screen name="suppliers/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="ticket/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="refunds/index" options={{ headerShown: false }} />
+        <Stack.Screen name="refunds/analytics" options={{ headerShown: false }} />
+        <Stack.Screen name="categories/index" options={{ headerShown: false }} />
+        <Stack.Screen name="ads/index" options={{ headerShown: false }} />
+        <Stack.Screen name="ads/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="finance" options={{ headerShown: false }} />
+        <Stack.Screen name="reviews" options={{ headerShown: false }} />
+        <Stack.Screen name="settings" options={{ headerShown: false }} />
       </Stack>
     </NotificationProvider>
   );

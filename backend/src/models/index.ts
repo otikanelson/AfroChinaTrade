@@ -27,3 +27,4 @@ export { default as BrowsingHistory, IBrowsingHistory } from './BrowsingHistory'
 export { default as ProductViewCache, IProductViewCache } from './ProductViewCache';
 export { default as RecommendationCache, IRecommendationCache } from './RecommendationCache';
 export { default as Collection, ICollection } from './Collection';
+export { default as Ad, IAd } from './Ad';

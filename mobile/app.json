@@ -22,7 +22,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/Logo_bg.png",
+        "foregroundImage": "./assets/images/adaptive_icon.png",
         "backgroundColor": "#8f231d"
       },
       "package": "com.afrochinatrade.app",

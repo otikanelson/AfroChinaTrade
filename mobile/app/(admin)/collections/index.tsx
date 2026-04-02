@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,12 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
-  Modal,
-  Switch,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../../../components/Header';
 import { Card } from '../../../components/admin/Card';
-import { StatusBadge } from '../../../components/admin/StatusBadge';
 import { CustomModal } from '../../../components/ui/CustomModal';
 import { collectionService } from '../../../services/CollectionService';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -29,9 +27,11 @@ export default function CollectionsManagement() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
 
-  useEffect(() => {
-    loadCollections();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadCollections();
+    }, [])
+  );
 
   const loadCollections = async (isRefresh = false) => {
     try {
@@ -43,20 +43,8 @@ export default function CollectionsManagement() {
 
       const response = await collectionService.getActiveCollections();
       if (response.success && response.data) {
-        // Load product count for each collection
-        const collectionsWithCounts = await Promise.all(
-          response.data.map(async (collection) => {
-            const collectionId = (collection as any)._id || collection.id;
-            const productsResponse = await collectionService.getCollectionProducts(collectionId, 1, 1);
-            return {
-              ...collection,
-              productCount: productsResponse.success && productsResponse.data 
-                ? productsResponse.data.productCount || 0 
-                : 0
-            };
-          })
-        );
-        setCollections(collectionsWithCounts);
+        // Product counts are now included in the response
+        setCollections(response.data);
       }
     } catch (error) {
       console.error('Error loading collections:', error);
@@ -130,103 +118,92 @@ export default function CollectionsManagement() {
 
   const renderCollectionCard = ({ item: collection }: { item: Collection }) => (
     <Card style={styles.collectionCard} elevation="md">
-      <View style={styles.cardHeader}>
-        <View style={styles.titleRow}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="albums" size={24} color={colors.text} />
+      {/* Top row: icon + name + status | action buttons */}
+      <View style={styles.cardTop}>
+        <View style={styles.cardTopLeft}>
+          <View style={[styles.iconContainer, { backgroundColor: collection.isActive ? colors.primary + '18' : colors.surface }]}>
+            <Ionicons name="albums" size={20} color={collection.isActive ? colors.primary : colors.textSecondary} />
           </View>
           <View style={styles.titleContainer}>
-            <Text style={styles.collectionName}>{collection.name}</Text>
-            <StatusBadge
-              status={collection.isActive ? 'active' : 'pending'}
-              label={collection.isActive ? 'Active' : 'Inactive'}
-            />
+            <Text style={styles.collectionName} numberOfLines={1}>{collection.name}</Text>
+            <View style={styles.statusRow}>
+              <View style={[styles.statusDot, { backgroundColor: collection.isActive ? colors.success : colors.textLight }]} />
+              <Text style={[styles.statusLabel, { color: collection.isActive ? colors.success : colors.textLight }]}>
+                {collection.isActive ? 'Active' : 'Inactive'}
+              </Text>
+              <Text style={styles.dotSep}>·</Text>
+              <Text style={styles.statInline}>{collection.productCount || 0} products</Text>
+              <Text style={styles.dotSep}>·</Text>
+              <Text style={styles.statInline}>#{collection.displayOrder}</Text>
+            </View>
           </View>
         </View>
+
+        {/* Action buttons — top right */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.editButton]}
+            style={[styles.actionBtn, { borderColor: colors.primary }]}
             onPress={() => handleEditCollection(collection)}
             activeOpacity={0.7}
           >
-            <Ionicons name="pencil" size={16} color={colors.text} />
+            <Ionicons name="pencil" size={14} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.actionButton, collection.isActive ? styles.pauseButton : styles.playButton]}
+            style={[styles.actionBtn, { borderColor: collection.isActive ? colors.warning : colors.success }]}
             onPress={() => handleToggleStatus(collection)}
             activeOpacity={0.7}
           >
-            <Ionicons 
-              name={collection.isActive ? "pause" : "play"} 
-              size={16} 
-              color={collection.isActive ? colors.warning : colors.success} 
+            <Ionicons
+              name={collection.isActive ? 'pause' : 'play'}
+              size={14}
+              color={collection.isActive ? colors.warning : colors.success}
             />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
+            style={[styles.actionBtn, { borderColor: colors.error }]}
             onPress={() => handleDeleteCollection(collection)}
             activeOpacity={0.7}
           >
-            <Ionicons name="trash" size={16} color={colors.text} />
+            <Ionicons name="trash" size={14} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {collection.description && (
-        <View style={styles.descriptionContainer}>
-          <Text style={styles.description}>{collection.description}</Text>
-        </View>
-      )}
+      {/* Description */}
+      {collection.description ? (
+        <Text style={styles.description} numberOfLines={2}>{collection.description}</Text>
+      ) : null}
 
-      <View style={styles.filtersSection}>
-        <View style={styles.filtersHeader}>
-          <Ionicons name="filter" size={16} color={colors.textSecondary} />
-          <Text style={styles.filtersLabel}>Filters ({collection.filters.length})</Text>
-        </View>
+      {/* Filter chips */}
+      {collection.filters.length > 0 && (
         <View style={styles.filtersContainer}>
           {collection.filters.slice(0, 3).map((filter, index) => (
             <View key={index} style={styles.filterChip}>
               <Text style={styles.filterText}>
-                {filter.type}: {typeof filter.value === 'object' 
-                  ? `${(filter.value as any).min || 0} - ${(filter.value as any).max || '∞'}`
-                  : String(filter.value).length > 15 
-                    ? `${String(filter.value).substring(0, 15)}...`
-                    : filter.value
-                }
+                {filter.type}
+                {': '}
+                {typeof filter.value === 'object'
+                  ? `${(filter.value as any).min ?? 0}–${(filter.value as any).max ?? '∞'}`
+                  : String(filter.value).length > 12
+                    ? `${String(filter.value).slice(0, 12)}…`
+                    : filter.value}
               </Text>
             </View>
           ))}
           {collection.filters.length > 3 && (
-            <View style={styles.moreFiltersChip}>
-              <Text style={styles.moreFiltersText}>
-                +{collection.filters.length - 3} more
+            <View style={[styles.filterChip, { backgroundColor: colors.border }]}>
+              <Text style={[styles.filterText, { color: colors.textSecondary }]}>
+                +{collection.filters.length - 3}
               </Text>
             </View>
           )}
         </View>
-      </View>
+      )}
 
-      <View style={styles.cardFooter}>
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Ionicons name="cube-outline" size={16} color={colors.primary} />
-            <Text style={styles.statText}>
-              {collection.productCount || 0} products
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Ionicons name="reorder-three-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.statText}>
-              Order: {collection.displayOrder}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.timestampContainer}>
-          <Text style={styles.timestamp}>
-            Created {new Date(collection.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-      </View>
+      {/* Footer: date */}
+      <Text style={styles.timestamp}>
+        Created {new Date(collection.createdAt).toLocaleDateString()}
+      </Text>
     </Card>
   );
 
@@ -261,145 +238,100 @@ export default function CollectionsManagement() {
       fontWeight: fontWeights.bold,
     },
     collectionCard: {
-      marginBottom: spacing.lg,
-      padding: 0, // Remove padding since Card component handles it
-    },
-    cardHeader: {
-      marginBottom: spacing.md,
-    },
-    titleRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
       marginBottom: spacing.sm,
     },
+    cardTop: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      marginBottom: spacing.sm,
+    },
+    cardTopLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      gap: spacing.sm,
+      marginRight: spacing.sm,
+    },
     iconContainer: {
-      width: 48,
-      height: 48,
-      borderRadius: borderRadius.lg,
-      backgroundColor: colors.primaryLight,
+      width: 36,
+      height: 36,
+      borderRadius: borderRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: spacing.md,
+      flexShrink: 0,
     },
     titleContainer: {
       flex: 1,
-      gap: spacing.xs,
     },
     collectionName: {
-      fontSize: fontSizes.xl,
+      fontSize: fontSizes.base,
       fontWeight: fontWeights.bold,
       color: colors.text,
-      lineHeight: fontSizes.xl * 1.2,
+      marginBottom: 3,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      flexWrap: 'wrap',
+    },
+    statusDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    statusLabel: {
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.medium,
+    },
+    dotSep: {
+      fontSize: fontSizes.xs,
+      color: colors.textLight,
+    },
+    statInline: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
     },
     actionsContainer: {
       flexDirection: 'row',
       gap: spacing.xs,
-      marginTop: spacing.sm,
+      flexShrink: 0,
     },
-    actionButton: {
-      padding: spacing.sm,
-      borderRadius: borderRadius.md,
+    actionBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: borderRadius.sm,
       borderWidth: 1,
-      minWidth: 36,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    editButton: {
-      backgroundColor: colors.primaryLight,
-      borderColor: colors.primary,
-    },
-    playButton: {
-      backgroundColor: colors.primaryLight,
-      borderColor: colors.success,
-    },
-    pauseButton: {
-      backgroundColor: colors.primaryLight,
-      borderColor: colors.warning,
-    },
-    deleteButton: {
-      backgroundColor: colors.primaryLight,
-      borderColor: colors.error,
-    },
-    descriptionContainer: {
-      backgroundColor: colors.surface,
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      marginBottom: spacing.md,
-      borderLeftWidth: 3,
-      borderLeftColor: colors.primary,
+      backgroundColor: 'transparent',
     },
     description: {
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.xs,
       color: colors.textSecondary,
-      lineHeight: fontSizes.sm * 1.4,
-    },
-    filtersSection: {
-      marginBottom: spacing.md,
-    },
-    filtersHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
+      lineHeight: fontSizes.xs * 1.5,
       marginBottom: spacing.sm,
-    },
-    filtersLabel: {
-      fontSize: fontSizes.sm,
-      fontWeight: fontWeights.semibold,
-      color: colors.text,
     },
     filtersContainer: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: spacing.xs,
+      marginBottom: spacing.sm,
     },
     filterChip: {
-      backgroundColor: colors.primary,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      backgroundColor: colors.primary + '18',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 3,
       borderRadius: borderRadius.full,
-      maxWidth: 200,
     },
     filterText: {
-      fontSize: fontSizes.xs,
-      color: colors.textInverse,
+      fontSize: 10,
+      color: colors.primary,
       fontWeight: fontWeights.medium,
-    },
-    moreFiltersChip: {
-      backgroundColor: colors.border,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      borderRadius: borderRadius.full,
-    },
-    moreFiltersText: {
-      fontSize: fontSizes.xs,
-      color: colors.textSecondary,
-      fontWeight: fontWeights.medium,
-    },
-    cardFooter: {
-      borderTopWidth: 1,
-      borderTopColor: colors.borderLight,
-      paddingTop: spacing.md,
-      gap: spacing.sm,
-    },
-    statsContainer: {
-      flexDirection: 'row',
-      gap: spacing.lg,
-    },
-    statItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    statText: {
-      fontSize: fontSizes.sm,
-      color: colors.textSecondary,
-      fontWeight: fontWeights.medium,
-    },
-    timestampContainer: {
-      alignItems: 'flex-end',
     },
     timestamp: {
-      fontSize: fontSizes.xs,
+      fontSize: 10,
       color: colors.textLight,
       fontStyle: 'italic',
     },
@@ -433,6 +365,11 @@ export default function CollectionsManagement() {
       textAlign: 'center',
       lineHeight: fontSizes.base * 1.4,
     },
+    loadingContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
   });
 
   return (
@@ -449,21 +386,25 @@ export default function CollectionsManagement() {
           <Text style={styles.createButtonText}>Create New Collection</Text>
         </TouchableOpacity>
 
-        <FlatList
-          data={collections}
-          renderItem={renderCollectionCard}
-          keyExtractor={(item) => (item as any)._id || item.id}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-          ListEmptyComponent={
-            !loading ? (
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={collections}
+            renderItem={renderCollectionCard}
+            keyExtractor={(item) => (item as any)._id || item.id}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+            ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <View style={styles.emptyIconContainer}>
                   <Ionicons name="albums-outline" size={80} color={colors.primary} />
@@ -473,9 +414,9 @@ export default function CollectionsManagement() {
                   Create your first collection to organize products into curated groups
                 </Text>
               </View>
-            ) : null
-          }
-        />
+            }
+          />
+        )}
       </View>
     </View>
   );

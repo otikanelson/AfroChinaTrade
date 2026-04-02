@@ -220,6 +220,26 @@ export default function OrdersScreen() {
       fontWeight: fontWeights.bold,
       color: colors.primary,
     },
+    dateDivider: {
+      paddingHorizontal: spacing.xs,
+      paddingTop: spacing.base,
+      paddingBottom: spacing.xs,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    dateDividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.borderLight,
+    },
+    dateDividerText: {
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.semibold,
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
   });
 
   const fetchOrders = React.useCallback(async (isRefresh: boolean = false) => {
@@ -319,69 +339,107 @@ export default function OrdersScreen() {
     });
   };
 
+  const formatDateDivider = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    const isToday = date.toDateString() === today.toDateString();
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    if (isToday) return 'Today';
+    if (isYesterday) return 'Yesterday';
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  };
+
+  type ListItem =
+    | { type: 'divider'; label: string; key: string }
+    | { type: 'order'; data: Order; key: string };
+
+  const listItems: ListItem[] = React.useMemo(() => {
+    const items: ListItem[] = [];
+    let lastDateKey = '';
+    for (const order of orders) {
+      const dateKey = new Date(order.createdAt).toDateString();
+      if (dateKey !== lastDateKey) {
+        lastDateKey = dateKey;
+        items.push({ type: 'divider', label: formatDateDivider(order.createdAt), key: `divider_${dateKey}` });
+      }
+      items.push({ type: 'order', data: order, key: order._id });
+    }
+    return items;
+  }, [orders]);
+
   const handleOrderPress = React.useCallback((orderId: string) => {
     router.push(`/order-detail/${orderId}`);
   }, [router]);
 
-  const renderOrder = React.useCallback(({ item: order }: { item: Order }) => (
-    <TouchableOpacity
-      key={order._id}
-      style={styles.orderCard}
-      onPress={() => handleOrderPress(order._id)}
-    >
-      <View style={styles.orderHeader}>
-        <View style={styles.orderInfo}>
-          <Text style={styles.orderNumber}>#{order.orderId}</Text>
-          <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
+  const renderItem = React.useCallback(({ item }: { item: ListItem }) => {
+    if (item.type === 'divider') {
+      return (
+        <View style={styles.dateDivider}>
+          <View style={styles.dateDividerLine} />
+          <Text style={styles.dateDividerText}>{item.label}</Text>
+          <View style={styles.dateDividerLine} />
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
-          <Ionicons 
-            name={getStatusIcon(order.status) as any} 
-            size={14} 
-            color="white" 
-          />
-          <Text style={styles.statusText}>
-            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-          </Text>
-        </View>
-      </View>
+      );
+    }
 
-      <View style={styles.orderItems}>
-        {order.items.slice(0, 2).map((item, index) => (
-          <View key={index} style={styles.orderItem}>
-            <Image
-              source={{ uri: item.productImage || 'https://via.placeholder.com/50' }}
-              style={styles.itemImage}
-              resizeMode="cover"
-            />
-            <View style={styles.itemInfo}>
-              <Text style={styles.itemName} numberOfLines={1}>
-                {item.productName}
-              </Text>
-              <Text style={styles.itemDetails}>
-                Qty: {item.quantity} × ₦{item.price.toLocaleString()}
-              </Text>
-            </View>
+    const order = item.data;
+    return (
+      <TouchableOpacity
+        style={styles.orderCard}
+        onPress={() => handleOrderPress(order._id)}
+      >
+        <View style={styles.orderHeader}>
+          <View style={styles.orderInfo}>
+            <Text style={styles.orderNumber}>#{order.orderId}</Text>
+            <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
           </View>
-        ))}
-        {order.items.length > 2 && (
-          <Text style={styles.moreItems}>
-            +{order.items.length - 2} more item{order.items.length - 2 > 1 ? 's' : ''}
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.orderFooter}>
-        <View style={styles.deliveryInfo}>
-          <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-          <Text style={styles.deliveryText} numberOfLines={1}>
-            {order.deliveryAddress.city}, {order.deliveryAddress.state}
-          </Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
+            <Ionicons name={getStatusIcon(order.status) as any} size={14} color="white" />
+            <Text style={styles.statusText}>
+              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.orderTotal}>₦{order.totalAmount.toLocaleString()}</Text>
-      </View>
-    </TouchableOpacity>
-  ), [styles, colors, handleOrderPress]);
+
+        <View style={styles.orderItems}>
+          {order.items.slice(0, 2).map((item, index) => (
+            <View key={index} style={styles.orderItem}>
+              <Image
+                source={{ uri: item.productImage || 'https://via.placeholder.com/50' }}
+                style={styles.itemImage}
+                resizeMode="cover"
+              />
+              <View style={styles.itemInfo}>
+                <Text style={styles.itemName} numberOfLines={1}>{item.productName}</Text>
+                <Text style={styles.itemDetails}>
+                  Qty: {item.quantity} × ₦{item.price.toLocaleString()}
+                </Text>
+              </View>
+            </View>
+          ))}
+          {order.items.length > 2 && (
+            <Text style={styles.moreItems}>
+              +{order.items.length - 2} more item{order.items.length - 2 > 1 ? 's' : ''}
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.orderFooter}>
+          <View style={styles.deliveryInfo}>
+            <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+            <Text style={styles.deliveryText} numberOfLines={1}>
+              {order.deliveryAddress.city}, {order.deliveryAddress.state}
+            </Text>
+          </View>
+          <Text style={styles.orderTotal}>₦{order.totalAmount.toLocaleString()}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [styles, colors, handleOrderPress]);
 
   const keyExtractor = React.useCallback((item: Order) => item._id, []);
 
@@ -418,9 +476,9 @@ export default function OrdersScreen() {
         </View>
       ) : (
         <FlatList
-          data={orders}
-          renderItem={renderOrder}
-          keyExtractor={keyExtractor}
+          data={listItems}
+          renderItem={renderItem}
+          keyExtractor={item => item.key}
           contentContainerStyle={styles.ordersList}
           showsVerticalScrollIndicator={false}
           refreshControl={

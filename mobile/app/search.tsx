@@ -120,7 +120,13 @@ export default function SearchPage() {
     }
     
     const timeout = setTimeout(() => {
-      loadProducts();
+      if (searchQuery.trim() || activeCategory !== 'All') {
+        loadProducts();
+      } else {
+        // Clear products if no search query and "All" category
+        setProducts([]);
+        setIsLoadingProducts(false);
+      }
     }, searchQuery.trim() ? 300 : 0); // Debounce search queries
     
     setSearchTimeout(timeout);
@@ -132,18 +138,21 @@ export default function SearchPage() {
 
   const loadInitialDataOptimized = async () => {
     try {
-      // Show UI immediately
-      setIsLoading(false);
-      
-      const categoriesResponse = await categoryService.getCategories();
-      if (categoriesResponse.success && categoriesResponse.data) {
-        setCategories(categoriesResponse.data);
-      }
+      // Load categories in background without blocking UI
+      categoryService.getCategories().then(categoriesResponse => {
+        if (categoriesResponse.success && categoriesResponse.data) {
+          setCategories(categoriesResponse.data);
+        }
+      });
 
-      // Load initial products
-      await loadProducts();
+      // If there's an initial query from params, load products
+      if (searchQuery.trim() || activeCategory !== 'All') {
+        await loadProducts();
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to load data. Please try again.');
+      // Silently fail - categories will show as empty
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -226,13 +235,20 @@ export default function SearchPage() {
             />
           </View>
 
-          {/* Category Tabs Skeleton */}
-          <View style={{ height: 50, backgroundColor: colors.surface }} />
+          {/* Category Tabs - Show "All" immediately */}
+          <CategoryTabs
+            categories={['All']}
+            activeCategory={activeCategory}
+            onCategoryPress={setActiveCategory}
+          />
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
-          <ProductSectionSkeleton variant="list" itemCount={6} showHeader={false} />
-        </ScrollView>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Start searching</Text>
+          <Text style={styles.emptySubtext}>
+            Enter keywords or browse categories to find products
+          </Text>
+        </View>
       </View>
     );
   }

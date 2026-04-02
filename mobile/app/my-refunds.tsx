@@ -196,29 +196,67 @@ export default function RefundsScreen() {
     });
   };
 
-  const renderItem = useCallback(({ item }: { item: Refund }) => (
-    <View style={styles.refundCard}>
-      <View style={styles.refundHeader}>
-        <Text style={styles.orderNumber}>
-          Order #{typeof item.orderId === 'object' ? (item.orderId as any).orderId : String(item.orderId).slice(-8).toUpperCase()}
-        </Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-          </Text>
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const renderItem = useCallback(({ item }: { item: Refund }) => {
+    const isExpanded = expandedId === item.id;
+    const statusColor = getStatusColor(item.status);
+    const orderId = typeof item.orderId === 'object'
+      ? (item.orderId as any).orderId
+      : String(item.orderId).slice(-8).toUpperCase();
+
+    return (
+      <TouchableOpacity
+        style={[styles.refundCard, { borderLeftWidth: 4, borderLeftColor: statusColor }]}
+        onPress={() => setExpandedId(isExpanded ? null : item.id)}
+        activeOpacity={0.85}
+      >
+        <View style={styles.refundHeader}>
+          <Text style={styles.orderNumber}>Order #{orderId}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+            <Text style={styles.statusText}>
+              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+            </Text>
+          </View>
         </View>
-      </View>
-      <Text style={styles.refundAmount}>₦{item.amount.toLocaleString()}</Text>
-      <Text style={styles.refundReason}>{item.reason}</Text>
-      <Text style={styles.refundDate}>Requested on {formatDate(item.createdAt)}</Text>
-      {item.processedAt && (
-        <Text style={styles.refundDate}>Processed on {formatDate(item.processedAt)}</Text>
-      )}
-      {item.adminNotes && (
-        <Text style={styles.adminNote}>💬 Admin: {item.adminNotes}</Text>
-      )}
-    </View>
-  ), [styles, colors]);
+        <Text style={styles.refundAmount}>₦{item.amount.toLocaleString()}</Text>
+        <Text style={styles.refundReason} numberOfLines={isExpanded ? undefined : 2}>{item.reason}</Text>
+        <Text style={styles.refundDate}>Requested on {formatDate(item.createdAt)}</Text>
+
+        {isExpanded && (
+          <View style={{ marginTop: spacing.sm, gap: spacing.xs }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary }}>Type</Text>
+              <Text style={{ fontSize: fontSizes.xs, color: colors.text, textTransform: 'capitalize', fontWeight: fontWeights.medium }}>{item.type}</Text>
+            </View>
+            {item.processedAt && (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary }}>Processed on</Text>
+                <Text style={{ fontSize: fontSizes.xs, color: colors.text }}>{formatDate(item.processedAt)}</Text>
+              </View>
+            )}
+            {item.processedBy && (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary }}>Processed by</Text>
+                <Text style={{ fontSize: fontSizes.xs, color: colors.text }}>{item.processedBy.name}</Text>
+              </View>
+            )}
+            {item.adminNotes && (
+              <Text style={styles.adminNote}>💬 {item.adminNotes}</Text>
+            )}
+          </View>
+        )}
+
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: spacing.xs }}>
+          <Ionicons
+            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+            size={14}
+            color={colors.textLight}
+          />
+        </View>
+      </TouchableOpacity>
+    );
+  }, [styles, colors, expandedId, fontSizes, fontWeights]);
 
   const keyExtractor = useCallback((item: Refund) => item.id, []);
 

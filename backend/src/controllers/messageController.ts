@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import Message from '../models/Message';
 import MessageThread from '../models/MessageThread';
 import User from '../models/User';
+import PushDeliveryService from '../services/PushDeliveryService';
 
 export const createMessage = async (req: Request, res: Response) => {
   try {
@@ -146,6 +147,43 @@ export const createMessage = async (req: Request, res: Response) => {
       { threadId },
       updateData
     );
+
+    // Send push notification to the recipient (fire-and-forget)
+    try {
+      // Determine recipient: if sender is customer, recipient is admin; if sender is admin, recipient is customer
+      let recipientId: string | undefined;
+      
+      if (user.role === 'customer') {
+        // Customer sent message, notify admin
+        // Find any admin user (in practice, all admins will get notified via their tokens)
+        const adminUser = await User.findOne({ role: 'admin' });
+        if (adminUser) {
+          recipientId = adminUser._id.toString();
+        }
+      } else {
+        // Admin sent message, notify the customer
+        recipientId = thread.customerId.toString();
+      }
+      
+      // Skip push if sender === recipient (shouldn't happen, but safety check)
+      if (recipientId && recipientId !== req.userId) {
+        PushDeliveryService.send({
+          userIds: [recipientId],
+          title: 'New Message',
+          body: 'You have new messages',
+          data: {
+            screen: 'message-thread',
+            threadId: thread.threadId,
+          },
+          // No settingKey - message pushes are not gated by orderUpdates or promotions
+        }).catch(err => {
+          console.error('[createMessage] Push notification failed:', err);
+        });
+      }
+    } catch (pushError) {
+      // Log but don't fail the request
+      console.error('[createMessage] Error sending push notification:', pushError);
+    }
 
     res.status(201).json({
       success: true,
