@@ -4,8 +4,8 @@
  * ============================================
  *
  * Environment Variables:
- * - EXPO_PUBLIC_API_URL: Primary API base URL
- * - EXPO_PUBLIC_FALLBACK_API_URL: Fallback URL (Vercel) when primary fails
+ * - EXPO_PUBLIC_API_URL: Primary API base URL (Vercel production)
+ * - EXPO_PUBLIC_FALLBACK_API_URL: Fallback URL (local dev) when primary fails
  * - EXPO_PUBLIC_ENV: 'development' or 'production'
  * - EXPO_PUBLIC_DEBUG: 'true' or 'false'
  */
@@ -40,20 +40,16 @@ const detectEnvironment = () => {
 
 const ENVIRONMENT = detectEnvironment();
 
-/** Vercel production URL — always available as the ultimate fallback */
+/** Vercel production URL — always available as the primary */
 export const VERCEL_API_URL = 'https://afro-china-trade.vercel.app/api';
 
 const getApiUrl = () => {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   if (!apiUrl) {
-    if (ENVIRONMENT === 'development') {
-      console.warn(
-        '⚠️ Missing EXPO_PUBLIC_API_URL. Falling back to Vercel URL.'
-      );
-      return VERCEL_API_URL;
-    }
-    // In production builds this should never happen (eas.json sets it)
+    console.warn(
+      '⚠️ Missing EXPO_PUBLIC_API_URL. Using Vercel URL as default.'
+    );
     return VERCEL_API_URL;
   }
 
@@ -64,10 +60,10 @@ export const API_BASE_URL = getApiUrl();
 
 /**
  * Fallback URL used when the primary API_BASE_URL is unreachable.
- * Explicit env var takes priority; otherwise defaults to Vercel.
+ * In development, this can be your local server.
+ * If not specified, no fallback is used.
  */
-export const FALLBACK_API_URL =
-  process.env.EXPO_PUBLIC_FALLBACK_API_URL || VERCEL_API_URL;
+export const FALLBACK_API_URL = process.env.EXPO_PUBLIC_FALLBACK_API_URL || undefined;
 
 export const APP_CONFIG = {
   name: 'AfroChinaTrade',

@@ -189,8 +189,8 @@ class SimpleApiClient {
         // ── Fallback retry on network error ──────────────────────────────────
         // Only retry on the fallback if the request has NO Authorization header
         // (i.e. public endpoints). Authenticated requests must NOT be retried
-        // on the fallback because the fallback (Vercel) uses a different
-        // JWT_SECRET and will reject valid tokens with INVALID_TOKEN.
+        // on the fallback if it uses a different JWT_SECRET, which will reject
+        // valid tokens with INVALID_TOKEN.
         const isNetworkError = !error.response;
         const isNotFallback = this.client.defaults.baseURL !== FALLBACK_API_URL;
         const notYetFallbackRetried = !originalRequest._fallbackRetry;
