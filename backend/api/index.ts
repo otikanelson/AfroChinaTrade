@@ -13,6 +13,7 @@ import productRoutes from '../src/routes/productRoutes';
 import orderRoutes from '../src/routes/orderRoutes';
 import messageRoutes from '../src/routes/messageRoutes';
 import reviewRoutes from '../src/routes/reviewRoutes';
+import adminRoutes from '../src/routes/adminRoutes';
 import refundRoutes from '../src/routes/refundRoutes';
 import reportRoutes from '../src/routes/reportRoutes';
 import ticketRoutes from '../src/routes/ticketRoutes';
@@ -26,10 +27,14 @@ import wishlistRoutes from '../src/routes/wishlist';
 import cartRoutes from '../src/routes/cart';
 import viewTrackingRoutes from '../src/routes/viewTrackingRoutes';
 import productCollectionRoutes from '../src/routes/productCollectionRoutes';
+import collectionRoutes from '../src/routes/collectionRoutes';
 import recommendationRoutes from '../src/routes/recommendationRoutes';
 import deliveryAddressRoutes from '../src/routes/deliveryAddressRoutes';
 import locationRoutes from '../src/routes/locationRoutes';
 import paymentMethodRoutes from '../src/routes/paymentMethodRoutes';
+import notificationRoutes from '../src/routes/notificationRoutes';
+import adRoutes from '../src/routes/adRoutes';
+import pageLayoutRoutes from '../src/routes/pageLayoutRoutes';
 
 // Load environment variables (only for local development)
 // On Vercel, environment variables are injected directly
@@ -86,9 +91,11 @@ app.get('/', (_req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/product-collections', productCollectionRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/refunds', refundRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/tickets', ticketRoutes);
@@ -101,11 +108,14 @@ app.use('/api/search', searchRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api', viewTrackingRoutes);
-app.use('/api', productCollectionRoutes);
+app.use('/api/collections', collectionRoutes);
 app.use('/api', recommendationRoutes);
 app.use('/api/addresses', deliveryAddressRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/payment-methods', paymentMethodRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/ads', adRoutes);
+app.use('/api/page-layouts', pageLayoutRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
