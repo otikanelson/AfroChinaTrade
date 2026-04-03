@@ -15,8 +15,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { useAlertContext } from '../../../contexts/AlertContext';
 import { Header } from '../../../components/Header';
 import { spacing } from '../../../theme/spacing';
-import { tokenManager } from '../../../services/api/tokenManager';
-import { API_BASE_URL } from '../../../constants/config';
+import { apiClient } from '../../../services/api/apiClient';
 
 interface TicketDetail {
   _id: string;
@@ -336,21 +335,14 @@ export default function AdminTicketDetailScreen() {
     }
 
     try {
-      const token = await tokenManager.getAccessToken();
-      const response = await fetch(`${API_BASE_URL}/tickets/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await apiClient.get(`/tickets/${id}`);
 
-      const data = await response.json();
-
-      if (data.status === 'success') {
-        setTicket(data.data);
-        setSelectedStatus(data.data.status);
-        setAdminResponse(data.data.adminResponse || '');
+      if (response.success && response.data) {
+        setTicket(response.data);
+        setSelectedStatus(response.data.status);
+        setAdminResponse(response.data.adminResponse || '');
       } else {
-        showError('Error', data.message || 'Failed to fetch ticket details');
+        showError('Error', response.error?.message || 'Failed to fetch ticket details');
         router.back();
       }
     } catch (error) {
@@ -381,27 +373,17 @@ export default function AdminTicketDetailScreen() {
 
     setUpdating(true);
     try {
-      const token = await tokenManager.getAccessToken();
-      const response = await fetch(`${API_BASE_URL}/tickets/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          status: selectedStatus,
-          adminResponse: adminResponse.trim(),
-          unsuspendUser: unsuspendUser && ticket?.isSuspensionAppeal,
-        }),
+      const response = await apiClient.put(`/tickets/${id}`, {
+        status: selectedStatus,
+        adminResponse: adminResponse.trim(),
+        unsuspendUser: unsuspendUser && ticket?.isSuspensionAppeal,
       });
 
-      const data = await response.json();
-
-      if (data.status === 'success') {
+      if (response.success) {
         showSuccess('Ticket updated successfully!');
         fetchTicketDetail();
       } else {
-        showError('Error', data.message || 'Failed to update ticket');
+        showError('Error', response.error?.message || 'Failed to update ticket');
       }
     } catch (error) {
       console.error('Error updating ticket:', error);

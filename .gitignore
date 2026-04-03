@@ -17,4 +17,3 @@ coverage/
 .env.development
 .env.production
 .config.ts
-mobile/constants/config.ts

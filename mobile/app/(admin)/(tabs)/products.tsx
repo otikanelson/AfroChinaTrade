@@ -9,6 +9,10 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTourGuide } from '../../../contexts/TourGuideContext';
+import { tourGuideService } from '../../../services/TourGuideService';
+import { TourListModal } from '../../../components/tour/TourListModal';
+import { TourButton } from '../../../components/tour/TourButton';
 import { Product } from '../../../types/product';
 import { productService } from '../../../services/ProductService';
 import { collectionService } from '../../../services/CollectionService';
@@ -194,6 +198,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onStatusTog
 export default function ProductsScreen() {
   const router = useRouter();
   const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius } = useTheme();
+  const { startTour } = useTourGuide();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Array<{ label: string, value: string }>>([]);
@@ -202,6 +207,9 @@ export default function ProductsScreen() {
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tourModalVisible, setTourModalVisible] = useState(false);
+  
+  const availableTours = tourGuideService.getToursByPage('products');
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -652,6 +660,7 @@ export default function ProductsScreen() {
           style={styles.quickActionButton}
           onPress={handleAddProduct}
           activeOpacity={0.8}
+          testID="add-product-button"
         >
           <Ionicons name="add" size={20} color={themeColors.textInverse} />
           <Text style={styles.quickActionText}>Add Product</Text>
@@ -661,6 +670,7 @@ export default function ProductsScreen() {
           style={[styles.quickActionButton, styles.quickActionButtonSecondary]}
           onPress={handleManageCollections}
           activeOpacity={0.8}
+          testID="collections-button"
         >
           <Ionicons name="albums-outline" size={20} color={themeColors.primary} />
           <Text style={[styles.quickActionText, styles.quickActionTextSecondary]}>
@@ -731,6 +741,9 @@ export default function ProductsScreen() {
       <Header
         title="Products"
         subtitle={`Manage your inventory\n${hasActiveFilters ? `• ${filteredProducts.length} filtered` : `• ${products.length} total`}`}
+        rightAction={
+          <TourButton onPress={() => setTourModalVisible(true)} variant="icon" />
+        }
       />
 
       {/* List */}
@@ -795,6 +808,13 @@ export default function ProductsScreen() {
           </View>
         </>
       </CustomModal>
+
+      {/* Tour List Modal */}
+      <TourListModal
+        visible={tourModalVisible}
+        tours={availableTours}
+        onClose={() => setTourModalVisible(false)}
+      />
     </View>
   );
 }

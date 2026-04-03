@@ -11,8 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { tokenManager } from '../services/api/tokenManager';
-import { API_BASE_URL } from '../constants/config';
+import { apiClient } from '../services/api/apiClient';
 import { useTheme } from '../contexts/ThemeContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { CustomModal } from '../components/ui/CustomModal';
@@ -234,9 +233,6 @@ export default function AddressesScreen() {
   });
 
   const fetchAddresses = React.useCallback(async (isRefresh: boolean = false) => {
-    const token = await tokenManager.getAccessToken();
-    if (!token) return;
-
     try {
       if (!isRefresh) {
         setLoading(true);
@@ -244,23 +240,12 @@ export default function AddressesScreen() {
         setRefreshing(true);
       }
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      const response = await fetch(`${API_BASE_URL}/addresses`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-      const data = await response.json();
-      if (data.status === 'success') {
-        setAddresses(data.data || []);
+      const response = await apiClient.get('/addresses');
+      if (response.success && response.data) {
+        setAddresses(response.data || []);
       }
     } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        console.error('Error fetching addresses:', error);
-      }
+      console.error('Error fetching addresses:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -282,20 +267,9 @@ export default function AddressesScreen() {
   }, [fetchAddresses]);
 
   const setDefaultAddress = async (addressId: string) => {
-    const token = await tokenManager.getAccessToken();
-    if (!token) return;
-
     try {
-      const response = await fetch(`${API_BASE_URL}/addresses/${addressId}/set-default`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-      if (data.status === 'success') {
+      const response = await apiClient.patch(`/addresses/${addressId}/set-default`);
+      if (response.success) {
         fetchAddresses();
       }
     } catch (error) {
@@ -311,20 +285,9 @@ export default function AddressesScreen() {
   const confirmDelete = async () => {
     if (!addressToDelete) return;
 
-    const token = await tokenManager.getAccessToken();
-    if (!token) return;
-
     try {
-      const response = await fetch(`${API_BASE_URL}/addresses/${addressToDelete}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-      if (data.status === 'success') {
+      const response = await apiClient.delete(`/addresses/${addressToDelete}`);
+      if (response.success) {
         fetchAddresses();
       }
     } catch (error) {

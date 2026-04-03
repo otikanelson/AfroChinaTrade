@@ -2,6 +2,8 @@ import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-rout
 import { useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
+import { TourGuideProvider } from '../../contexts/TourGuideContext';
+import { TourOverlay } from '../../components/tour/TourOverlay';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -55,12 +57,13 @@ export default function AdminLayout() {
   }
 
   return (
-    <NotificationProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
+    <TourGuideProvider>
+      <NotificationProvider>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
         <Stack.Screen
           name="(tabs)"
           options={{
@@ -120,7 +123,9 @@ export default function AdminLayout() {
         <Stack.Screen name="reviews" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
       </Stack>
+      <TourOverlay />
     </NotificationProvider>
+    </TourGuideProvider>
   );
 }
 
