@@ -5,7 +5,6 @@ import { authService } from '../services/AuthService';
 import { tokenManager } from '../services/api/tokenManager';
 import { APP_CONFIG } from '../constants/config';
 import { UserStatusModal } from '../components/modals/UserStatusModal';
-import { pushTokenService } from '../services/PushTokenService';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -102,10 +101,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
       console.log('✅ User profile loaded:', authUser.name);
 
-      // Register push token after successful user load
-      pushTokenService.register().catch(error => {
-        console.warn('Push token registration failed during user load:', error);
-      });
+      // Register push token after successful user load (dynamic import to avoid Expo Go errors)
+      (async () => {
+        try {
+          const Constants = await import('expo-constants');
+          const isExpoGo = Constants.default.appOwnership === 'expo';
+          if (isExpoGo) return; // Skip in Expo Go
+          
+          const { pushTokenService } = await import('../services/PushTokenService');
+          await pushTokenService.register();
+        } catch (error) {
+          // Silently skip push token registration
+        }
+      })();
     } catch (error: any) {
       console.error('Failed to load user profile:', error);
       
@@ -161,10 +169,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
       await AsyncStorage.removeItem(GUEST_MODE_KEY);
       
-      // Register push token after successful login
-      pushTokenService.register().catch(error => {
-        console.warn('Push token registration failed after login:', error);
-      });
+      // Register push token after successful login (dynamic import to avoid Expo Go errors)
+      (async () => {
+        try {
+          const Constants = await import('expo-constants');
+          const isExpoGo = Constants.default.appOwnership === 'expo';
+          if (isExpoGo) return; // Skip in Expo Go
+          
+          const { pushTokenService } = await import('../services/PushTokenService');
+          await pushTokenService.register();
+        } catch (error) {
+          // Silently skip push token registration
+        }
+      })();
 
       // Load full profile in background
       setTimeout(() => loadCurrentUser(), 100);
@@ -218,11 +235,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async (): Promise<void> => {
     try {
-      // Unregister push token before logout (wrapped in try/catch so logout always proceeds)
+      // Unregister push token before logout (dynamic import to avoid Expo Go errors)
       try {
-        await pushTokenService.unregister();
+        const Constants = await import('expo-constants');
+        const isExpoGo = Constants.default.appOwnership === 'expo';
+        if (!isExpoGo) {
+          const { pushTokenService } = await import('../services/PushTokenService');
+          await pushTokenService.unregister();
+        }
       } catch (error) {
-        console.warn('Push token unregistration failed during logout:', error);
+        // Silently skip push token unregistration
       }
 
       await authService.logout();

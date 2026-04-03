@@ -3,8 +3,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
-import { Platform, UIManager } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import { Platform, UIManager, LogBox } from 'react-native';
+import Constants from 'expo-constants';
 
 import { AuthProvider } from '../contexts/AuthContext';
 import { ThemeProvider } from '../contexts/ThemeContext';
@@ -21,6 +21,26 @@ import { ActivityTracker } from '../components/ActivityTracker';
 import { InAppToast } from '../components/InAppToast';
 import { handleNotificationDeepLink } from '../utils/notificationDeepLink';
 
+// Ignore expo-notifications warnings in Expo Go
+LogBox.ignoreLogs([
+  'expo-notifications',
+  'Android Push notifications',
+  'remote notifications',
+]);
+
+// Suppress console errors for expo-notifications in Expo Go
+const originalConsoleError = console.error;
+console.error = (...args: any[]) => {
+  if (
+    typeof args[0] === 'string' &&
+    (args[0].includes('expo-notifications') || 
+     args[0].includes('Android Push notifications'))
+  ) {
+    return;
+  }
+  originalConsoleError(...args);
+};
+
 // Enable layout animation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -29,16 +49,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
-// Configure notification handler to suppress OS banner in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: false,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: false,
-    shouldShowList: false,
-  }),
-});
+// Check if running in Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
 
 interface ToastState {
   title: string;
@@ -66,34 +78,66 @@ function RootLayoutContent() {
     }
   }, [fontsLoaded]);
 
-  // Setup notification listeners
+  // Setup notification listeners (only if not in Expo Go)
   useEffect(() => {
-    // Foreground notification listener - shows in-app toast
-    const receivedSubscription = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        const { title, body, data } = notification.request.content;
-        setToastState({
-          title: title || 'Notification',
-          body: body || '',
-          data: data as Record<string, any> | undefined,
-        });
-      }
-    );
+    // Skip notification setup in Expo Go to avoid errors
+    if (isExpoGo) {
+      return;
+    }
 
-    // Background/killed state notification tap listener - handles deep linking
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const { data } = response.notification.request.content;
-        if (data) {
-          handleNotificationDeepLink(data as Record<string, any>, router);
-        }
+    // Dynamically import notifications only when not in Expo Go
+    let receivedSubscription: any;
+    let responseSubscription: any;
+
+    (async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        
+        // Set notification handler
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: false,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+            shouldShowBanner: false,
+            shouldShowList: false,
+          }),
+        });
+
+        // Foreground notification listener - shows in-app toast
+        receivedSubscription = Notifications.addNotificationReceivedListener(
+          (notification) => {
+            const { title, body, data } = notification.request.content;
+            setToastState({
+              title: title || 'Notification',
+              body: body || '',
+              data: data as Record<string, any> | undefined,
+            });
+          }
+        );
+
+        // Background/killed state notification tap listener - handles deep linking
+        responseSubscription = Notifications.addNotificationResponseReceivedListener(
+          (response) => {
+            const { data } = response.notification.request.content;
+            if (data) {
+              handleNotificationDeepLink(data as Record<string, any>, router);
+            }
+          }
+        );
+      } catch (error) {
+        // Silently ignore notification listener errors
       }
-    );
+    })();
 
     // Cleanup listeners on unmount
     return () => {
-      receivedSubscription.remove();
-      responseSubscription.remove();
+      if (receivedSubscription) {
+        receivedSubscription.remove();
+      }
+      if (responseSubscription) {
+        responseSubscription.remove();
+      }
     };
   }, [router]);
 

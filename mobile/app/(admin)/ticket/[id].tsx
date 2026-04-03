@@ -15,8 +15,8 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { useAlertContext } from '../../../contexts/AlertContext';
 import { Header } from '../../../components/Header';
 import { spacing } from '../../../theme/spacing';
-import { API_BASE_URL } from '../../../constants/config';
 import { tokenManager } from '../../../services/api/tokenManager';
+import { API_BASE_URL } from '../../../constants/config';
 
 interface TicketDetail {
   _id: string;
