@@ -62,7 +62,8 @@ export default function ProductListingPage() {
   const { colors, fontSizes, fonts } = useTheme();
   const { user } = useAuth();
   
-  const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]); // All loaded products
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]); // Filtered products
   const [categories, setCategories] = useState<Category[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,6 +96,11 @@ export default function ProductListingPage() {
     }
   }, [collectionId, collection, category, isShowingCategories, showAll]);
 
+  // Apply filters locally whenever filters or allProducts change
+  useEffect(() => {
+    applyLocalFilters();
+  }, [filters, allProducts]);
+
   const loadCategories = async () => {
     try {
       setLoading(true);
@@ -122,8 +128,73 @@ export default function ProductListingPage() {
     }
   };
 
-  const loadProducts = useCallback(async (page: number = 1, refresh: boolean = false, overrideFilters?: any) => {
-    const activeFilters = overrideFilters !== undefined ? overrideFilters : filters;
+  // Apply filters locally to already loaded products
+  const applyLocalFilters = useCallback(() => {
+    let filtered = [...allProducts];
+
+    // Apply price filter
+    if (filters.minPrice !== undefined && filters.minPrice !== '') {
+      filtered = filtered.filter(p => p.price >= Number(filters.minPrice));
+    }
+    if (filters.maxPrice !== undefined && filters.maxPrice !== '') {
+      filtered = filtered.filter(p => p.price <= Number(filters.maxPrice));
+    }
+
+    // Apply rating filter
+    if (filters.minRating !== undefined && filters.minRating !== '') {
+      filtered = filtered.filter(p => (p.rating || 0) >= Number(filters.minRating));
+    }
+
+    // Apply tag filter
+    if (filters.tag) {
+      filtered = filtered.filter(p => 
+        p.tags && Array.isArray(p.tags) && p.tags.includes(filters.tag)
+      );
+    }
+
+    // Apply search filter
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(searchLower) ||
+        (p.description && p.description.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Apply category filter (if not already filtered by route)
+    if (filters.category && !category) {
+      filtered = filtered.filter(p => p.category === filters.category);
+    }
+
+    // Apply sorting
+    if (filters.sortBy) {
+      switch (filters.sortBy) {
+        case 'newest':
+          filtered.sort((a, b) => {
+            const dateA = new Date((a as any).createdAt || 0).getTime();
+            const dateB = new Date((b as any).createdAt || 0).getTime();
+            return dateB - dateA;
+          });
+          break;
+        case 'price_asc':
+          filtered.sort((a, b) => a.price - b.price);
+          break;
+        case 'price_desc':
+          filtered.sort((a, b) => b.price - a.price);
+          break;
+        case 'rating':
+          filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+          break;
+        case 'trending':
+          // Keep original order for trending
+          break;
+      }
+    }
+
+    setFilteredProducts(filtered);
+  }, [allProducts, filters, category]);
+
+  const loadProducts = useCallback(async (page: number = 1, refresh: boolean = false) => {
     try {
       if (refresh) {
         setRefreshing(true);
@@ -136,78 +207,35 @@ export default function ProductListingPage() {
       let response;
 
       if (collectionId) {
-        // If filters are active, use getProducts filtered by collection via getProducts
-        // Otherwise use the dedicated collection endpoint
-        if (Object.keys(activeFilters).length > 0) {
-          response = await productService.getProducts({
+        response = await collectionService.getCollectionProducts(collectionId, page, 20);
+        if (response.success && response.data) {
+          const collectionData = response.data;
+          const newProducts = collectionData.products || [];
+          const updatedProducts = page === 1 ? newProducts : [...allProducts, ...newProducts];
+          setAllProducts(updatedProducts);
+          setPagination({
             page,
-            limit: 20,
-            minPrice: activeFilters.minPrice,
-            maxPrice: activeFilters.maxPrice,
-            minRating: activeFilters.minRating,
-            tag: activeFilters.tag,
-            ...getSortParams(activeFilters.sortBy),
+            hasNext: newProducts.length === 20,
+            total: collectionData.productCount || newProducts.length,
+            pages: Math.ceil((collectionData.productCount || newProducts.length) / 20)
           });
-        } else {
-          response = await collectionService.getCollectionProducts(collectionId, page, 20);
-          if (response.success && response.data) {
-            const collectionData = response.data;
-            const newProducts = collectionData.products || [];
-            setProducts(page === 1 ? newProducts : [...products, ...newProducts]);
-            setPagination({
-              page,
-              hasNext: newProducts.length === 20,
-              total: collectionData.productCount || newProducts.length,
-              pages: Math.ceil((collectionData.productCount || newProducts.length) / 20)
-            });
-          }
         }
       } else if (collection) {
         switch (collection) {
           case 'featured':
-            // If filters are active, use getProducts with isFeatured flag so filters apply
-            if (Object.keys(activeFilters).length > 0) {
-              response = await productService.getProducts({
-                page,
-                limit: 20,
-                isFeatured: true,
-                minPrice: activeFilters.minPrice,
-                maxPrice: activeFilters.maxPrice,
-                minRating: activeFilters.minRating,
-                tag: activeFilters.tag,
-                ...getSortParams(activeFilters.sortBy),
-              });
-            } else {
-              response = await productService.getFeaturedProducts(20);
-            }
+            response = await productService.getFeaturedProducts(20);
             break;
           case 'trending':
-            response = await productService.getTrendingProducts('7d', page, 20, {
-              minPrice: activeFilters.minPrice,
-              maxPrice: activeFilters.maxPrice,
-              minRating: activeFilters.minRating,
-              category: activeFilters.category,
-              tag: activeFilters.tag,
-            });
+            response = await productService.getTrendingProducts('7d', page, 20);
             break;
           case 'seller_favorites':
-            response = await productService.getSellerFavorites(page, 20, {
-              minPrice: activeFilters.minPrice,
-              maxPrice: activeFilters.maxPrice,
-              minRating: activeFilters.minRating,
-              category: activeFilters.category,
-              tag: activeFilters.tag,
-            });
+            response = await productService.getSellerFavorites(page, 20);
             break;
           case 'discounted':
             response = await productService.getProducts({
               page,
               limit: 20,
-              minPrice: activeFilters.minPrice,
-              maxPrice: activeFilters.maxPrice,
-              minRating: activeFilters.minRating,
-              tag: activeFilters.tag,
-              ...getSortParams(activeFilters.sortBy || 'price_desc'),
+              ...getSortParams('price_desc'),
             });
             if (response.success && response.data) {
               const allData = Array.isArray(response.data) ? response.data : response.data || [];
@@ -219,12 +247,7 @@ export default function ProductListingPage() {
             response = await productService.getProducts({
               page,
               limit: 20,
-              category: activeFilters.category,
-              minPrice: activeFilters.minPrice,
-              maxPrice: activeFilters.maxPrice,
-              minRating: activeFilters.minRating,
-              tag: activeFilters.tag,
-              ...getSortParams(activeFilters.sortBy || 'newest'),
+              ...getSortParams('newest'),
             });
             break;
           case 'recommended':
@@ -238,13 +261,7 @@ export default function ProductListingPage() {
             response = await productService.getProducts({
               page,
               limit: 20,
-              category: category || activeFilters.category,
-              minPrice: activeFilters.minPrice,
-              maxPrice: activeFilters.maxPrice,
-              minRating: activeFilters.minRating,
-              search: activeFilters.search,
-              tag: activeFilters.tag,
-              ...getSortParams(activeFilters.sortBy),
+              category: category,
             });
         }
       } else if (category) {
@@ -252,42 +269,24 @@ export default function ProductListingPage() {
           page, 
           limit: 20,
           category,
-          minPrice: activeFilters.minPrice,
-          maxPrice: activeFilters.maxPrice,
-          minRating: activeFilters.minRating,
-          search: activeFilters.search,
-          tag: activeFilters.tag,
-          ...getSortParams(activeFilters.sortBy)
         });
       } else if (showAll === 'true') {
         response = await productService.getProducts({ 
           page, 
           limit: 20,
-          minPrice: activeFilters.minPrice,
-          maxPrice: activeFilters.maxPrice,
-          minRating: activeFilters.minRating,
-          search: activeFilters.search,
-          tag: activeFilters.tag,
-          ...getSortParams(activeFilters.sortBy || 'newest')
+          ...getSortParams('newest')
         });
       } else {
         response = await productService.getProducts({ 
           page, 
           limit: 20,
-          category: activeFilters.category,
-          minPrice: activeFilters.minPrice,
-          maxPrice: activeFilters.maxPrice,
-          minRating: activeFilters.minRating,
-          search: activeFilters.search,
-          tag: activeFilters.tag,
-          ...getSortParams(activeFilters.sortBy)
         });
       }
 
       if (response && response.success && response.data) {
         const newProducts = Array.isArray(response.data) ? response.data : response.data.products || [];
-        const finalProducts = page === 1 ? newProducts : [...products, ...newProducts];
-        setProducts(finalProducts);
+        const finalProducts = page === 1 ? newProducts : [...allProducts, ...newProducts];
+        setAllProducts(finalProducts);
         
         if ('pagination' in response && response.pagination) {
           const paginationData = response.pagination;
@@ -333,7 +332,7 @@ export default function ProductListingPage() {
       setRefreshing(false);
       setLoadingMore(false);
     }
-  }, [collectionId, collection, category, showAll, products, user]);
+  }, [collectionId, collection, category, showAll, allProducts, user]);
 
   const handleRefresh = useCallback(() => {
     if (isShowingCategories) {
@@ -385,7 +384,7 @@ export default function ProductListingPage() {
   const handleApplyFilters = (newFilters: any) => {
     setFilters(newFilters);
     setShowFilterModal(false);
-    loadProducts(1, true, newFilters);
+    // Filters will be applied automatically via useEffect
   };
 
 
@@ -710,7 +709,7 @@ export default function ProductListingPage() {
           }
         >
           {/* Show empty state prominently if no products */}
-          {products.length === 0 && !loading ? (
+          {filteredProducts.length === 0 && !loading ? (
             <View style={styles.emptyStateContainer}>
               <Ionicons 
                 name="cube-outline" 
@@ -727,7 +726,7 @@ export default function ProductListingPage() {
           ) : (
             <View style={styles.masonryContainer}>
               <View style={styles.masonryColumn}>
-                {products.filter((_, index) => index % 2 === 0).map((item) => {
+                {filteredProducts.filter((_, index) => index % 2 === 0).map((item) => {
                   if (!item || (!item.id && !(item as any)._id)) {
                     return null;
                   }
@@ -745,7 +744,7 @@ export default function ProductListingPage() {
               </View>
               
               <View style={styles.masonryColumn}>
-                {products.filter((_, index) => index % 2 === 1).map((item) => {
+                {filteredProducts.filter((_, index) => index % 2 === 1).map((item) => {
                   if (!item || (!item.id && !(item as any)._id)) {
                     return null;
                   }
@@ -769,7 +768,7 @@ export default function ProductListingPage() {
           )}
 
           {/* Load More Button for Products */}
-          {!isShowingCategories && pagination.hasNext && !loadingMore && products.length > 0 && (
+          {!isShowingCategories && pagination.hasNext && !loadingMore && filteredProducts.length > 0 && (
             <TouchableOpacity 
               style={styles.loadMoreButton}
               onPress={() => loadProducts(pagination.page + 1)}
