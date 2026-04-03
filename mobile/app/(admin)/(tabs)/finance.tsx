@@ -26,6 +26,10 @@ import { mobileToastManager } from '../../../utils/toast';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Header } from '../../../components/Header';
 import { useTabRefundBadge, useManageRefundBadge } from '../../../hooks/useRefundBadge';
+import { useTourGuide } from '../../../contexts/TourGuideContext';
+import { tourGuideService } from '../../../services/TourGuideService';
+import { TourListModal } from '../../../components/tour/TourListModal';
+import { TourButton } from '../../../components/tour/TourButton';
 
 interface RefundModalProps {
   visible: boolean;
@@ -256,6 +260,7 @@ export default function FinanceScreen() {
   const { colors, fontSizes, spacing, borderRadius, fontWeights } = useTheme();
   const { tabBadgeCount, markTabSeen, refreshTabBadge } = useTabRefundBadge();
   const { manageBadgeCount, refreshManageBadge } = useManageRefundBadge();
+  const { startTour } = useTourGuide();
 
   // When finance tab comes into focus, mark tab as seen → badge moves to Manage Refunds button
   useFocusEffect(
@@ -264,6 +269,9 @@ export default function FinanceScreen() {
       refreshManageBadge();
     }, [markTabSeen, refreshManageBadge])
   );
+  
+  const [tourModalVisible, setTourModalVisible] = useState(false);
+  const availableTours = tourGuideService.getToursByPage('finance');
   
   const styles = StyleSheet.create({
     screen: { 
@@ -683,20 +691,24 @@ export default function FinanceScreen() {
         subtitle="Track revenue"
         badge={tabBadgeCount > 0 ? { count: tabBadgeCount, color: '#f59e0b' } : undefined}
         rightAction={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary, }}>
-            <TouchableOpacity
-              style={styles.periodButton}
-              onPress={() => setPeriodMenuVisible(true)}
-            >
-              <Text style={styles.periodButtonText}>{periodLabel}</Text>
-              <Ionicons name="chevron-down" size={10} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{ padding: 2, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary, margin: 2, }}
-              onPress={handleExport}
-            >
-              <Ionicons name="download-outline" size={14} color={colors.primary} />
-            </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <TourButton onPress={() => setTourModalVisible(true)} variant="icon" size="sm" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary }}>
+              <TouchableOpacity
+                style={styles.periodButton}
+                onPress={() => setPeriodMenuVisible(true)}
+              >
+                <Text style={styles.periodButtonText}>{periodLabel}</Text>
+                <Ionicons name="chevron-down" size={10} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ padding: 2, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary, margin: 2, }}
+                onPress={handleExport}
+                testID="export-button"
+              >
+                <Ionicons name="download-outline" size={14} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
           </View>
         }
       />
@@ -716,6 +728,7 @@ export default function FinanceScreen() {
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => router.push('/(admin)/refunds')}
+          testID="manage-refunds-button"
         >
           <Ionicons name="settings-outline" size={16} color={colors.primary} />
           <Text style={styles.actionButtonText}>Manage Refunds</Text>
@@ -795,6 +808,12 @@ export default function FinanceScreen() {
         order={refundModalOrder}
         onClose={() => setRefundModalOrder(null)}
         onSubmit={handleRefundSubmit}
+      />
+
+      <TourListModal
+        visible={tourModalVisible}
+        tours={availableTours}
+        onClose={() => setTourModalVisible(false)}
       />
     </View>
   );

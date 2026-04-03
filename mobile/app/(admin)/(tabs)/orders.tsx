@@ -19,6 +19,10 @@ import { SearchBar } from '../../../components/admin/SearchBar';
 import { StatCard } from '../../../components/admin/StatCard';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Header } from '../../../components/Header';
+import { useTourGuide } from '../../../contexts/TourGuideContext';
+import { tourGuideService } from '../../../services/TourGuideService';
+import { TourListModal } from '../../../components/tour/TourListModal';
+import { TourButton } from '../../../components/tour/TourButton';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -225,6 +229,7 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ visible, selected, onSe
 export default function OrdersScreen() {
   const router = useRouter();
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
+  const { startTour } = useTourGuide();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [refunds, setRefunds] = useState<Refund[]>([]);
@@ -236,6 +241,9 @@ export default function OrdersScreen() {
   const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>('all');
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('all');
   const [periodModalVisible, setPeriodModalVisible] = useState(false);
+  const [tourModalVisible, setTourModalVisible] = useState(false);
+  
+  const availableTours = tourGuideService.getToursByPage('orders');
 
   const styles = StyleSheet.create({
     screen: {
@@ -511,13 +519,16 @@ export default function OrdersScreen() {
         title="Orders"
         subtitle="Track customer orders"
         rightAction={
-          <TouchableOpacity
-            style={styles.periodButton}
-            onPress={() => setPeriodModalVisible(true)}
-          >
-            <Text style={styles.periodButtonText}>{periodLabel}</Text>
-            <Ionicons name="chevron-down" size={14} color={colors.primary} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: spacing.xs, alignItems: 'center' }}>
+            <TourButton onPress={() => setTourModalVisible(true)} variant="icon" size="sm" />
+            <TouchableOpacity
+              style={styles.periodButton}
+              onPress={() => setPeriodModalVisible(true)}
+            >
+              <Text style={styles.periodButtonText}>{periodLabel}</Text>
+              <Ionicons name="chevron-down" size={14} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -604,6 +615,12 @@ export default function OrdersScreen() {
         selected={timePeriod}
         onSelect={setTimePeriod}
         onClose={() => setPeriodModalVisible(false)}
+      />
+
+      <TourListModal
+        visible={tourModalVisible}
+        tours={availableTours}
+        onClose={() => setTourModalVisible(false)}
       />
     </View>
   );

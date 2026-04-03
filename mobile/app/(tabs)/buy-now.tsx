@@ -324,7 +324,6 @@ export default function BuyNowTab() {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: spacing.xl,
-      paddingVertical: spacing.xl,
       gap: spacing.sm,
     },
     endOfFeedLine: {

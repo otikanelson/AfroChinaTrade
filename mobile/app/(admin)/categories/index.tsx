@@ -9,6 +9,10 @@ import { Header } from '../../../components/Header';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { categoryService, CreateCategoryData } from '../../../services/CategoryService';
 import { Category } from '../../../types/product';
+import { useTourGuide } from '../../../contexts/TourGuideContext';
+import { tourGuideService } from '../../../services/TourGuideService';
+import { TourListModal } from '../../../components/tour/TourListModal';
+import { TourButton } from '../../../components/tour/TourButton';
 
 // ─── Category form modal ───────────────────────────────────────────────────
 interface FormModalProps {
@@ -82,7 +86,7 @@ const CategoryFormModal: React.FC<FormModalProps> = ({ visible, category, onClos
             <TextInput style={[s.input, { minHeight: 70, textAlignVertical: 'top' }]} value={description} onChangeText={setDescription} placeholder="Brief description" placeholderTextColor={colors.textLight} multiline />
           </View>
           <View>
-            <Text style={s.label}>Icon (Ionicons name)</Text>
+            <Text style={s.label}>Icon</Text>
             <TextInput style={s.input} value={icon} onChangeText={setIcon} placeholder="e.g. phone-portrait" placeholderTextColor={colors.textLight} autoCapitalize="none" />
           </View>
           <View>
@@ -113,6 +117,10 @@ export default function CategoriesManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
   const [editTarget, setEditTarget] = useState<Category | null>(null);
+  const [tourModalVisible, setTourModalVisible] = useState(false);
+  const { startTour } = useTourGuide();
+  
+  const availableTours = tourGuideService.getToursByPage('categories');
 
   const load = useCallback(async (isRefresh = false) => {
     isRefresh ? setRefreshing(true) : setLoading(true);
@@ -199,7 +207,13 @@ export default function CategoriesManagement() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
-      <Header title="Categories" showBack />
+      <Header 
+        title="Categories" 
+        showBack
+        rightAction={
+          <TourButton onPress={() => setTourModalVisible(true)} variant="icon" />
+        }
+      />
       <View style={{ flex: 1, padding: spacing.base }}>
         <TouchableOpacity
           style={{ backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, borderRadius: borderRadius.lg, marginBottom: spacing.lg, gap: spacing.sm }}
@@ -233,6 +247,12 @@ export default function CategoriesManagement() {
         category={editTarget}
         onClose={() => setFormVisible(false)}
         onSave={() => load()}
+      />
+      
+      <TourListModal
+        visible={tourModalVisible}
+        tours={availableTours}
+        onClose={() => setTourModalVisible(false)}
       />
     </View>
   );

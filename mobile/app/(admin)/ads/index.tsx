@@ -9,6 +9,10 @@ import { Header } from '../../../components/Header';
 import { CustomModal } from '../../../components/ui/CustomModal';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { adService, Ad } from '../../../services/AdService';
+import { useTourGuide } from '../../../contexts/TourGuideContext';
+import { tourGuideService } from '../../../services/TourGuideService';
+import { TourListModal } from '../../../components/tour/TourListModal';
+import { TourButton } from '../../../components/tour/TourButton';
 
 const PLACEMENT_OPTIONS = [
   { label: 'Home Page', value: 'home' },
@@ -22,6 +26,11 @@ export default function AdsManagement() {
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [tourModalVisible, setTourModalVisible] = useState(false);
+  const { startTour } = useTourGuide();
+  
+  const availableTours = tourGuideService.getToursByPage('ads');
+  
   const [infoModal, setInfoModal] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' }>({
     visible: false,
     title: '',
@@ -210,7 +219,13 @@ export default function AdsManagement() {
 
   return (
     <View style={styles.container}>
-      <Header title="Ads Management" showBack />
+      <Header 
+        title="Ads Management" 
+        showBack
+        rightAction={
+          <TourButton onPress={() => setTourModalVisible(true)} variant="icon" />
+        }
+      />
       <View style={styles.content}>
         <TouchableOpacity style={styles.createBtn} onPress={() => router.push({ pathname: '/(admin)/ads/[id]', params: { id: 'new' } })}>
           <Ionicons name="add-circle" size={22} color={colors.textInverse} />
@@ -289,6 +304,12 @@ export default function AdsManagement() {
           </TouchableOpacity>
         </View>
       </CustomModal>
+
+      <TourListModal
+        visible={tourModalVisible}
+        tours={availableTours}
+        onClose={() => setTourModalVisible(false)}
+      />
     </View>
   );
 }

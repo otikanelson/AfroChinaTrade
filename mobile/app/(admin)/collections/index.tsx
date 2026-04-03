@@ -17,6 +17,10 @@ import { CustomModal } from '../../../components/ui/CustomModal';
 import { collectionService } from '../../../services/CollectionService';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Collection } from '../../../types/product';
+import { useTourGuide } from '../../../contexts/TourGuideContext';
+import { tourGuideService } from '../../../services/TourGuideService';
+import { TourListModal } from '../../../components/tour/TourListModal';
+import { TourButton } from '../../../components/tour/TourButton';
 
 export default function CollectionsManagement() {
   const router = useRouter();
@@ -26,6 +30,10 @@ export default function CollectionsManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
+  const [tourModalVisible, setTourModalVisible] = useState(false);
+  const { startTour } = useTourGuide();
+  
+  const availableTours = tourGuideService.getToursByPage('collections');
 
   useFocusEffect(
     useCallback(() => {
@@ -374,7 +382,13 @@ export default function CollectionsManagement() {
 
   return (
     <View style={styles.container}>
-      <Header title="Collections" showBack />
+      <Header 
+        title="Collections" 
+        showBack
+        rightAction={
+          <TourButton onPress={() => setTourModalVisible(true)} variant="icon" />
+        }
+      />
       
       <View style={styles.content}>
         <TouchableOpacity 
@@ -418,6 +432,12 @@ export default function CollectionsManagement() {
           />
         )}
       </View>
+
+      <TourListModal
+        visible={tourModalVisible}
+        tours={availableTours}
+        onClose={() => setTourModalVisible(false)}
+      />
     </View>
   );
 }

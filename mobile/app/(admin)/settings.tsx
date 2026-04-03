@@ -11,6 +11,10 @@ import { pageLayoutService, LayoutBlock } from '../../services/PageLayoutService
 import { collectionService } from '../../services/CollectionService';
 import { Collection } from '../../types/product';
 import { adService } from '../../services/AdService';
+import { useTourGuide } from '../../contexts/TourGuideContext';
+import { tourGuideService } from '../../services/TourGuideService';
+import { TourListModal } from '../../components/tour/TourListModal';
+import { TourButton } from '../../components/tour/TourButton';
 
 const BLOCK_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   featured_products: 'star',
@@ -46,6 +50,10 @@ export default function PageLayoutSettings() {
   const [saving, setSaving] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [dirty, setDirty] = useState(false);
+  const [tourModalVisible, setTourModalVisible] = useState(false);
+  const { startTour } = useTourGuide();
+  
+  const availableTours = tourGuideService.getToursByPage('settings');
 
   const [infoModal, setInfoModal] = useState<{ visible: boolean; title: string; message: string }>({ visible: false, title: '', message: '' });
   const [resetModal, setResetModal] = useState(false);
@@ -194,17 +202,20 @@ export default function PageLayoutSettings() {
         subtitle="Use ↑↓ arrows to reorder sections"
         showBack
         rightAction={
-          dirty ? (
-            <TouchableOpacity
-              style={{ backgroundColor: colors.primary, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: borderRadius.md }}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              <Text style={{ color: colors.textInverse, fontSize: fontSizes.sm, fontWeight: fontWeights.bold as any }}>
-                {saving ? 'Saving…' : 'Save'}
-              </Text>
-            </TouchableOpacity>
-          ) : undefined
+          <View style={{ flexDirection: 'row', gap: spacing.xs, alignItems: 'center' }}>
+            <TourButton onPress={() => setTourModalVisible(true)} variant="icon" size="sm" />
+            {dirty && (
+              <TouchableOpacity
+                style={{ backgroundColor: colors.primary, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: borderRadius.md }}
+                onPress={handleSave}
+                disabled={saving}
+              >
+                <Text style={{ color: colors.textInverse, fontSize: fontSizes.sm, fontWeight: fontWeights.bold as any }}>
+                  {saving ? 'Saving…' : 'Save'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         }
       />
 
@@ -388,6 +399,12 @@ export default function PageLayoutSettings() {
           <Text style={{ color: colors.textInverse, fontWeight: fontWeights.semibold as any, fontSize: fontSizes.base }}>OK</Text>
         </TouchableOpacity>
       </CustomModal>
+
+      <TourListModal
+        visible={tourModalVisible}
+        tours={availableTours}
+        onClose={() => setTourModalVisible(false)}
+      />
     </View>
   );
 }

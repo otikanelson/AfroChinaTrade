@@ -8,6 +8,10 @@ import { Header } from '../../../components/Header';
 import { ThemeModal } from '../../../components/ThemeModal';
 import { spacing } from '../../../theme/spacing';
 import { getDisplayPhone } from '../../../utils/phoneUtils';
+import { useTourGuide } from '../../../contexts/TourGuideContext';
+import { tourGuideService } from '../../../services/TourGuideService';
+import { TourListModal } from '../../../components/tour/TourListModal';
+import { TourButton } from '../../../components/tour/TourButton';
 
 interface MenuItemProps {
   icon: string;
@@ -94,6 +98,10 @@ export default function AdminAccountTab() {
   const { user, logout } = useAuth();
   const { colors, fonts, fontSizes } = useTheme();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
+  const [tourModalVisible, setTourModalVisible] = useState(false);
+  const { startTour } = useTourGuide();
+  
+  const availableTours = tourGuideService.getToursByPage('account');
 
   const styles = StyleSheet.create({
     container: {
@@ -248,6 +256,9 @@ export default function AdminAccountTab() {
       <Header
         title="My Account"
         subtitle="Admin Dashboard"
+        rightAction={
+          <TourButton onPress={() => setTourModalVisible(true)} variant="icon" />
+        }
       />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -405,6 +416,7 @@ export default function AdminAccountTab() {
         <TouchableOpacity
           style={styles.customerButton}
           onPress={() => router.push('/(tabs)/home')}
+          testID="customer-view-button"
         >
           <Ionicons name="storefront" size={18} color={colors.primary} />
           <Text style={styles.customerButtonText}>Customer View</Text>
@@ -414,6 +426,12 @@ export default function AdminAccountTab() {
         <ThemeModal
           visible={themeModalVisible}
           onClose={() => setThemeModalVisible(false)}
+        />
+
+        <TourListModal
+          visible={tourModalVisible}
+          tours={availableTours}
+          onClose={() => setTourModalVisible(false)}
         />
 
       </ScrollView>

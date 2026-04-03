@@ -20,10 +20,7 @@ export function TourButton({ onPress, variant = 'icon', size = 'md' }: TourButto
       gap: spacing.xs,
       paddingHorizontal: variant === 'icon' ? spacing.xs : spacing.md,
       paddingVertical: size === 'sm' ? spacing.xs : spacing.sm,
-      borderRadius: borderRadius.md,
       backgroundColor: variant === 'full' ? colors.primary : 'transparent',
-      borderWidth: variant === 'text' || variant === 'full' ? 0 : 1,
-      borderColor: colors.primary,
     },
     text: {
       fontSize: size === 'sm' ? fontSizes.xs : fontSizes.sm,
