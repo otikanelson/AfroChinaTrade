@@ -34,15 +34,18 @@
           "backgroundColor": "#8f231d",
           "image": "./assets/images/splash.png",
           "dark": {
-            "image": "./assets/images/splash.png",
-            "backgroundColor": "#8f231d"
+            "image": "./assets/images/Logo_light.png",
+            "backgroundColor": "#000000"
           },
-          "imageWidth": 200
+          "imageWidth": 120
         }
       ]
     ],
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/19b6a312-d523-44f8-846f-83a97c6aa6ff"
+    },
     "extra": {
-      "router": {},
       "eas": {
         "projectId": "19b6a312-d523-44f8-846f-83a97c6aa6ff"
       }
