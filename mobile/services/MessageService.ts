@@ -25,7 +25,12 @@ class MessageService {
   }
 
   async sendMessage(request: SendMessageRequest): Promise<ApiResponse<Message>> {
-    console.log('MessageService: Sending message', { threadId: request.threadId, textLength: request.text.length });
+    console.log('MessageService: Sending message', { 
+      threadId: request.threadId, 
+      textLength: request.text.length,
+      hasProductInfo: !!(request.productId || request.productName),
+      threadType: request.threadType
+    });
     
     const response = await api.post('/messages', request);
     
@@ -56,6 +61,15 @@ class MessageService {
 
   async getUnreadCount(): Promise<ApiResponse<{ unreadCount: number }>> {
     const response = await api.get('/messages/unread-count');
+    return response;
+  }
+
+  async deleteThread(threadId: string): Promise<ApiResponse<{ threadId: string; messagesDeleted: number; threadDeleted: boolean }>> {
+    console.log('MessageService: Deleting thread', { threadId });
+    
+    const response = await api.delete(`/messages/threads/${threadId}`);
+    
+    console.log('MessageService: Delete thread response', response);
     return response;
   }
 

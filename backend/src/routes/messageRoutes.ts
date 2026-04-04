@@ -6,6 +6,7 @@ import {
   markAsRead,
   getUnreadCount,
   createProductThread,
+  deleteThread,
   clearHistory,
 } from '../controllers/messageController';
 import { verifyToken } from '../middleware/auth';
@@ -33,6 +34,9 @@ router.patch('/:id/read', markAsRead);
 
 // Get unread message count
 router.get('/unread-count', getUnreadCount);
+
+// Delete a specific thread
+router.delete('/threads/:threadId', deleteThread);
 
 // Clear all message history for the authenticated user
 router.delete('/', clearHistory);

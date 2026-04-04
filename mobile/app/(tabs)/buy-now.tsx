@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Header } from '../../components/Header';
@@ -705,7 +704,7 @@ export default function BuyNowTab() {
   }, [colors, styles, recommendations, featuredProducts, trendingProducts, discountedProducts, buyNowAds, buyNowTiles, router, collectionProducts]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Header
         title="Buy Now"
         subtitle="Get fast items for you"
@@ -743,6 +742,6 @@ export default function BuyNowTab() {
         visible={showCameraModal}
         onClose={() => setShowCameraModal(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }

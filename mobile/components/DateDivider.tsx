@@ -14,15 +14,26 @@ export const DateDivider: React.FC<DateDividerProps> = ({ date, style }) => {
   const formatDateDivider = (dateInput: string | Date) => {
     const dateObj = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    const dateMonth = dateObj.getMonth();
+    const dateYear = dateObj.getFullYear();
 
-    if (dateObj.toDateString() === today.toDateString()) return 'Today';
-    if (dateObj.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    // If it's the current month and year, show "This Month"
+    if (dateMonth === currentMonth && dateYear === currentYear) {
+      return 'This Month';
+    }
+    
+    // If it's last month of the same year, show "Last Month"
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    if (dateMonth === lastMonth && dateYear === lastMonthYear) {
+      return 'Last Month';
+    }
+    
+    // Otherwise show month and year
     return dateObj.toLocaleDateString('en-US', { 
-      weekday: 'long', 
       month: 'long', 
-      day: 'numeric', 
       year: 'numeric' 
     });
   };
@@ -59,26 +70,29 @@ export const DateDivider: React.FC<DateDividerProps> = ({ date, style }) => {
   );
 };
 
-// Utility function to create list items with date dividers
+// Utility function to create list items with date dividers (grouped by month)
 export const createListWithDateDividers = <T extends { timestamp?: string; createdAt?: string; updatedAt?: string; date?: string }>(
   items: T[],
   getItemKey: (item: T) => string,
   getItemDate: (item: T) => string = (item) => item.timestamp || item.createdAt || item.updatedAt || item.date || ''
 ): Array<{ type: 'divider'; label: string; key: string } | { type: 'item'; data: T; key: string }> => {
   const listItems: Array<{ type: 'divider'; label: string; key: string } | { type: 'item'; data: T; key: string }> = [];
-  let lastDateKey = '';
+  let lastMonthKey = '';
 
   for (const item of items) {
     const itemDate = getItemDate(item);
     if (!itemDate) continue;
 
-    const dateKey = new Date(itemDate).toDateString();
-    if (dateKey !== lastDateKey) {
-      lastDateKey = dateKey;
+    const dateObj = new Date(itemDate);
+    // Create a month key using year and month (e.g., "2024-03")
+    const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+    
+    if (monthKey !== lastMonthKey) {
+      lastMonthKey = monthKey;
       listItems.push({ 
         type: 'divider', 
         label: itemDate, 
-        key: `divider_${dateKey}` 
+        key: `divider_${monthKey}` 
       });
     }
     listItems.push({ 

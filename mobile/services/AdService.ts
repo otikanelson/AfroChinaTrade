@@ -14,6 +14,7 @@ export interface Ad {
     home?: 'carousel' | 'tile';
     'buy-now'?: 'carousel' | 'tile';
     'product-detail'?: 'carousel' | 'tile';
+    account?: 'tile';
     app?: 'splash';
   };
   // Splash ad specific fields
@@ -22,7 +23,7 @@ export interface Ad {
 }
 
 class AdService {
-  async getAds(placement?: 'home' | 'buy-now' | 'product-detail', adType?: 'carousel' | 'tile'): Promise<ApiResponse<Ad[]>> {
+  async getAds(placement?: 'home' | 'buy-now' | 'product-detail' | 'account', adType?: 'carousel' | 'tile'): Promise<ApiResponse<Ad[]>> {
     const params: any = {};
     if (placement) params.placement = placement;
     if (adType) params.adType = adType;

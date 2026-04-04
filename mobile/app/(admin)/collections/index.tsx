@@ -29,7 +29,9 @@ export default function CollectionsManagement() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
+  const [collectionToToggle, setCollectionToToggle] = useState<{ collection: Collection; newStatus: boolean } | null>(null);
   const [tourModalVisible, setTourModalVisible] = useState(false);
   const { startTour } = useTourGuide();
   
@@ -49,7 +51,7 @@ export default function CollectionsManagement() {
         setLoading(true);
       }
 
-      const response = await collectionService.getActiveCollections();
+      const response = await collectionService.getAllCollections();
       if (response.success && response.data) {
         // Product counts are now included in the response
         setCollections(response.data);
@@ -80,16 +82,24 @@ export default function CollectionsManagement() {
     });
   };
 
-  const handleToggleStatus = async (collection: Collection) => {
+  const handleToggleStatus = (collection: Collection) => {
+    setCollectionToToggle({
+      collection,
+      newStatus: !collection.isActive
+    });
+    setStatusModalVisible(true);
+  };
+
+  const confirmStatusToggle = async () => {
+    if (!collectionToToggle) return;
+    
     try {
-      const collectionId = (collection as any)._id || collection.id;
+      const collectionId = (collectionToToggle.collection as any)._id || collectionToToggle.collection.id;
       const response = await collectionService.toggleCollectionStatus(collectionId);
       if (response.success) {
         loadCollections();
-        Alert.alert(
-          'Success',
-          `Collection ${collection.isActive ? 'deactivated' : 'activated'} successfully`
-        );
+        setStatusModalVisible(false);
+        setCollectionToToggle(null);
       } else {
         Alert.alert('Error', response.error || 'Failed to update collection status');
       }
@@ -114,7 +124,6 @@ export default function CollectionsManagement() {
         loadCollections();
         setDeleteModalVisible(false);
         setSelectedCollection(null);
-        Alert.alert('Success', 'Collection deleted successfully');
       } else {
         Alert.alert('Error', response.error || 'Failed to delete collection');
       }
@@ -125,7 +134,13 @@ export default function CollectionsManagement() {
   };
 
   const renderCollectionCard = ({ item: collection }: { item: Collection }) => (
-    <Card style={styles.collectionCard} elevation="md">
+    <Card 
+      style={[
+        styles.collectionCard, 
+        !collection.isActive && { opacity: 0.7, backgroundColor: colors.surface + 'CC' }
+      ]} 
+      elevation="md"
+    >
       {/* Top row: icon + name + status | action buttons */}
       <View style={styles.cardTop}>
         <View style={styles.cardTopLeft}>
@@ -133,7 +148,9 @@ export default function CollectionsManagement() {
             <Ionicons name="albums" size={20} color={collection.isActive ? colors.primary : colors.textSecondary} />
           </View>
           <View style={styles.titleContainer}>
-            <Text style={styles.collectionName} numberOfLines={1}>{collection.name}</Text>
+            <Text style={[styles.collectionName, !collection.isActive && { color: colors.textSecondary }]} numberOfLines={1}>
+              {collection.name}
+            </Text>
             <View style={styles.statusRow}>
               <View style={[styles.statusDot, { backgroundColor: collection.isActive ? colors.success : colors.textLight }]} />
               <Text style={[styles.statusLabel, { color: collection.isActive ? colors.success : colors.textLight }]}>
@@ -179,14 +196,16 @@ export default function CollectionsManagement() {
 
       {/* Description */}
       {collection.description ? (
-        <Text style={styles.description} numberOfLines={2}>{collection.description}</Text>
+        <Text style={[styles.description, !collection.isActive && { color: colors.textLight }]} numberOfLines={2}>
+          {collection.description}
+        </Text>
       ) : null}
 
       {/* Filter chips */}
       {collection.filters.length > 0 && (
         <View style={styles.filtersContainer}>
           {collection.filters.slice(0, 3).map((filter, index) => (
-            <View key={index} style={styles.filterChip}>
+            <View key={index} style={[styles.filterChip, !collection.isActive && { opacity: 0.6 }]}>
               <Text style={styles.filterText}>
                 {filter.type}
                 {': '}
@@ -199,7 +218,7 @@ export default function CollectionsManagement() {
             </View>
           ))}
           {collection.filters.length > 3 && (
-            <View style={[styles.filterChip, { backgroundColor: colors.border }]}>
+            <View style={[styles.filterChip, { backgroundColor: colors.border }, !collection.isActive && { opacity: 0.6 }]}>
               <Text style={[styles.filterText, { color: colors.textSecondary }]}>
                 +{collection.filters.length - 3}
               </Text>
@@ -209,7 +228,7 @@ export default function CollectionsManagement() {
       )}
 
       {/* Footer: date */}
-      <Text style={styles.timestamp}>
+      <Text style={[styles.timestamp, !collection.isActive && { color: colors.textLight }]}>
         Created {new Date(collection.createdAt).toLocaleDateString()}
       </Text>
     </Card>
@@ -439,49 +458,120 @@ export default function CollectionsManagement() {
         onClose={() => setTourModalVisible(false)}
       />
 
+      {/* Status Toggle Modal */}
+      <CustomModal
+        visible={statusModalVisible}
+        onClose={() => {
+          setStatusModalVisible(false);
+          setCollectionToToggle(null);
+        }}
+        title={collectionToToggle?.newStatus ? 'Activate Collection' : 'Deactivate Collection'}
+        size="small"
+        position="center"
+        scrollable={false}
+      >
+        <>
+          <Text style={{ fontSize: fontSizes.base, color: colors.text, marginBottom: spacing.lg }}>
+            Are you sure you want to {collectionToToggle?.newStatus ? 'activate' : 'deactivate'} "{collectionToToggle?.collection.name}"?
+          </Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                paddingVertical: spacing.md,
+                paddingHorizontal: spacing.lg,
+                borderRadius: borderRadius.md,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                alignItems: 'center',
+              }}
+              onPress={() => {
+                setStatusModalVisible(false);
+                setCollectionToToggle(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.text }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                paddingVertical: spacing.md,
+                paddingHorizontal: spacing.lg,
+                borderRadius: borderRadius.md,
+                backgroundColor: collectionToToggle?.newStatus ? colors.success : colors.warning,
+                alignItems: 'center',
+              }}
+              onPress={confirmStatusToggle}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textInverse }}>
+                {collectionToToggle?.newStatus ? 'Activate' : 'Deactivate'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      </CustomModal>
+
+      {/* Delete Modal */}
       <CustomModal
         visible={deleteModalVisible}
-        onClose={() => setDeleteModalVisible(false)}
+        onClose={() => {
+          setDeleteModalVisible(false);
+          setSelectedCollection(null);
+        }}
         title="Delete Collection"
-        type="danger"
+        size="small"
+        position="center"
+        scrollable={false}
       >
-        <Text style={{ fontSize: fontSizes.base, color: colors.text, marginBottom: spacing.lg }}>
-          Are you sure you want to delete "{selectedCollection?.name}"? This action cannot be undone.
-        </Text>
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              paddingVertical: spacing.md,
-              paddingHorizontal: spacing.lg,
-              borderRadius: borderRadius.md,
-              backgroundColor: colors.surface,
-              borderWidth: 1,
-              borderColor: colors.border,
-              alignItems: 'center',
-            }}
-            onPress={() => setDeleteModalVisible(false)}
-          >
-            <Text style={{ fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.text }}>
-              Cancel
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              paddingVertical: spacing.md,
-              paddingHorizontal: spacing.lg,
-              borderRadius: borderRadius.md,
-              backgroundColor: colors.error,
-              alignItems: 'center',
-            }}
-            onPress={confirmDelete}
-          >
-            <Text style={{ fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textInverse }}>
-              Delete
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <>
+          <Text style={{ fontSize: fontSizes.base, color: colors.text, marginBottom: spacing.lg }}>
+            Are you sure you want to delete "{selectedCollection?.name}"? This action cannot be undone.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                paddingVertical: spacing.md,
+                paddingHorizontal: spacing.lg,
+                borderRadius: borderRadius.md,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                alignItems: 'center',
+              }}
+              onPress={() => {
+                setDeleteModalVisible(false);
+                setSelectedCollection(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.text }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                paddingVertical: spacing.md,
+                paddingHorizontal: spacing.lg,
+                borderRadius: borderRadius.md,
+                backgroundColor: colors.error,
+                alignItems: 'center',
+              }}
+              onPress={confirmDelete}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textInverse }}>
+                Delete
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
       </CustomModal>
     </View>
   );

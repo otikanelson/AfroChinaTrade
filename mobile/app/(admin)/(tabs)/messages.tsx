@@ -13,6 +13,8 @@ import { MessageThread } from '../../../types/message';
 import { Card } from '../../../components/admin/Card';
 import { DataList } from '../../../components/admin/DataList';
 import { SearchBar } from '../../../components/admin/SearchBar';
+import { DateDivider, createListWithDateDividers } from '../../../components/DateDivider';
+import { DeleteConfirmationModal } from '../../../components/ui/DeleteConfirmationModal';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Header } from '../../../components/Header';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,13 +86,36 @@ const FilterChip: React.FC<ChipProps> = ({ label, active, onPress }) => {
 interface ThreadCardProps {
   thread: MessageThread;
   onPress: () => void;
+  onDelete: () => void;
 }
 
-const ThreadCard: React.FC<ThreadCardProps> = ({ thread, onPress }) => {
-  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
+const ThreadCard: React.FC<ThreadCardProps> = ({ thread, onPress, onDelete }) => {
+  const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   const hasUnread = thread.unreadCount > 0;
+  
+  const handleLongPress = () => {
+    onDelete();
+  };
+
   return (
-    <Card onPress={onPress} style={{ marginHorizontal: spacing.base, marginVertical: spacing.xs }}>
+    <TouchableOpacity
+      onPress={onPress}
+      onLongPress={handleLongPress}
+      delayLongPress={500}
+      style={[
+        {
+          backgroundColor: colors.background,
+          borderRadius: borderRadius.lg,
+          borderWidth: 1,
+          borderColor: colors.borderLight,
+          marginHorizontal: spacing.base,
+          marginVertical: spacing.xs,
+          padding: spacing.lg,
+        },
+        shadows.base,
+      ]}
+      activeOpacity={0.7}
+    >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         {/* Avatar */}
         <View style={[
@@ -133,11 +158,23 @@ const ThreadCard: React.FC<ThreadCardProps> = ({ thread, onPress }) => {
             >
               {thread.customerName}
             </Text>
-            <Text style={{
-              fontSize: fontSizes.xs,
-              color: colors.textSecondary,
-              flexShrink: 0,
-            }}>{formatRelativeTime(thread.lastMessageAt)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+              <Text style={{
+                fontSize: fontSizes.xs,
+                color: colors.textSecondary,
+                flexShrink: 0,
+              }}>{formatRelativeTime(thread.lastMessageAt)}</Text>
+              <TouchableOpacity
+                onPress={handleLongPress}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={{
+                  padding: spacing.xs,
+                  borderRadius: borderRadius.sm,
+                }}
+              >
+                <Ionicons name="ellipsis-vertical" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text
@@ -177,7 +214,7 @@ const ThreadCard: React.FC<ThreadCardProps> = ({ thread, onPress }) => {
           </View>
         </View>
       </View>
-    </Card>
+    </TouchableOpacity>
   );
 };
 
@@ -198,6 +235,22 @@ export default function MessagesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [activeTab, setActiveTab] = useState<'inquiry' | 'quotation'>('inquiry');
+  const [deleteModal, setDeleteModal] = useState<{
+    visible: boolean;
+    thread: MessageThread | null;
+    isDeleting: boolean;
+  }>({
+    visible: false,
+    thread: null,
+    isDeleting: false,
+  });
+  const [clearAllModal, setClearAllModal] = useState<{
+    visible: boolean;
+    isClearing: boolean;
+  }>({
+    visible: false,
+    isClearing: false,
+  });
 
   // ── Notification permissions ───────────────────────────────────────────────
 
@@ -295,6 +348,15 @@ export default function MessagesScreen() {
     return result;
   }, [threads, filter, searchQuery, activeTab]);
 
+  // Create list items with date dividers (grouped by month)
+  const listItems = useMemo(() => {
+    return createListWithDateDividers(
+      filteredThreads,
+      (item) => item.threadId,
+      (item) => item.lastMessageAt
+    );
+  }, [filteredThreads]);
+
   const totalUnread = useMemo(
     () => {
       const threadsArray = Array.isArray(threads) ? threads : [];
@@ -342,16 +404,101 @@ export default function MessagesScreen() {
     [router],
   );
 
+  const handleDeleteThread = useCallback(
+    (thread: MessageThread) => {
+      setDeleteModal({
+        visible: true,
+        thread,
+        isDeleting: false,
+      });
+    },
+    [],
+  );
+
+  const handleDeleteConfirm = useCallback(
+    async () => {
+      if (!deleteModal.thread) return;
+
+      setDeleteModal(prev => ({ ...prev, isDeleting: true }));
+
+      try {
+        // Optimistically remove the thread from UI
+        setThreads(prev => prev.filter(t => t.threadId !== deleteModal.thread!.threadId));
+        
+        const response = await messageService.deleteThread(deleteModal.thread.threadId);
+        
+        if (response.success) {
+          // Success - the optimistic update was correct
+          console.log('Thread deleted successfully:', response.data);
+          // Refresh unread count since we removed a thread
+          refreshUnreadCount();
+          setDeleteModal({ visible: false, thread: null, isDeleting: false });
+        } else {
+          // Failed - refresh to restore the thread
+          await fetchThreads(true);
+          setDeleteModal({ visible: false, thread: null, isDeleting: false });
+        }
+      } catch (error: any) {
+        console.error('Failed to delete thread:', error);
+        // Failed - refresh to restore the thread
+        await fetchThreads(true);
+        setDeleteModal({ visible: false, thread: null, isDeleting: false });
+      }
+    },
+    [deleteModal.thread, refreshUnreadCount, fetchThreads],
+  );
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteModal({ visible: false, thread: null, isDeleting: false });
+  }, []);
+
+  const handleClearAllThreads = useCallback(() => {
+    setClearAllModal({ visible: true, isClearing: false });
+  }, []);
+
+  const handleClearAllConfirm = useCallback(async () => {
+    setClearAllModal(prev => ({ ...prev, isClearing: true }));
+
+    try {
+      const response = await messageService.clearHistory();
+      
+      if (response.success) {
+        await fetchThreads(true);
+        setClearAllModal({ visible: false, isClearing: false });
+      } else {
+        setClearAllModal({ visible: false, isClearing: false });
+      }
+    } catch (error: any) {
+      console.error('Failed to clear message history:', error);
+      setClearAllModal({ visible: false, isClearing: false });
+    }
+  }, [fetchThreads]);
+
+  const handleClearAllCancel = useCallback(() => {
+    setClearAllModal({ visible: false, isClearing: false });
+  }, []);
+
   // ── Render helpers ─────────────────────────────────────────────────────────
 
   const renderThread = useCallback(
-    ({ item }: { item: MessageThread }) => (
-      <ThreadCard thread={item} onPress={() => handleThreadPress(item)} />
-    ),
-    [handleThreadPress],
+    ({ item }: { item: any }) => {
+      if (item.type === 'divider') {
+        return <DateDivider date={item.label} />;
+      }
+
+      const thread = item.data;
+      return (
+        <ThreadCard 
+          thread={thread} 
+          onPress={() => handleThreadPress(thread)} 
+          onDelete={() => handleDeleteThread(thread)}
+        />
+      );
+    },
+    [handleThreadPress, handleDeleteThread],
   );
 
-  const keyExtractor = useCallback((item: MessageThread) => item.threadId, []);
+  const keyExtractor = useCallback((item: any) => item.key, []);
 
   const styles = StyleSheet.create({
     screen: {
@@ -632,7 +779,27 @@ export default function MessagesScreen() {
           rightAction={
             isAutoRefreshing ? (
               <ActivityIndicator size="small" color={colors.primary} />
-            ) : undefined
+            ) : (
+              <TouchableOpacity
+                onPress={handleClearAllThreads}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.xs,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.xs,
+                }}
+                accessibilityLabel="Clear all message history"
+                accessibilityHint="Removes all message threads"
+              >
+                <Ionicons name="trash-outline" size={20} color={colors.error} />
+                <Text style={{
+                  fontSize: fontSizes.sm,
+                  fontWeight: fontWeights.medium as any,
+                  color: colors.error,
+                }}>Clear All</Text>
+              </TouchableOpacity>
+            )
           }
         />
         <View style={styles.errorContainer}>
@@ -656,12 +823,32 @@ export default function MessagesScreen() {
         rightAction={
           isAutoRefreshing ? (
             <ActivityIndicator size="small" color={colors.primary} />
-          ) : undefined
+          ) : (
+            <TouchableOpacity
+              onPress={handleClearAllThreads}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.xs,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.xs,
+              }}
+              accessibilityLabel="Clear all message history"
+              accessibilityHint="Removes all message threads"
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
+              <Text style={{
+                fontSize: fontSizes.sm,
+                fontWeight: fontWeights.medium as any,
+                color: colors.error,
+              }}>Clear All</Text>
+            </TouchableOpacity>
+          )
         }
       />
 
-      <DataList<MessageThread>
-        data={filteredThreads}
+      <DataList<any>
+        data={listItems}
         renderItem={renderThread}
         keyExtractor={keyExtractor}
         loading={loading}
@@ -670,11 +857,39 @@ export default function MessagesScreen() {
         emptyMessage={
           searchQuery || filter === 'unread'
             ? `No ${activeTab === 'inquiry' ? 'inquiries' : 'quotations'} match your filters.`
-            : `No ${activeTab === 'inquiry' ? 'inquiries' : 'quotations'} yet.`
+            : `No ${activeTab === 'inquiry' ? 'inquiries' : 'quotations'} yet.\n\nTip: Long press or tap the menu button to delete conversations.`
         }
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={ListHeader}
         skeletonCount={5}
+      />
+
+      {/* Delete Thread Modal */}
+      <DeleteConfirmationModal
+        visible={deleteModal.visible}
+        title="Delete Conversation"
+        message={`Are you sure you want to delete the conversation with ${deleteModal.thread?.customerName || 'this customer'}${deleteModal.thread?.productName ? ` about "${deleteModal.thread.productName}"` : ''}?`}
+        itemName={deleteModal.thread?.productName || `Conversation with ${deleteModal.thread?.customerName || 'customer'}`}
+        itemType="conversation"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        isDeleting={deleteModal.isDeleting}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+
+      {/* Clear All Modal */}
+      <DeleteConfirmationModal
+        visible={clearAllModal.visible}
+        title="Clear All Messages"
+        message="Are you sure you want to clear all message history? This will remove all customer conversations."
+        itemName="All customer conversations and messages"
+        itemType="message history"
+        onConfirm={handleClearAllConfirm}
+        onCancel={handleClearAllCancel}
+        isDeleting={clearAllModal.isClearing}
+        confirmText="Clear All"
+        cancelText="Cancel"
       />
     </View>
   );

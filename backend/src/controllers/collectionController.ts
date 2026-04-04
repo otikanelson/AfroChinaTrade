@@ -65,6 +65,23 @@ export const getCollections = async (req: Request, res: Response): Promise<void>
 };
 
 /**
+ * Get all collections (both active and inactive) - Admin only
+ * GET /api/collections/admin/all
+ */
+export const getAllCollections = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await collectionService.getAllCollections();
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error fetching all collections:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error'
+    });
+  }
+};
+
+/**
  * Get products for a specific collection
  * GET /api/collections/:id/products
  */

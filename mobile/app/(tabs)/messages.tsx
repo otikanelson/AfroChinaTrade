@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Header } from '../../components/Header';
 import { DateDivider, createListWithDateDividers } from '../../components/DateDivider';
+import { DeleteConfirmationModal } from '../../components/ui/DeleteConfirmationModal';
 import { messageService } from '../../services/MessageService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMessages } from '../../contexts/MessagesContext';
@@ -33,8 +34,17 @@ export function formatRelativeTime(iso: string): string {
 
 export default function MessagesTab() {
   const [refreshing, setRefreshing] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{
+    visible: boolean;
+    thread: MessageThread | null;
+    isDeleting: boolean;
+  }>({
+    visible: false,
+    thread: null,
+    isDeleting: false,
+  });
   const { isAuthenticated, user } = useAuth();
-  const { unreadCount, threads, refreshThreads, markThreadAsRead } = useMessages();
+  const { unreadCount, threads, refreshThreads, markThreadAsRead, removeThread } = useMessages();
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
   const router = useRouter();
 
@@ -65,40 +75,86 @@ export default function MessagesTab() {
     router.push(`/message-thread/${threadId}`);
   };
 
+  const handleThreadLongPress = (thread: MessageThread) => {
+    setDeleteModal({
+      visible: true,
+      thread,
+      isDeleting: false,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.thread) return;
+
+    setDeleteModal(prev => ({ ...prev, isDeleting: true }));
+
+    try {
+      // Optimistically remove the thread from UI
+      removeThread(deleteModal.thread.threadId);
+      
+      const response = await messageService.deleteThread(deleteModal.thread.threadId);
+      
+      if (response.success) {
+        // Success - the optimistic update was correct
+        console.log('Thread deleted successfully:', response.data);
+        setDeleteModal({ visible: false, thread: null, isDeleting: false });
+      } else {
+        // Failed - refresh to restore the thread
+        await refreshThreads(true);
+        setDeleteModal({ visible: false, thread: null, isDeleting: false });
+        // Note: We could show an error toast here instead of Alert
+      }
+    } catch (error: any) {
+      console.error('Failed to delete thread:', error);
+      // Failed - refresh to restore the thread
+      await refreshThreads(true);
+      setDeleteModal({ visible: false, thread: null, isDeleting: false });
+      // Note: We could show an error toast here instead of Alert
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModal({ visible: false, thread: null, isDeleting: false });
+  };
+
   const handleNewMessage = () => {
     router.push('/new-message');
   };
 
+  const [clearAllModal, setClearAllModal] = useState<{
+    visible: boolean;
+    isClearing: boolean;
+  }>({
+    visible: false,
+    isClearing: false,
+  });
+
   const handleClearHistory = () => {
-    Alert.alert(
-      'Clear Message History',
-      'Are you sure you want to clear all your message history? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await messageService.clearHistory();
-              
-              if (response.success) {
-                await refreshThreads(true);
-                Alert.alert('Success', 'Message history cleared successfully');
-              } else {
-                Alert.alert('Error', response.error?.message || 'Failed to clear message history');
-              }
-            } catch (error: any) {
-              console.error('Failed to clear message history:', error);
-              Alert.alert('Error', 'Failed to clear message history. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+    setClearAllModal({ visible: true, isClearing: false });
+  };
+
+  const handleClearAllConfirm = async () => {
+    setClearAllModal(prev => ({ ...prev, isClearing: true }));
+
+    try {
+      const response = await messageService.clearHistory();
+      
+      if (response.success) {
+        await refreshThreads(true);
+        setClearAllModal({ visible: false, isClearing: false });
+      } else {
+        setClearAllModal({ visible: false, isClearing: false });
+        // Note: We could show an error toast here instead of Alert
+      }
+    } catch (error: any) {
+      console.error('Failed to clear message history:', error);
+      setClearAllModal({ visible: false, isClearing: false });
+      // Note: We could show an error toast here instead of Alert
+    }
+  };
+
+  const handleClearAllCancel = () => {
+    setClearAllModal({ visible: false, isClearing: false });
   };
 
   const formatDate = (dateString: string) => {
@@ -134,6 +190,8 @@ export default function MessagesTab() {
       <TouchableOpacity
         style={styles.threadItem}
         onPress={() => handleThreadPress(thread.threadId)}
+        onLongPress={() => handleThreadLongPress(thread)}
+        delayLongPress={500}
       >
         <View style={styles.threadAvatar}>
           <Ionicons name="chatbubble" size={24} color={colors.textInverse} />
@@ -141,7 +199,16 @@ export default function MessagesTab() {
         <View style={styles.threadContent}>
           <View style={styles.threadHeader}>
             <Text style={styles.threadName}>AfroVendor</Text>
-            <Text style={styles.threadTime}>{formatDate(thread.lastMessageAt)}</Text>
+            <View style={styles.threadHeaderRight}>
+              <Text style={styles.threadTime}>{formatDate(thread.lastMessageAt)}</Text>
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => handleThreadLongPress(thread)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="ellipsis-vertical" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
           <Text style={styles.threadMessage} numberOfLines={2}>
             {thread.lastMessage}
@@ -246,6 +313,11 @@ export default function MessagesTab() {
       alignItems: 'center',
       marginBottom: spacing.xs,
     },
+    threadHeaderRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
     threadName: {
       fontSize: fontSizes.base,
       fontWeight: fontWeights.semibold,
@@ -254,6 +326,10 @@ export default function MessagesTab() {
     threadTime: {
       fontSize: fontSizes.xs,
       color: colors.textSecondary,
+    },
+    deleteButton: {
+      padding: spacing.xs,
+      borderRadius: borderRadius.sm,
     },
     threadMessage: {
       fontSize: fontSizes.sm,
@@ -421,7 +497,8 @@ export default function MessagesTab() {
               <Text style={styles.emptyTitle}>No Messages Yet</Text>
               <Text style={styles.emptySubtitle}>
                 Start a conversation with our support team!{'\n'}
-                Ask questions or request quotes for products.
+                Ask questions or request quotes for products.{'\n\n'}
+                Tip: Long press or tap the menu button to delete conversations.
               </Text>
             </View>
           }
@@ -431,6 +508,34 @@ export default function MessagesTab() {
       <TouchableOpacity style={styles.fab} onPress={handleNewMessage}>
         <Ionicons name="add" size={24} color={colors.textInverse} />
       </TouchableOpacity>
+
+      {/* Delete Thread Modal */}
+      <DeleteConfirmationModal
+        visible={deleteModal.visible}
+        title="Delete Conversation"
+        message={`Are you sure you want to delete this conversation${deleteModal.thread?.productName ? ` about "${deleteModal.thread.productName}"` : ''}?`}
+        itemName={deleteModal.thread?.productName || 'Conversation with AfroVendor'}
+        itemType="conversation"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        isDeleting={deleteModal.isDeleting}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+
+      {/* Clear All Modal */}
+      <DeleteConfirmationModal
+        visible={clearAllModal.visible}
+        title="Clear Message History"
+        message="Are you sure you want to clear all your message history?"
+        itemName="All conversations and messages"
+        itemType="message history"
+        onConfirm={handleClearAllConfirm}
+        onCancel={handleClearAllCancel}
+        isDeleting={clearAllModal.isClearing}
+        confirmText="Clear All"
+        cancelText="Cancel"
+      />
     </View>
   );
 }

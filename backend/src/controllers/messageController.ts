@@ -524,6 +524,74 @@ export const createProductThread = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteThread = async (req: Request, res: Response) => {
+  try {
+    const { threadId } = req.params;
+    const userId = req.userId;
+    const userRole = req.userRole;
+
+    if (!threadId) {
+      return res.status(400).json({ 
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Thread ID is required'
+        }
+      });
+    }
+
+    // Find the thread
+    const thread = await MessageThread.findOne({ threadId });
+    
+    if (!thread) {
+      return res.status(404).json({ 
+        success: false,
+        error: {
+          code: 'THREAD_NOT_FOUND',
+          message: 'Thread not found'
+        }
+      });
+    }
+
+    // Check if user has permission to delete this thread
+    // Customers can only delete their own threads, admins can delete any thread
+    if (userRole !== 'admin' && thread.customerId.toString() !== userId) {
+      return res.status(403).json({ 
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'You are not authorized to delete this thread'
+        }
+      });
+    }
+
+    // Delete all messages in this thread
+    const messageResult = await Message.deleteMany({ threadId });
+
+    // Delete the thread
+    const threadResult = await MessageThread.deleteOne({ threadId });
+
+    res.status(200).json({
+      success: true,
+      message: 'Thread deleted successfully',
+      data: {
+        threadId,
+        messagesDeleted: messageResult.deletedCount,
+        threadDeleted: threadResult.deletedCount > 0
+      }
+    });
+  } catch (error: any) {
+    console.error('Error in deleteThread:', error);
+    res.status(500).json({ 
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }
+    });
+  }
+};
+
 export const clearHistory = async (req: Request, res: Response) => {
   try {
     const userId = req.userId;

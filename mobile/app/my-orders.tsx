@@ -341,17 +341,30 @@ export default function OrdersScreen() {
   };
 
   const formatDateDivider = (dateString: string) => {
-    const date = new Date(dateString);
+    const dateObj = new Date(dateString);
     const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    const dateMonth = dateObj.getMonth();
+    const dateYear = dateObj.getFullYear();
 
-    const isToday = date.toDateString() === today.toDateString();
-    const isYesterday = date.toDateString() === yesterday.toDateString();
-
-    if (isToday) return 'Today';
-    if (isYesterday) return 'Yesterday';
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    // If it's the current month and year, show "This Month"
+    if (dateMonth === currentMonth && dateYear === currentYear) {
+      return 'This Month';
+    }
+    
+    // If it's last month of the same year, show "Last Month"
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    if (dateMonth === lastMonth && dateYear === lastMonthYear) {
+      return 'Last Month';
+    }
+    
+    // Otherwise show month and year
+    return dateObj.toLocaleDateString('en-US', { 
+      month: 'long', 
+      year: 'numeric' 
+    });
   };
 
   type ListItem =
@@ -360,12 +373,14 @@ export default function OrdersScreen() {
 
   const listItems: ListItem[] = React.useMemo(() => {
     const items: ListItem[] = [];
-    let lastDateKey = '';
+    let lastMonthKey = '';
     for (const order of orders) {
-      const dateKey = new Date(order.createdAt).toDateString();
-      if (dateKey !== lastDateKey) {
-        lastDateKey = dateKey;
-        items.push({ type: 'divider', label: formatDateDivider(order.createdAt), key: `divider_${dateKey}` });
+      const dateObj = new Date(order.createdAt);
+      // Create a month key using year and month (e.g., "2024-03")
+      const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+      if (monthKey !== lastMonthKey) {
+        lastMonthKey = monthKey;
+        items.push({ type: 'divider', label: formatDateDivider(order.createdAt), key: `divider_${monthKey}` });
       }
       items.push({ type: 'order', data: order, key: order._id });
     }

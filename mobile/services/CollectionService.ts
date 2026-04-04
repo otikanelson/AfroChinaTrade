@@ -91,6 +91,53 @@ class CollectionService {
   }
 
   /**
+   * Get all collections (both active and inactive) - Admin only
+   */
+  async getAllCollections(): Promise<{ success: boolean; data?: Collection[]; error?: string }> {
+    try {
+      const token = await tokenManager.getAccessToken();
+      if (!token) {
+        return {
+          success: false,
+          error: 'Authentication required'
+        };
+      }
+
+      const response = await fetch(`${this.baseUrl}/admin/all`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result: ApiResponse<{ collections: Collection[] }> = await response.json();
+      
+      if (result.status === 'success') {
+        return {
+          success: true,
+          data: result.data.collections || []
+        };
+      } else {
+        return {
+          success: false,
+          error: result.message || 'Failed to fetch collections'
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching all collections:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
+
+  /**
    * Get products for a specific collection
    */
   async getCollectionProducts(

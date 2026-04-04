@@ -100,6 +100,7 @@ export default function AdminLayout() {
           name="order"
           options={{
             headerShown: false,
+            presentation: 'card',
           }}
         />
         <Stack.Screen

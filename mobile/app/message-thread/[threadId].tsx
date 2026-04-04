@@ -19,12 +19,10 @@ import { Message, MessageThread } from '../../types/message';
 
 export default function MessageThreadScreen() {
   const {
-    threadId, prefilledMessage, productImage, productName,
-    productId, threadType, isNewProductThread,
+    threadId, productImage, productName,
   } = useLocalSearchParams<{
-    threadId: string; prefilledMessage?: string; productImage?: string;
-    productName?: string; productId?: string;
-    threadType?: 'product_inquiry' | 'quote_request'; isNewProductThread?: string;
+    threadId: string; productImage?: string;
+    productName?: string;
   }>();
 
   const router = useRouter();
@@ -38,14 +36,21 @@ export default function MessageThreadScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [text, setText] = useState(prefilledMessage || '');
+  const [text, setText] = useState('');
   const listRef = useRef<FlatList>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isNew = isNewProductThread === 'true' || threadId?.startsWith('temp_');
 
   // ─── Load ──────────────────────────────────────────────────────────────────
   const load = useCallback(async (silent = false) => {
-    if (!threadId || isNew) { setLoading(false); return; }
+    if (!threadId) { setLoading(false); return; }
+    
+    // If it's a new thread that was just created, give it a moment to be available
+    const isNewThread = threadId.includes('_') && threadId.split('_').length === 3;
+    if (isNewThread && !silent) {
+      // Small delay to ensure the thread was created on the backend
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
     if (!silent) setLoading(true);
     try {
       const res = await messageService.getThreadMessages(threadId);
@@ -60,9 +65,11 @@ export default function MessageThreadScreen() {
           unread.forEach(m => messageService.markAsRead(m._id).catch(() => {}));
         }
       }
-    } catch {}
+    } catch (error) {
+      console.error('Error loading thread:', error);
+    }
     finally { setLoading(false); }
-  }, [threadId, isNew, user?.id]);
+  }, [threadId, user?.id]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -79,25 +86,18 @@ export default function MessageThreadScreen() {
     setSending(true);
     setText('');
     try {
-      if (isNew && productId) {
-        const res = await messageService.createProductThread(
-          productId, msg,
-          (threadType as 'product_inquiry' | 'quote_request') || 'product_inquiry'
-        );
-        if (res.success && res.data) {
-          router.replace({
-            pathname: `/message-thread/${res.data.thread.threadId}` as any,
-            params: { productImage: productImage || '', productName: productName || '' },
-          });
-        } else toast.error(res.error?.message || 'Failed to start conversation');
-        return;
-      }
       const res = await messageService.sendMessage({ threadId, text: msg });
       if (res.success && res.data) {
         setMessages(prev => [...prev, res.data!]);
-      } else toast.error(res.error?.message || 'Failed to send');
-    } catch { toast.error('Failed to send'); }
-    finally { setSending(false); }
+      } else {
+        toast.error(res.error?.message || 'Failed to send');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to send');
+    } finally {
+      setSending(false);
+    }
   };
 
   // ─── Render message ────────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ export default function MessageThreadScreen() {
     </View>
   );
 
-  const title = isNew ? 'New Message' : (user?.role === 'admin' ? (thread?.customerName || 'Customer') : 'AfroVendor');
+  const title = user?.role === 'admin' ? (thread?.customerName || 'Customer') : 'AfroVendor';
 
   return (
     <KeyboardAvoidingView
@@ -193,7 +193,7 @@ export default function MessageThreadScreen() {
           <View style={s.center}>
             <Ionicons name="chatbubbles-outline" size={48} color={colors.textLight} />
             <Text style={[s.emptyText, { marginTop: spacing.md }]}>
-              {isNew ? 'Send a message to start the conversation' : 'No messages yet'}
+              No messages yet
             </Text>
           </View>
         ) : (

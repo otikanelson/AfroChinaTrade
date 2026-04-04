@@ -152,7 +152,7 @@ export default function ChangePasswordScreen({ isAdmin = false }: ChangePassword
       return false;
     }
 
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/;
     if (!passwordRegex.test(newPassword)) {
       Alert.alert(
         'Weak Password',
@@ -207,7 +207,7 @@ export default function ChangePasswordScreen({ isAdmin = false }: ChangePassword
     if (/[a-z]/.test(password)) strength++;
     if (/[A-Z]/.test(password)) strength++;
     if (/\d/.test(password)) strength++;
-    if (/[@$!%*?&]/.test(password)) strength++;
+    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) strength++;
 
     if (strength <= 2) return { label: 'Weak', color: colors.error };
     if (strength <= 3) return { label: 'Fair', color: '#FF9500' };
@@ -321,11 +321,11 @@ export default function ChangePasswordScreen({ isAdmin = false }: ChangePassword
             </View>
             <View style={styles.requirement}>
               <Ionicons 
-                name={/[@$!%*?&]/.test(newPassword) ? "checkmark-circle" : "ellipse-outline"} 
+                name={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword) ? "checkmark-circle" : "ellipse-outline"} 
                 size={16} 
-                color={/[@$!%*?&]/.test(newPassword) ? colors.success : colors.textLight} 
+                color={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword) ? colors.success : colors.textLight} 
               />
-              <Text style={styles.requirementText}>One special character (@$!%*?&)</Text>
+              <Text style={styles.requirementText}>One special character</Text>
             </View>
           </View>
 

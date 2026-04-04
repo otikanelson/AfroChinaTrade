@@ -533,6 +533,7 @@ export default function AccountTab() {
           subtitle="Manage notification preferences"
           onPress={() => router.push('/notifications')}
           badge={unreadCount > 0 ? { count: unreadCount } : undefined}
+          disabled={isAdminViewingCustomer}
         />
         
         <MenuItem

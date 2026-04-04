@@ -9,9 +9,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Order } from '../../../types/product';
 import { orderService } from '../../../services/OrderService';
 import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
@@ -142,6 +142,7 @@ const ShippingModal: React.FC<ShippingModalProps> = ({ visible, onClose, onConfi
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -150,26 +151,51 @@ export default function OrderDetailScreen() {
   const [shippingModalVisible, setShippingModalVisible] = useState(false);
 
   const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: colors.surface },
-    header: {
+    container: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      paddingTop: insets.top,
+    },
+    inlineHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: spacing.base,
+      paddingHorizontal: spacing.xs,
       paddingVertical: spacing.md,
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
       backgroundColor: colors.background,
       gap: spacing.sm,
+      minHeight: 60,
+      marginHorizontal: -spacing.base,
+      marginTop: -spacing.base,
+      marginBottom: spacing.md,
     },
     backBtn: {
-      minWidth: 44, minHeight: 44,
-      alignItems: 'center', justifyContent: 'center',
+      minWidth: 44, 
+      minHeight: 44,
+      alignItems: 'center', 
+      justifyContent: 'center',
+    },
+    headerTitleContainer: {
+      flex: 1,
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.xs,
     },
     headerTitle: {
-      flex: 1,
-      fontSize: fontSizes.xl,
+      fontSize: fontSizes.lg,
       fontWeight: fontWeights.bold as any,
       color: colors.text,
+      marginBottom: 2,
+    },
+    orderIdText: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+      fontWeight: fontWeights.medium as any,
+    },
+    headerStatusBadge: {
+      alignSelf: 'flex-start',
     },
     content: {
       padding: spacing.base,
@@ -322,34 +348,22 @@ export default function OrderDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Order Detail</Text>
-        </View>
+      <View style={styles.container}>
         <View style={styles.centered}>
           <Text style={styles.loadingText}>Loading order…</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!order) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Order Detail</Text>
-        </View>
+      <View style={styles.container}>
         <View style={styles.centered}>
           <Text style={styles.loadingText}>Order not found.</Text>
           <Button label="Go Back" onPress={() => router.back()} variant="secondary" style={{ marginTop: 16 }} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -360,30 +374,32 @@ export default function OrderDetailScreen() {
   const trackingNumber = (order as any).trackingNumber;
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          Order Details
-        </Text>
-        <StatusBadge
-          status={orderStatusToBadge(order.status)}
-          label={statusLabel(order.status)}
-          size="sm"
-        />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          
+          {/* Header with back button */}
+          <View style={styles.inlineHeader}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>Order Details</Text>
+              <Text style={styles.orderIdText}>#{order.orderId}</Text>
+            </View>
+            <View style={styles.headerStatusBadge}>
+              <StatusBadge
+                status={orderStatusToBadge(order.status)}
+                label={statusLabel(order.status)}
+                size="sm"
+              />
+            </View>
+          </View>
 
         {/* Summary */}
         <Card style={styles.card}>
           <SectionTitle title="Order Summary" />
-          <View style={styles.row}>
-            <Text style={styles.label}>Order ID</Text>
-            <Text style={styles.value}>#{order.orderId}</Text>
-          </View>
           <View style={styles.row}>
             <Text style={styles.label}>Date</Text>
             <Text style={styles.value}>{formatDate(order.createdAt)}</Text>
@@ -497,6 +513,7 @@ export default function OrderDetailScreen() {
         onClose={() => setShippingModalVisible(false)}
         onConfirm={handleShipped}
       />
-    </SafeAreaView>
+    </View>
+    </>
   );
 }

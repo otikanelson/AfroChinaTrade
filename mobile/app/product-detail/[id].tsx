@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Product } from '../../types/product';
 import { productService } from '../../services/ProductService';
+import { messageService } from '../../services/MessageService';
 import { useWishlist } from '../../contexts/WishlistContext';
 import { useCart } from '../../contexts/CartContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -820,17 +821,19 @@ export default function ProductDetailScreen() {
       ? `I'm interested in getting a quote for ${product.name}. Please provide pricing details and availability information.`
       : `I have a question about ${product.name}. Can you help me with more information?`;
     
-    const tempThreadId = `temp_${product.id}_${Date.now()}`;
+    // Close the modal first
+    chatModal.closeModal();
     
+    // Navigate to new message screen with prefilled content
     router.push({
-      pathname: `/message-thread/${tempThreadId}`,
+      pathname: '/new-message',
       params: {
         prefilledMessage: prefilledMessage,
         productImage: product.images?.[0] || '',
         productName: product.name,
         productId: product.id,
         threadType: threadType,
-        isNewProductThread: 'true'
+        isProductMessage: 'true'
       }
     });
   };

@@ -21,16 +21,28 @@ import { NavigationSource } from '../types/navigation';
 
 export default function NewMessageScreen() {
   const router = useRouter();
-  const { productId, productName, productImage } = useLocalSearchParams<{
+  const { 
+    productId, 
+    productName, 
+    productImage, 
+    prefilledMessage, 
+    threadType, 
+    isProductMessage 
+  } = useLocalSearchParams<{
     productId?: string;
     productName?: string;
     productImage?: string;
+    prefilledMessage?: string;
+    threadType?: string;
+    isProductMessage?: string;
   }>();
   const { colors: themeColors, spacing: themeSpacing, fontSizes, fontWeights, borderRadius } = useTheme();
   const toast = useToast();
 
-  const [messageType, setMessageType] = useState<'inquiry' | 'quotation'>('inquiry');
-  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState<'inquiry' | 'quotation'>(
+    threadType === 'quote_request' ? 'quotation' : 'inquiry'
+  );
+  const [message, setMessage] = useState(prefilledMessage || '');
   const [sending, setSending] = useState(false);
 
   const styles = StyleSheet.create({
@@ -261,7 +273,10 @@ export default function NewMessageScreen() {
 
   return (
     <View style={styles.container}>
-      <Header title="New Message" showBack={true} />
+      <Header 
+        title={isProductMessage === 'true' ? 'Contact Supplier' : 'New Message'} 
+        showBack={true} 
+      />
       
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.infoBox}>
@@ -273,35 +288,37 @@ export default function NewMessageScreen() {
           </Text>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Message Type</Text>
-          <View style={styles.typeContainer}>
-            {messageTypes.map((type) => (
-              <TouchableOpacity
-                key={type.id}
-                style={[
-                  styles.typeButton,
-                  messageType === type.id && styles.typeButtonActive,
-                ]}
-                onPress={() => setMessageType(type.id)}
-              >
-                <Ionicons
-                  name={type.icon as any}
-                  size={24}
-                  color={messageType === type.id ? themeColors.primary : themeColors.textSecondary}
-                />
-                <Text
+        {isProductMessage !== 'true' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Message Type</Text>
+            <View style={styles.typeContainer}>
+              {messageTypes.map((type) => (
+                <TouchableOpacity
+                  key={type.id}
                   style={[
-                    styles.typeButtonText,
-                    messageType === type.id && styles.typeButtonTextActive,
+                    styles.typeButton,
+                    messageType === type.id && styles.typeButtonActive,
                   ]}
+                  onPress={() => setMessageType(type.id)}
                 >
-                  {type.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Ionicons
+                    name={type.icon as any}
+                    size={24}
+                    color={messageType === type.id ? themeColors.primary : themeColors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.typeButtonText,
+                      messageType === type.id && styles.typeButtonTextActive,
+                    ]}
+                  >
+                    {type.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Tagged Product Display */}
         {productId && productName && (
@@ -331,7 +348,7 @@ export default function NewMessageScreen() {
         )}
 
         {/* Tag Product Button */}
-        {!productId && (
+        {!productId && isProductMessage !== 'true' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Tag a Product (Optional)</Text>
             <TouchableOpacity

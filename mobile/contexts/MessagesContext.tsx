@@ -10,6 +10,7 @@ interface MessagesContextType {
   decrementUnreadCount: (count?: number) => void;
   incrementUnreadCount: (count?: number) => void;
   markThreadAsRead: (threadId: string) => void;
+  removeThread: (threadId: string) => void;
   refreshThreads: (silent?: boolean) => Promise<void>;
 }
 
@@ -76,6 +77,17 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // Optimistically remove a thread from the list
+  const removeThread = useCallback((threadId: string) => {
+    setThreads(prev => {
+      const threadToRemove = prev.find(t => t.threadId === threadId);
+      if (threadToRemove && threadToRemove.unreadCount > 0) {
+        setUnreadCount(c => Math.max(0, c - threadToRemove.unreadCount));
+      }
+      return prev.filter(t => t.threadId !== threadId);
+    });
+  }, []);
+
   const decrementUnreadCount = useCallback((count: number = 1) => {
     setUnreadCount(prev => Math.max(0, prev - count));
   }, []);
@@ -102,6 +114,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     decrementUnreadCount,
     incrementUnreadCount,
     markThreadAsRead,
+    removeThread,
     refreshThreads,
   };
 

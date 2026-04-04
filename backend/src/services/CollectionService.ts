@@ -101,6 +101,36 @@ export class CollectionService {
   }
 
   /**
+   * Get all collections (both active and inactive) with product counts - Admin only
+   */
+  async getAllCollections(): Promise<CollectionResponse> {
+    try {
+      const collections = await Collection.find({})
+        .sort({ displayOrder: 1, createdAt: -1 })
+        .populate('createdBy', 'name email');
+
+      // Get product counts for all collections in parallel
+      const collectionsWithCounts = await Promise.all(
+        collections.map(async (collection) => {
+          const query = this.buildProductQuery(collection.filters);
+          const productCount = await Product.countDocuments(query);
+          return {
+            ...collection.toObject(),
+            productCount
+          };
+        })
+      );
+
+      return {
+        status: 'success',
+        data: { collections: collectionsWithCounts as any }
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
    * Get products for a specific collection
    */
   async getCollectionProducts(
