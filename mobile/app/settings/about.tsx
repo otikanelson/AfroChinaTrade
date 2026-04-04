@@ -120,7 +120,7 @@ export default function AboutApp() {
       <ScrollView style={styles.content}>
         <View style={styles.logoSection}>
           <Image 
-            source={require('../../assets/images/Logo_bg.png')} 
+            source={require('../../assets/images/icon.png')} 
             style={styles.logo}
           />
           <Text style={styles.appName}>ShopApp</Text>
