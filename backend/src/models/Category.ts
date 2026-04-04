@@ -35,7 +35,14 @@ const CategorySchema = new Schema<ICategory>(
     },
     subcategories: {
       type: [String],
-      default: [],
+      required: [true, 'At least one subcategory is required'],
+      validate: {
+        validator: function(subcategories: string[]) {
+          return subcategories && subcategories.length > 0 && 
+                 subcategories.some(sub => sub && sub.trim().length > 0);
+        },
+        message: 'At least one valid subcategory is required'
+      }
     },
     isActive: {
       type: Boolean,

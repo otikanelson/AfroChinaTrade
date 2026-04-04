@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../hooks/useNotifications';
 import { Header } from '../components/Header';
+import { DateDivider, createListWithDateDividers } from '../components/DateDivider';
 import { spacing } from '../theme/spacing';
 import { Notification, NotificationSettings } from '../services/NotificationService';
 
@@ -446,17 +447,32 @@ export default function NotificationsScreen() {
     }
   };
 
-  const renderNotification = ({ item }: { item: Notification }) => (
-    <NotificationItem
-      notification={item}
-      onPress={handleNotificationPress}
-      onMarkAsRead={markAsRead}
-      colors={colors}
-      fontSizes={fontSizes}
-      fontWeights={fontWeights}
-      borderRadius={borderRadius}
-    />
-  );
+  const listItems = useMemo(() => {
+    return createListWithDateDividers(
+      notifications,
+      (item) => item.id,
+      (item) => item.createdAt
+    );
+  }, [notifications]);
+
+  const renderNotification = useCallback(({ item }: { item: any }) => {
+    if (item.type === 'divider') {
+      return <DateDivider date={item.label} />;
+    }
+
+    const notification = item.data;
+    return (
+      <NotificationItem
+        notification={notification}
+        onPress={handleNotificationPress}
+        onMarkAsRead={markAsRead}
+        colors={colors}
+        fontSizes={fontSizes}
+        fontWeights={fontWeights}
+        borderRadius={borderRadius}
+      />
+    );
+  }, [colors, fontSizes, fontWeights, borderRadius]);
 
   const renderLoadMore = () => {
     if (!hasMore) return null;
@@ -696,9 +712,9 @@ export default function NotificationsScreen() {
 
           <FlatList
             style={styles.content}
-            data={notifications}
+            data={listItems}
             renderItem={renderNotification}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item: any) => item.key}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}

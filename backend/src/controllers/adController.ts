@@ -29,11 +29,16 @@ export const getAds = async (req: Request, res: Response): Promise<void> => {
 // POST /api/ads — admin only
 export const createAd = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { title, description, imageUrl, linkPath, linkParams, displayOrder, isActive, placement } = req.body;
+    const { 
+      title, description, imageUrl, linkPath, linkParams, displayOrder, 
+      isActive, placement, splashFrequency, splashDuration 
+    } = req.body;
+    
     if (!title || !imageUrl) {
       res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'title and imageUrl are required' } });
       return;
     }
+    
     const ad = await Ad.create({ 
       title, 
       description, 
@@ -42,8 +47,11 @@ export const createAd = async (req: Request, res: Response): Promise<void> => {
       linkParams, 
       displayOrder: displayOrder ?? 0,
       isActive: isActive ?? true,
-      placement: placement || {}
+      placement: placement || {},
+      splashFrequency: splashFrequency || 'daily',
+      splashDuration: splashDuration || 3000
     });
+    
     res.status(201).json({ success: true, data: ad });
   } catch (error) {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to create ad' } });
@@ -75,5 +83,22 @@ export const deleteAd = async (req: Request, res: Response): Promise<void> => {
     res.json({ success: true, message: 'Ad deleted' });
   } catch (error) {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to delete ad' } });
+  }
+};
+
+// POST /api/ads/:id/view — track ad view (public endpoint)
+export const trackAdView = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ad = await Ad.findById(req.params.id);
+    if (!ad) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Ad not found' } });
+      return;
+    }
+    
+    // Here you could add analytics tracking logic
+    // For now, just return success
+    res.json({ success: true, message: 'View tracked' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to track view' } });
   }
 };

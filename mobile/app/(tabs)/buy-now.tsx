@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { CameraSearchModal } from '../../components/CameraSearchModal';
 import { AdCarousel } from '../../components/AdCarousel';
 import { PromoTiles } from '../../components/PromoTiles';
 import { adService, Ad } from '../../services/AdService';
+import { collectionService } from '../../services/CollectionService';
 import { pageLayoutService, LayoutBlock } from '../../services/PageLayoutService';
 import { productService } from '../../services/ProductService';
 import { productCacheService } from '../../services/ProductCacheService';
@@ -19,6 +20,9 @@ import { Product } from '../../types/product';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecommendations } from '../../hooks/useRecommendations';
+
+// Delay between loading each section for progressive loading (in ms)
+const SECTION_LOAD_DELAY = 300;
 
 export default function BuyNowTab() {
   const router = useRouter();
@@ -34,6 +38,7 @@ export default function BuyNowTab() {
   const [buyNowAds, setBuyNowAds] = useState<Ad[]>([]);
   const [buyNowTiles, setBuyNowTiles] = useState<Ad[]>([]);
   const [pageLayout, setPageLayout] = useState<LayoutBlock[]>([]);
+  const [collectionProducts, setCollectionProducts] = useState<Record<string, Product[]>>({});
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({
     featured: true,
     trending: true,
@@ -41,27 +46,169 @@ export default function BuyNowTab() {
     discounted: true,
     all: true
   });
+  const [sectionsLoaded, setSectionsLoaded] = useState<Record<string, boolean>>({});
+  const [layoutVersion, setLayoutVersion] = useState<string>('');
+  const sectionLoadTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
   // Use recommendations hook for personalized products
   const { recommendations, hasRecommendations } = useRecommendations();
 
   useEffect(() => {
     loadAllSectionsOptimized();
+    
+    // Cleanup timeouts on unmount
+    return () => {
+      Object.values(sectionLoadTimeouts.current).forEach(timeout => clearTimeout(timeout));
+    };
   }, []);
 
-  // Refresh page layout when screen comes into focus to ensure users see admin changes immediately
+  // Check for layout changes and reload immediately if changed
   useFocusEffect(
     useCallback(() => {
       pageLayoutService.getLayout('buy-now').then(res => {
-        if (res.success && res.data) setPageLayout(res.data.blocks);
+        if (res.success && res.data) {
+          const newLayoutVersion = res.data.updatedAt;
+          if (layoutVersion && newLayoutVersion !== layoutVersion) {
+            // Layout has changed, reload immediately
+            setLayoutVersion(newLayoutVersion);
+            setPageLayout(res.data.blocks);
+            loadAllSectionsOptimized();
+          } else if (!layoutVersion) {
+            // First time setting layout version
+            setLayoutVersion(newLayoutVersion);
+            setPageLayout(res.data.blocks);
+          }
+        }
       }).catch(() => {});
-    }, [])
+    }, [layoutVersion])
   );
+
+  const loadSectionProgressively = useCallback(async (
+    sectionKey: string,
+    loader: () => Promise<any>,
+    setter: (data: Product[]) => void,
+    cacher: (data: Product[]) => void,
+    transformer?: (response: any) => Product[],
+    delay: number = 0
+  ) => {
+    // Clear any existing timeout for this section
+    if (sectionLoadTimeouts.current[sectionKey]) {
+      clearTimeout(sectionLoadTimeouts.current[sectionKey]);
+    }
+
+    // Set loading state immediately
+    setLoadingStates(prev => ({ ...prev, [sectionKey]: true }));
+
+    // Load cached data first if available
+    const getCachedData = () => {
+      switch (sectionKey) {
+        case 'featured': return productCacheService.getCachedFeaturedProducts();
+        case 'trending': return productCacheService.getCachedTrendingProducts();
+        case 'seller_favorites': return productCacheService.getCachedSellerFavorites();
+        case 'discounted': return productCacheService.getCachedDiscountedProducts();
+        case 'all': return productCacheService.getCachedAllProducts({ limit: 50, sortBy: 'newest' });
+        default: return null;
+      }
+    };
+
+    const cachedData = getCachedData();
+    if (cachedData) {
+      setter(cachedData);
+      setLoadingStates(prev => ({ ...prev, [sectionKey]: false }));
+      setSectionsLoaded(prev => ({ ...prev, [sectionKey]: true }));
+    }
+
+    // Load fresh data with delay for progressive loading
+    sectionLoadTimeouts.current[sectionKey] = setTimeout(async () => {
+      try {
+        const response = await loader();
+        if (response.success && response.data) {
+          const data = transformer ? transformer(response) : response.data;
+          setter(data);
+          cacher(data);
+        }
+      } catch {
+        // silently skip failed sections
+      } finally {
+        setLoadingStates(prev => ({ ...prev, [sectionKey]: false }));
+        setSectionsLoaded(prev => ({ ...prev, [sectionKey]: true }));
+      }
+    }, delay);
+  }, []);
 
   const loadAllSectionsOptimized = async () => {
     try {
-      loadCachedData();
-      await loadFreshData();
+      // Clear any existing timeouts
+      Object.values(sectionLoadTimeouts.current).forEach(timeout => clearTimeout(timeout));
+      sectionLoadTimeouts.current = {};
+      
+      setSectionsLoaded({});
+      
+      // Load page layout first
+      const layoutResponse = await pageLayoutService.getLayout('buy-now');
+      if (layoutResponse.success && layoutResponse.data) {
+        setPageLayout(layoutResponse.data.blocks);
+        setLayoutVersion(layoutResponse.data.updatedAt);
+      }
+
+      // Load sections progressively with delays
+      const sections = [
+        {
+          key: 'featured',
+          loader: () => productService.getFeaturedProducts(12),
+          setter: setFeaturedProducts,
+          cacher: (data: Product[]) => productCacheService.cacheFeaturedProducts(data),
+          delay: 0
+        },
+        {
+          key: 'trending',
+          loader: () => productService.getTrendingProducts('7d', 1, 12),
+          setter: setTrendingProducts,
+          cacher: (data: Product[]) => productCacheService.cacheTrendingProducts(data),
+          transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data?.products || [],
+          delay: SECTION_LOAD_DELAY
+        },
+        {
+          key: 'seller_favorites',
+          loader: () => productService.getSellerFavorites(1, 12),
+          setter: setSellerFavorites,
+          cacher: (data: Product[]) => productCacheService.cacheSellerFavorites(data),
+          transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data?.products || [],
+          delay: SECTION_LOAD_DELAY * 2
+        },
+        {
+          key: 'discounted',
+          loader: () => productService.getProducts({ limit: 12, minPrice: 1, sortBy: 'price_desc' as any }),
+          setter: setDiscountedProducts,
+          cacher: (data: Product[]) => productCacheService.cacheDiscountedProducts(data),
+          transformer: (response: any) => {
+            const products = Array.isArray(response.data) ? response.data : response.data || [];
+            return products.filter((product: Product) => product.discount && product.discount > 0);
+          },
+          delay: SECTION_LOAD_DELAY * 3
+        },
+        {
+          key: 'all',
+          loader: () => productService.getProducts({ limit: 50, sortBy: 'newest' as any }),
+          setter: setAllProducts,
+          cacher: (data: Product[]) => productCacheService.cacheAllProducts(data, { limit: 50, sortBy: 'newest' }),
+          transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data || [],
+          delay: SECTION_LOAD_DELAY * 4
+        }
+      ];
+
+      // Load sections progressively
+      sections.forEach(section => {
+        loadSectionProgressively(
+          section.key,
+          section.loader,
+          section.setter,
+          section.cacher,
+          section.transformer,
+          section.delay
+        );
+      });
+
       // Load buy-now ads non-blocking
       adService.getAds('buy-now', 'carousel').then(res => {
         if (res.success && res.data) setBuyNowAds(res.data);
@@ -69,107 +216,27 @@ export default function BuyNowTab() {
       adService.getAds('buy-now', 'tile').then(res => {
         if (res.success && res.data) setBuyNowTiles(res.data);
       }).catch(() => {});
-      // Load page layout
-      pageLayoutService.getLayout('buy-now').then(res => {
-        if (res.success && res.data) setPageLayout(res.data.blocks);
-      }).catch(() => {});
     } catch (error) {
       Alert.alert('Error', 'Failed to load products');
     }
   };
 
-  const loadCachedData = () => {
-    // Load from cache for instant display
-    const cachedFeatured = productCacheService.getCachedFeaturedProducts();
-    if (cachedFeatured) {
-      setFeaturedProducts(cachedFeatured);
-      setLoadingStates(prev => ({ ...prev, featured: false }));
-    }
 
-    const cachedTrending = productCacheService.getCachedTrendingProducts();
-    if (cachedTrending) {
-      setTrendingProducts(cachedTrending);
-      setLoadingStates(prev => ({ ...prev, trending: false }));
-    }
-
-    const cachedSellerFavorites = productCacheService.getCachedSellerFavorites();
-    if (cachedSellerFavorites) {
-      setSellerFavorites(cachedSellerFavorites);
-      setLoadingStates(prev => ({ ...prev, seller_favorites: false }));
-    }
-
-    const cachedDiscounted = productCacheService.getCachedDiscountedProducts();
-    if (cachedDiscounted) {
-      setDiscountedProducts(cachedDiscounted);
-      setLoadingStates(prev => ({ ...prev, discounted: false }));
-    }
-
-    const cachedAll = productCacheService.getCachedAllProducts({ limit: 50, sortBy: 'newest' });
-    if (cachedAll) {
-      setAllProducts(cachedAll);
-      setLoadingStates(prev => ({ ...prev, all: false }));
-    }
-  };
-
-  const loadFreshData = async () => {
-    // Load sections progressively for better UX
-    const sections = [
-      {
-        key: 'featured',
-        loader: () => productService.getFeaturedProducts(12),
-        setter: setFeaturedProducts,
-        cacher: (data: Product[]) => productCacheService.cacheFeaturedProducts(data)
-      },
-      {
-        key: 'trending',
-        loader: () => productService.getTrendingProducts('7d', 1, 12),
-        setter: setTrendingProducts,
-        cacher: (data: Product[]) => productCacheService.cacheTrendingProducts(data),
-        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data?.products || []
-      },
-      {
-        key: 'seller_favorites',
-        loader: () => productService.getSellerFavorites(1, 12),
-        setter: setSellerFavorites,
-        cacher: (data: Product[]) => productCacheService.cacheSellerFavorites(data),
-        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data?.products || []
-      },
-      {
-        key: 'discounted',
-        loader: () => productService.getProducts({ limit: 12, minPrice: 1, sortBy: 'price_desc' as any }),
-        setter: setDiscountedProducts,
-        cacher: (data: Product[]) => productCacheService.cacheDiscountedProducts(data),
-        transformer: (response: any) => {
-          const products = Array.isArray(response.data) ? response.data : response.data || [];
-          return products.filter((product: Product) => product.discount && product.discount > 0);
-        }
-      },
-      {
-        key: 'all',
-        loader: () => productService.getProducts({ limit: 50, sortBy: 'newest' as any }),
-        setter: setAllProducts,
-        cacher: (data: Product[]) => productCacheService.cacheAllProducts(data, { limit: 50, sortBy: 'newest' }),
-        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data || []
+  const loadCollectionProducts = async (collectionId: string) => {
+    if (collectionProducts[collectionId]) return; // Already loaded
+    
+    try {
+      setLoadingStates(prev => ({ ...prev, [collectionId]: true }));
+      const response = await collectionService.getCollectionProducts(collectionId, 1, 12);
+      if (response.success && response.data) {
+        const products = response.data.products || [];
+        setCollectionProducts(prev => ({ ...prev, [collectionId]: products }));
       }
-    ];
-
-    // Load sections in parallel but update UI as each completes
-    const promises = sections.map(async (section) => {
-      try {
-        const response = await section.loader();
-        if (response.success && response.data) {
-          const data = section.transformer ? section.transformer(response) : response.data;
-          section.setter(data);
-          section.cacher(data);
-        }
-      } catch {
-        // silently skip failed sections
-      } finally {
-        setLoadingStates(prev => ({ ...prev, [section.key]: false }));
-      }
-    });
-
-    await Promise.all(promises);
+    } catch (error) {
+      console.error('Failed to load collection products:', error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [collectionId]: false }));
+    }
   };
 
   const handleProductPress = (product: Product) => {
@@ -181,7 +248,7 @@ export default function BuyNowTab() {
 
   const handleSeeAll = (section: string) => {
     router.push({
-      pathname: '/product-listing',
+      pathname: '/products',
       params: { 
         collection: section,
         title: section === 'featured' ? 'Featured Products' : 
@@ -194,7 +261,12 @@ export default function BuyNowTab() {
   };
 
   const handleRefresh = useCallback(() => {
+    // Clear timeouts and cache
+    Object.values(sectionLoadTimeouts.current).forEach(timeout => clearTimeout(timeout));
+    sectionLoadTimeouts.current = {};
+    
     productCacheService.clear();
+    setSectionsLoaded({});
     setLoadingStates({
       featured: true,
       trending: true,
@@ -203,10 +275,6 @@ export default function BuyNowTab() {
       all: true
     });
     loadAllSectionsOptimized();
-    // Refresh page layout to ensure users see admin changes
-    pageLayoutService.getLayout('buy-now').then(res => {
-      if (res.success && res.data) setPageLayout(res.data.blocks);
-    }).catch(() => {});
   }, []);
 
   const styles = StyleSheet.create({
@@ -356,8 +424,9 @@ export default function BuyNowTab() {
     | { type: 'recommendations' }
     | { type: 'ads' }
     | { type: 'promo_tiles' }
+    | { type: 'collection'; collectionId: string; collectionName: string; products: Product[] }
     | { type: 'empty' }
-    | { type: 'footer' };
+    | { type: 'loading_more' };
 
   const listData: BuyNowSection[] = React.useMemo(() => {
     const items: BuyNowSection[] = [{ type: 'quick_actions' }];
@@ -392,15 +461,31 @@ export default function BuyNowTab() {
     if (orderedBlocks) {
       const rendered = new Set<string>();
       for (const block of orderedBlocks) {
-        const fn = SECTION_MAP[block.type];
-        if (fn && !rendered.has(block.type)) { fn(); rendered.add(block.type); }
-      }
-      // Only render sections that have NO entry in the layout at all (truly unconfigured)
-      for (const [key, fn] of Object.entries(SECTION_MAP)) {
-        if (!allLayoutTypes.has(key as any)) fn();
+        if (block.type === 'collection' && block.config?.collectionId) {
+          // Handle custom collection blocks
+          const collectionId = block.config.collectionId;
+          const collectionName = block.config.collectionName || 'Collection';
+          
+          // Load collection products if not already loaded
+          if (!collectionProducts[collectionId] && !loadingStates[collectionId]) {
+            loadCollectionProducts(collectionId);
+          }
+          
+          const products = collectionProducts[collectionId] || [];
+          const isLoading = loadingStates[collectionId];
+          
+          if (isLoading && products.length === 0) {
+            items.push({ type: 'skeleton', key: collectionId, variant: 'horizontal' });
+          } else if (products.length > 0) {
+            items.push({ type: 'collection', collectionId, collectionName, products });
+          }
+        } else {
+          const fn = SECTION_MAP[block.type];
+          if (fn && !rendered.has(block.type)) { fn(); rendered.add(block.type); }
+        }
       }
     } else {
-      // Default order
+      // Default order (only when no layout is configured at all)
       addSection('featured', 'Featured Products', featuredProducts);
       addSection('seller_favorites', 'Seller Favorites', sellerFavorites, 'Seller Pick');
       addSection('discounted', 'Special Discounts', discountedProducts);
@@ -418,10 +503,15 @@ export default function BuyNowTab() {
 
     if (allEmpty) items.push({ type: 'empty' });
 
-    items.push({ type: 'footer' });
+    // Add loading more indicator at the bottom when sections are still loading
+    const stillLoading = Object.values(loadingStates).some(Boolean);
+    if (stillLoading) {
+      items.push({ type: 'loading_more' });
+    }
+
     return items;
   }, [featuredProducts, trendingProducts, sellerFavorites, discountedProducts, allProducts,
-      loadingStates, user, hasRecommendations, recommendations, buyNowAds, buyNowTiles, pageLayout]);
+      loadingStates, user, hasRecommendations, recommendations, buyNowAds, buyNowTiles, pageLayout, collectionProducts]);
 
   const renderItem = useCallback(({ item }: { item: BuyNowSection }) => {
     if (item.type === 'quick_actions') {
@@ -435,7 +525,7 @@ export default function BuyNowTab() {
                 onChangeText={() => {}}
                 placeholder="Search products, s..."
                 onCameraPress={() => setShowCameraModal(true)}
-                onPress={() => router.push('/search')}
+                onPress={() => router.push('/products')}
                 editable={false}
               />
             </View>
@@ -563,6 +653,33 @@ export default function BuyNowTab() {
       );
     }
 
+    if (item.type === 'collection') {
+      return (
+        <View style={styles.section}>
+          <SectionHeader 
+            title={item.collectionName} 
+            actionText="See All" 
+            onActionPress={() => router.push({
+              pathname: '/products',
+              params: { collectionId: item.collectionId, title: item.collectionName }
+            })} 
+          />
+          <FlatList
+            data={item.products}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={p => (p as any)._id || p.id}
+            contentContainerStyle={styles.horizontalList}
+            renderItem={({ item: p }) => (
+              <View style={styles.productCardWrapper}>
+                <ProductCard product={p} onPress={() => handleProductPress(p)} />
+              </View>
+            )}
+          />
+        </View>
+      );
+    }
+
     if (item.type === 'empty') {
       return (
         <View style={styles.emptyContainer}>
@@ -575,18 +692,17 @@ export default function BuyNowTab() {
       );
     }
 
-    if (item.type === 'footer') {
+    if (item.type === 'loading_more') {
       return (
-        <View style={styles.endOfFeedFooter}>
-          <View style={styles.endOfFeedLine} />
-          <Text style={styles.endOfFeedText}>You're all caught up</Text>
-          <View style={styles.endOfFeedLine} />
+        <View style={styles.loadingMoreFooter}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.loadingMoreText}>Loading more sections...</Text>
         </View>
       );
     }
 
     return null;
-  }, [colors, styles, recommendations, featuredProducts, trendingProducts, discountedProducts, buyNowAds, buyNowTiles]);
+  }, [colors, styles, recommendations, featuredProducts, trendingProducts, discountedProducts, buyNowAds, buyNowTiles, router, collectionProducts]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -600,7 +716,11 @@ export default function BuyNowTab() {
       />
       <FlatList
         data={listData}
-        keyExtractor={(item, index) => (item.type === 'section' || item.type === 'skeleton') ? item.key : `${item.type}_${index}`}
+        keyExtractor={(item, index) => {
+          if (item.type === 'section' || item.type === 'skeleton') return item.key;
+          if (item.type === 'collection') return `collection_${item.collectionId}`;
+          return `${item.type}_${index}`;
+        }}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         onEndReachedThreshold={0.5}
@@ -608,9 +728,15 @@ export default function BuyNowTab() {
           Object.values(loadingStates).some(Boolean) ? (
             <View style={styles.loadingMoreFooter}>
               <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.loadingMoreText}>Loading products...</Text>
+              <Text style={styles.loadingMoreText}>Loading sections...</Text>
             </View>
-          ) : null
+          ) : (
+            <View style={styles.endOfFeedFooter}>
+              <View style={styles.endOfFeedLine} />
+              <Text style={styles.endOfFeedText}>You're all caught up!</Text>
+              <View style={styles.endOfFeedLine} />
+            </View>
+          )
         }
       />
       <CameraSearchModal

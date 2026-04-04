@@ -73,6 +73,25 @@ export const createCategory = async (req: Request, res: Response) => {
       });
     }
 
+    if (!subcategories || !Array.isArray(subcategories) || subcategories.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'At least one subcategory is required' 
+      });
+    }
+
+    // Validate subcategories are non-empty strings
+    const validSubcategories = subcategories.filter(sub => 
+      typeof sub === 'string' && sub.trim().length > 0
+    );
+
+    if (validSubcategories.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'At least one valid subcategory is required' 
+      });
+    }
+
     const existingCategory = await Category.findOne({ name });
     if (existingCategory) {
       return res.status(409).json({ 
@@ -86,7 +105,7 @@ export const createCategory = async (req: Request, res: Response) => {
       description,
       icon,
       imageUrl,
-      subcategories: subcategories || [],
+      subcategories: validSubcategories,
     });
 
     res.status(201).json({
@@ -106,6 +125,27 @@ export const updateCategory = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, description, icon, imageUrl, subcategories, isActive } = req.body;
+
+    if (subcategories !== undefined) {
+      if (!Array.isArray(subcategories) || subcategories.length === 0) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'At least one subcategory is required' 
+        });
+      }
+
+      // Validate subcategories are non-empty strings
+      const validSubcategories = subcategories.filter(sub => 
+        typeof sub === 'string' && sub.trim().length > 0
+      );
+
+      if (validSubcategories.length === 0) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'At least one valid subcategory is required' 
+        });
+      }
+    }
 
     const category = await Category.findByIdAndUpdate(
       id,

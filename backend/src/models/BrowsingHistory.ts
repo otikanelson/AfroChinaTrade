@@ -95,6 +95,40 @@ BrowsingHistorySchema.index({ sessionId: 1, timestamp: -1 });
 // Compound index for interaction type and timestamp (for trending)
 BrowsingHistorySchema.index({ interactionType: 1, timestamp: -1 });
 
+// Static method to cleanup orphaned entries
+BrowsingHistorySchema.statics.cleanupOrphanedEntries = async function() {
+  const pipeline = [
+    {
+      $lookup: {
+        from: 'products',
+        localField: 'productId',
+        foreignField: '_id',
+        as: 'product'
+      }
+    },
+    {
+      $match: {
+        product: { $size: 0 } // No matching product found
+      }
+    },
+    {
+      $project: {
+        _id: 1
+      }
+    }
+  ];
+  
+  const orphanedEntries = await this.aggregate(pipeline);
+  const orphanedIds = orphanedEntries.map(entry => entry._id);
+  
+  if (orphanedIds.length > 0) {
+    const result = await this.deleteMany({ _id: { $in: orphanedIds } });
+    return result.deletedCount;
+  }
+  
+  return 0;
+};
+
 // Create and export the BrowsingHistory model
 const BrowsingHistory = mongoose.model<IBrowsingHistory>('BrowsingHistory', BrowsingHistorySchema);
 

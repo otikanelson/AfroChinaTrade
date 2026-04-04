@@ -124,6 +124,7 @@ export const seedSampleData = async (): Promise<void> => {
             description: 'Latest flagship smartphone with advanced features, high-resolution camera, and long-lasting battery life.',
             price: 899.99,
             category: categories[0].name, // Use category name instead of ID
+            subcategory: categories[0].name === 'Electronics' ? 'Mobile Phones' : 'General',
             supplierId: suppliers[0]._id,
             stock: 50,
             images: ['/uploads/products/smartphone-x1-1.jpg', '/uploads/products/smartphone-x1-2.jpg'],
@@ -146,6 +147,8 @@ export const seedSampleData = async (): Promise<void> => {
             description: 'Comfortable and stylish casual shirt made from premium cotton fabric. Perfect for everyday wear.',
             price: 49.99,
             category: categories[1] ? categories[1].name : categories[0].name, // Use category name
+            subcategory: (categories[1] && categories[1].name === 'Fashion') ? 'Men\'s Clothing' : 
+                        (categories[1] && categories[1].name === 'Electronics') ? 'General' : 'General',
             supplierId: suppliers[1]._id,
             stock: 100,
             images: ['/uploads/products/casual-shirt-1.jpg'],
@@ -167,6 +170,7 @@ export const seedSampleData = async (): Promise<void> => {
             description: 'High-quality wireless headphones with noise cancellation and superior sound quality.',
             price: 199.99,
             category: categories[0].name, // Use category name
+            subcategory: categories[0].name === 'Electronics' ? 'Audio' : 'General',
             supplierId: suppliers[0]._id,
             stock: 75,
             images: ['/uploads/products/headphones-1.jpg', '/uploads/products/headphones-2.jpg'],

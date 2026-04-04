@@ -197,6 +197,20 @@ export default function BrowsingHistoryScreen() {
       textTransform: 'uppercase',
       letterSpacing: 0.5,
     },
+    deletedProductContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.base,
+      marginHorizontal: spacing.base,
+      borderRadius: borderRadius.md,
+      gap: spacing.sm,
+    },
+    deletedProductText: {
+      fontSize: fontSizes.sm,
+      fontStyle: 'italic',
+    },
   });
 
   const fetchBrowsingHistory = useCallback(async (pageNum: number = 1, isRefresh: boolean = false) => {
@@ -325,6 +339,11 @@ export default function BrowsingHistoryScreen() {
     const items: HistoryListItem[] = [];
     let lastDateKey = '';
     for (const entry of history) {
+      // Skip entries with deleted products (null productId)
+      if (!entry.productId || !entry.productId._id) {
+        continue;
+      }
+      
       const dateKey = new Date(entry.timestamp).toDateString();
       if (dateKey !== lastDateKey) {
         lastDateKey = dateKey;
@@ -347,6 +366,19 @@ export default function BrowsingHistoryScreen() {
     }
 
     const productData = item.data.productId;
+    
+    // Handle case where product has been deleted (productId is null)
+    if (!productData || !productData._id) {
+      return (
+        <View style={[styles.deletedProductContainer, { backgroundColor: colors.surface }]}>
+          <Ionicons name="trash-outline" size={24} color={colors.textSecondary} />
+          <Text style={[styles.deletedProductText, { color: colors.textSecondary }]}>
+            This product is no longer available
+          </Text>
+        </View>
+      );
+    }
+
     const product = {
       id: productData._id,
       name: productData.name,
@@ -381,7 +413,7 @@ export default function BrowsingHistoryScreen() {
         showAddButton={true}
       />
     );
-  }, [handleProductPress]);
+  }, [handleProductPress, colors]);
 
   const renderFooter = useCallback(() => {
     if (!loadingMore) return null;
@@ -393,13 +425,6 @@ export default function BrowsingHistoryScreen() {
     );
   }, [loadingMore, colors.primary, styles.loadingMoreContainer]);
 
-  const keyExtractor = useCallback((item: BrowsingHistoryItem) => item._id, []);
-
-  const getItemLayout = useCallback((data: any, index: number) => ({
-    length: 140, // Approximate height of ProductCard in list variant
-    offset: 140 * index,
-    index,
-  }), []);
 
   if (!isAuthenticated) {
     return null;
@@ -481,7 +506,6 @@ export default function BrowsingHistoryScreen() {
           updateCellsBatchingPeriod={50}
           initialNumToRender={10}
           windowSize={10}
-          getItemLayout={getItemLayout}
         />
       )}
 

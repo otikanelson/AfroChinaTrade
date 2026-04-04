@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTourGuide } from '../../../contexts/TourGuideContext';
 import { tourGuideService } from '../../../services/TourGuideService';
@@ -50,6 +50,25 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onStatusTog
       return product.price - discountAmount;
     }
     return product.price;
+  };
+
+  const formatDiscountExpiry = () => {
+    if (!product.discountExpiresAt || !hasDiscount) return null;
+    
+    const expiryDate = new Date(product.discountExpiresAt);
+    const now = new Date();
+    const diffMs = expiryDate.getTime() - now.getTime();
+    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffMs < 0) return 'Expired';
+    
+    if (diffHours < 1) return 'Ends soon';
+    if (diffHours < 24) return `${diffHours}h left`;
+    if (diffDays === 1) return 'Ends tomorrow';
+    if (diffDays <= 7) return `${diffDays} days left`;
+    
+    return `${diffDays} days left`;
   };
 
   const handleStatusToggle = () => {
@@ -100,6 +119,25 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onStatusTog
                 fontSize: 8,
                 fontWeight: '600',
               }}>{product.discount}% OFF</Text>
+            </View>
+          )}
+          
+          {/* Discount Expiry Badge */}
+          {hasDiscount && product.discountExpiresAt && formatDiscountExpiry() && (
+            <View style={{
+              position: 'absolute',
+              bottom: 4,
+              left: 4,
+              backgroundColor: 'rgba(255, 87, 34, 0.9)',
+              paddingHorizontal: 4,
+              paddingVertical: 2,
+              borderRadius: 4,
+            }}>
+              <Text style={{
+                color: '#FFFFFF',
+                fontSize: 7,
+                fontWeight: '600',
+              }}>{formatDiscountExpiry()}</Text>
             </View>
           )}
         </View>
@@ -510,9 +548,16 @@ export default function ProductsScreen() {
   }, [filters.statusFilter]);
 
   useEffect(() => {
-    fetchProducts();
     loadCategories();
-  }, [fetchProducts, loadCategories]);
+  }, [loadCategories]);
+
+  // Reload products when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchProducts();
+      loadCategories(); // Also refresh collections count
+    }, [fetchProducts, loadCategories])
+  );
 
   const handleRefresh = useCallback(() => {
     fetchProducts(true);
@@ -703,7 +748,7 @@ export default function ProductsScreen() {
         />
 
         {/* Clear Filters Button */}
-        {hasActiveFilters && searchQuery.trim() && (
+        {hasActiveFilters && (
           <TouchableOpacity
             style={styles.clearFiltersButton}
             onPress={clearAllFilters}

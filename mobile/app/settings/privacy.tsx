@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Switch, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Header } from '../../components/Header';
 
@@ -91,7 +90,7 @@ export default function PrivacySettings() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Header title="Privacy Settings" showBack />
       
       <ScrollView style={styles.content}>
@@ -113,6 +112,6 @@ export default function PrivacySettings() {
           ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

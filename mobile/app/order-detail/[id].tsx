@@ -174,9 +174,10 @@ export default function OrderDetailScreen() {
       hour: '2-digit', minute: '2-digit',
     });
   };
-
-  const styles = StyleSheet.create({
+  const dynamicStyles =StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.surface },
+  })
+  const styles = StyleSheet.create({
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: spacing.base, paddingVertical: spacing.md,
@@ -229,7 +230,7 @@ export default function OrderDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={dynamicStyles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -246,7 +247,7 @@ export default function OrderDetailScreen() {
 
   if (!order) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={dynamicStyles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -275,7 +276,7 @@ export default function OrderDetailScreen() {
   })();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={dynamicStyles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />

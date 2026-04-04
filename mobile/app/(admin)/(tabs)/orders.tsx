@@ -519,16 +519,13 @@ export default function OrdersScreen() {
         title="Orders"
         subtitle="Track customer orders"
         rightAction={
-          <View style={{ flexDirection: 'row', gap: spacing.xs, alignItems: 'center' }}>
-            <TourButton onPress={() => setTourModalVisible(true)} variant="icon" size="sm" />
-            <TouchableOpacity
-              style={styles.periodButton}
-              onPress={() => setPeriodModalVisible(true)}
-            >
-              <Text style={styles.periodButtonText}>{periodLabel}</Text>
-              <Ionicons name="chevron-down" size={14} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.periodButton}
+            onPress={() => setPeriodModalVisible(true)}
+          >
+            <Text style={styles.periodButtonText}>{periodLabel}</Text>
+            <Ionicons name="chevron-down" size={14} color={colors.primary} />
+          </TouchableOpacity>
         }
       />
 
@@ -622,6 +619,29 @@ export default function OrdersScreen() {
         tours={availableTours}
         onClose={() => setTourModalVisible(false)}
       />
+
+      {/* Floating Tour Button */}
+      <TouchableOpacity
+        style={{
+          position: 'absolute',
+          bottom: spacing.sm,
+          right: spacing.sm,
+          width: 25,
+          height: 25,
+          borderRadius: 28,
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
+        onPress={() => setTourModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="help-circle" size={28} color={colors.primary} />
+      </TouchableOpacity>
     </View>
   );
 }

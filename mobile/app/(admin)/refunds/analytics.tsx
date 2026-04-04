@@ -3,7 +3,6 @@ import {
   Text, View, ScrollView, TouchableOpacity,
   ActivityIndicator, Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { refundService, RefundStats } from '../../../services/RefundService';
@@ -135,23 +134,23 @@ export default function RefundAnalyticsScreen() {
   const periodLabel = PERIODS.find(p => p.value === period)?.label || 'Month';
 
   if (loading) return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title="Refund Analytics" subtitle="Performance insights" showBack />
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={{ color: colors.textSecondary, marginTop: spacing.sm, fontSize: fontSizes.sm }}>Loading…</Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 
   if (!stats) return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title="Refund Analytics" subtitle="Performance insights" showBack />
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
         <Ionicons name="analytics-outline" size={56} color={colors.textLight} />
         <Text style={{ color: colors.textSecondary, marginTop: spacing.sm, fontSize: fontSizes.sm, textAlign: 'center' }}>No data available</Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 
   const approvalRate = stats.total.totalRefunds > 0
@@ -159,7 +158,7 @@ export default function RefundAnalyticsScreen() {
     : 0;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title="Refund Analytics" subtitle={`${periodLabel} insights`} showBack />
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -224,6 +223,6 @@ export default function RefundAnalyticsScreen() {
           ))}
         </Card>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

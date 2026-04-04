@@ -17,6 +17,7 @@ import refundRoutes from './routes/refundRoutes';
 import reportRoutes from './routes/reportRoutes';
 import ticketRoutes from './routes/ticketRoutes';
 import categoryRoutes from './routes/categoryRoutes';
+import subcategoryRoutes from './routes/subcategoryRoutes';
 import supplierRoutes from './routes/supplierRoutes';
 import userRoutes from './routes/userRoutes';
 import uploadRoutes from './routes/uploadRoutes';
@@ -34,6 +35,7 @@ import paymentMethodRoutes from './routes/paymentMethodRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import adRoutes from './routes/adRoutes';
 import pageLayoutRoutes from './routes/pageLayoutRoutes';
+import tagRoutes from './routes/tagRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -81,6 +83,7 @@ app.use('/api/refunds', refundRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/subcategories', subcategoryRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/upload', uploadRoutes);
@@ -97,6 +100,7 @@ app.use('/api/payment-methods', paymentMethodRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/page-layouts', pageLayoutRoutes);
+app.use('/api/tags', tagRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

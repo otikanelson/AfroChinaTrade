@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Header } from '../../components/Header';
@@ -57,7 +56,7 @@ export default function ThemeSettings() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Header title="Theme Settings" showBack />
       
       <ScrollView style={styles.content}>
@@ -82,6 +81,6 @@ export default function ThemeSettings() {
           ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

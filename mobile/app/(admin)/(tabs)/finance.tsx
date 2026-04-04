@@ -691,24 +691,21 @@ export default function FinanceScreen() {
         subtitle="Track revenue"
         badge={tabBadgeCount > 0 ? { count: tabBadgeCount, color: '#f59e0b' } : undefined}
         rightAction={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <TourButton onPress={() => setTourModalVisible(true)} variant="icon" size="sm" />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary }}>
-              <TouchableOpacity
-                style={styles.periodButton}
-                onPress={() => setPeriodMenuVisible(true)}
-              >
-                <Text style={styles.periodButtonText}>{periodLabel}</Text>
-                <Ionicons name="chevron-down" size={10} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{ padding: 2, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary, margin: 2, }}
-                onPress={handleExport}
-                testID="export-button"
-              >
-                <Ionicons name="download-outline" size={14} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary }}>
+            <TouchableOpacity
+              style={styles.periodButton}
+              onPress={() => setPeriodMenuVisible(true)}
+            >
+              <Text style={styles.periodButtonText}>{periodLabel}</Text>
+              <Ionicons name="chevron-down" size={10} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ padding: 2, borderRadius: borderRadius.base, borderWidth: 1, borderColor: colors.primary, margin: 2, }}
+              onPress={handleExport}
+              testID="export-button"
+            >
+              <Ionicons name="download-outline" size={14} color={colors.primary} />
+            </TouchableOpacity>
           </View>
         }
       />
@@ -815,6 +812,29 @@ export default function FinanceScreen() {
         tours={availableTours}
         onClose={() => setTourModalVisible(false)}
       />
+
+      {/* Floating Tour Button */}
+      <TouchableOpacity
+        style={{
+          position: 'absolute',
+          bottom: spacing.sm,
+          right: spacing.sm,
+          width: 25,
+          height: 25,
+          borderRadius: 28,
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
+        onPress={() => setTourModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="help-circle" size={28} color={colors.primary} />
+      </TouchableOpacity>
     </View>
   );
 }

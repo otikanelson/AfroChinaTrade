@@ -18,7 +18,7 @@ import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
 import { Button } from '../../../components/admin/Button';
 import { Card } from '../../../components/admin/Card';
 import { mobileToastManager } from '../../../utils/toast';
-import { theme } from '../../../theme';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 
 
@@ -44,9 +44,18 @@ function formatDate(iso: string) {
   });
 }
 
-const SectionTitle: React.FC<{ title: string }> = ({ title }) => (
-  <Text style={styles.sectionTitle}>{title}</Text>
-);
+const SectionTitle: React.FC<{ title: string }> = ({ title }) => {
+  const { colors, fontSizes, fontWeights, spacing } = useTheme();
+  
+  const sectionTitleStyle = {
+    fontSize: fontSizes.base,
+    fontWeight: fontWeights.semibold as any,
+    color: colors.text,
+    marginBottom: spacing.md,
+  };
+  
+  return <Text style={sectionTitleStyle}>{title}</Text>;
+};
 
 interface ShippingModalProps {
   visible: boolean;
@@ -56,6 +65,45 @@ interface ShippingModalProps {
 
 const ShippingModal: React.FC<ShippingModalProps> = ({ visible, onClose, onConfirm }) => {
   const [tracking, setTracking] = useState('');
+  const { colors, fontSizes, spacing, borderRadius } = useTheme();
+  
+  const styles = StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      justifyContent: 'flex-end',
+    },
+    modalSheet: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: borderRadius.xl,
+      borderTopRightRadius: borderRadius.xl,
+      padding: spacing.xl,
+      gap: spacing.md,
+    },
+    modalTitle: {
+      fontSize: fontSizes.lg,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    trackingInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: borderRadius.base,
+      padding: spacing.md,
+      fontSize: fontSizes.base,
+      color: colors.text,
+      backgroundColor: colors.surface,
+    },
+    trackingHint: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+      textAlign: 'right',
+      marginTop: -spacing.xs,
+    },
+    modalActions: { flexDirection: 'row', gap: spacing.sm },
+    modalBtn: { flex: 1 },
+  });
+  
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
@@ -66,7 +114,7 @@ const ShippingModal: React.FC<ShippingModalProps> = ({ visible, onClose, onConfi
             value={tracking}
             onChangeText={setTracking}
             placeholder="e.g. 1Z999AA10123456784"
-            placeholderTextColor={theme.colors.textLight}
+            placeholderTextColor={colors.textLight}
             autoCapitalize="characters"
             maxLength={40}
             accessibilityLabel="Tracking number"
@@ -94,11 +142,118 @@ const ShippingModal: React.FC<ShippingModalProps> = ({ visible, onClose, onConfi
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [shippingModalVisible, setShippingModalVisible] = useState(false);
+
+  const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.surface },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+      backgroundColor: colors.background,
+      gap: spacing.sm,
+    },
+    backBtn: {
+      minWidth: 44, minHeight: 44,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    headerTitle: {
+      flex: 1,
+      fontSize: fontSizes.xl,
+      fontWeight: fontWeights.bold as any,
+      color: colors.text,
+    },
+    content: {
+      padding: spacing.base,
+      gap: spacing.md,
+      paddingBottom: spacing['2xl'],
+    },
+    card: { marginBottom: 0 },
+    sectionTitle: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold as any,
+      color: colors.text,
+      marginBottom: spacing.md,
+    },
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: spacing.xs,
+    },
+    label: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    value: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+      fontWeight: fontWeights.medium as any,
+    },
+    totalRow: {
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      marginTop: spacing.sm,
+      paddingTop: spacing.sm,
+    },
+    totalLabel: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold as any,
+      color: colors.text,
+    },
+    totalValue: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.bold as any,
+      color: colors.primary,
+    },
+    itemRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      paddingVertical: spacing.sm,
+    },
+    itemDivider: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    itemInfo: { flex: 1, marginRight: spacing.sm },
+    itemName: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+      fontWeight: fontWeights.medium as any,
+    },
+    itemMeta: {
+      fontSize: fontSizes.xs,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    itemTotal: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.semibold as any,
+      color: colors.text,
+    },
+    addressLine: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+      lineHeight: 22,
+    },
+    actions: { gap: spacing.sm },
+    actionBtn: { width: '100%' },
+    centered: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing.xl,
+    },
+    loadingText: {
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -170,7 +325,7 @@ export default function OrderDetailScreen() {
       <SafeAreaView style={styles.screen}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Order Detail</Text>
         </View>
@@ -186,7 +341,7 @@ export default function OrderDetailScreen() {
       <SafeAreaView style={styles.screen}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Order Detail</Text>
         </View>
@@ -207,8 +362,11 @@ export default function OrderDetailScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          #{order.orderId}
+          Order Details
         </Text>
         <StatusBadge
           status={orderStatusToBadge(order.status)}
@@ -342,152 +500,3 @@ export default function OrderDetailScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.surface },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.base,
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.borderLight,
-    backgroundColor: theme.colors.background,
-    gap: theme.spacing.sm,
-  },
-  backBtn: {
-    minWidth: 44, minHeight: 44,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: theme.fontSizes.xl,
-    fontWeight: theme.fontWeights.bold as any,
-    color: theme.colors.text,
-  },
-
-  content: {
-    padding: theme.spacing.base,
-    gap: theme.spacing.md,
-    paddingBottom: theme.spacing['2xl'],
-  },
-  card: { marginBottom: 0 },
-
-  sectionTitle: {
-    fontSize: theme.fontSizes.base,
-    fontWeight: theme.fontWeights.semibold as any,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
-  },
-
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.xs,
-  },
-  label: { fontSize: theme.fontSizes.sm, color: theme.colors.textSecondary },
-  value: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.text,
-    fontWeight: theme.fontWeights.medium as any,
-  },
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.borderLight,
-    marginTop: theme.spacing.sm,
-    paddingTop: theme.spacing.sm,
-  },
-  totalLabel: {
-    fontSize: theme.fontSizes.base,
-    fontWeight: theme.fontWeights.semibold as any,
-    color: theme.colors.text,
-  },
-  totalValue: {
-    fontSize: theme.fontSizes.base,
-    fontWeight: theme.fontWeights.bold as any,
-    color: theme.colors.primary,
-  },
-
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: theme.spacing.sm,
-  },
-  itemDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.borderLight,
-  },
-  itemInfo: { flex: 1, marginRight: theme.spacing.sm },
-  itemName: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.text,
-    fontWeight: theme.fontWeights.medium as any,
-  },
-  itemMeta: {
-    fontSize: theme.fontSizes.xs,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  itemTotal: {
-    fontSize: theme.fontSizes.sm,
-    fontWeight: theme.fontWeights.semibold as any,
-    color: theme.colors.text,
-  },
-
-  addressLine: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.text,
-    lineHeight: 22,
-  },
-
-  actions: { gap: theme.spacing.sm },
-  actionBtn: { width: '100%' },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    backgroundColor: theme.colors.background,
-    borderTopLeftRadius: theme.borderRadius.xl,
-    borderTopRightRadius: theme.borderRadius.xl,
-    padding: theme.spacing.xl,
-    gap: theme.spacing.md,
-  },
-  modalTitle: {
-    fontSize: theme.fontSizes.lg,
-    fontWeight: theme.fontWeights.semibold as any,
-    color: theme.colors.text,
-  },
-  trackingInput: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.base,
-    padding: theme.spacing.md,
-    fontSize: theme.fontSizes.base,
-    color: theme.colors.text,
-    backgroundColor: theme.colors.surface,
-  },
-  trackingHint: {
-    fontSize: theme.fontSizes.xs,
-    color: theme.colors.textSecondary,
-    textAlign: 'right',
-    marginTop: -theme.spacing.xs,
-  },
-  modalActions: { flexDirection: 'row', gap: theme.spacing.sm },
-  modalBtn: { flex: 1 },
-
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.xl,
-  },
-  loadingText: {
-    fontSize: theme.fontSizes.base,
-    color: theme.colors.textSecondary,
-  },
-});

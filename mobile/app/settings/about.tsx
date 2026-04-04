@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Linking } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Header } from '../../components/Header';
@@ -115,7 +114,7 @@ export default function AboutApp() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Header title="About" showBack />
       
       <ScrollView style={styles.content}>
@@ -163,6 +162,6 @@ export default function AboutApp() {
           Thank you for using our app and supporting our mission to make shopping easier and more enjoyable.
         </Text>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

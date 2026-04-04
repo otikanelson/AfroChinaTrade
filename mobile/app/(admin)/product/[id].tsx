@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ScrollView, StyleSheet, View, Alert, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { Button } from '../../../components/admin/Button';
 import { FormField } from '../../../components/admin/forms/FormField';
@@ -9,23 +9,25 @@ import { PickerField, PickerOption } from '../../../components/admin/forms/Picke
 import { TagSelector } from '../../../components/admin/forms/TagSelector';
 import { SpecificationsTable } from '../../../components/admin/forms/SpecificationsTable';
 import { PolicyFields } from '../../../components/admin/forms/PolicyFields';
-import { COLLECTION_TAGS, TAG_LABELS } from '../../../constants/tags';
+import { DateField } from '../../../components/admin/forms/DateField';
 import { CustomModal } from '../../../components/ui/CustomModal';
 import { mobileToastManager } from '../../../utils/toast';
 import { productService } from '../../../services/ProductService';
 import { supplierService } from '../../../services/SupplierService';
 import { categoryService } from '../../../services/CategoryService';
+import { subcategoryService } from '../../../services/SubcategoryService';
+import { tagService } from '../../../services/TagService';
 import { useTheme } from '../../../contexts/ThemeContext';
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-// Categories will be loaded dynamically from the backend
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+interface Specification {
+  id: string;
+  key: string;
+  value: string;
+}
 
 interface Specification {
   id: string;
@@ -47,12 +49,14 @@ interface FormState {
   price: string;
   stock: string;
   category: string;
+  subcategory: string;
   supplier: string;
   images: PickedImage[];
   featured: boolean;
   favorite: boolean;
   discounted: boolean;
   discountAmount: string;
+  discountExpiresAt: string;
   isActive: boolean;
   specifications: Specification[];
   policies: PolicyData;
@@ -65,6 +69,7 @@ interface FormErrors {
   price?: string;
   stock?: string;
   category?: string;
+  subcategory?: string;
   supplier?: string;
   general?: string;
 }
@@ -275,12 +280,16 @@ export default function EditProductScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingSubcategories, setLoadingSubcategories] = useState(false);
+  const [loadingTags, setLoadingTags] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [suppliers, setSuppliers] = useState<PickerOption[]>([]);
   const [categories, setCategories] = useState<PickerOption[]>([]);
+  const [subcategories, setSubcategories] = useState<PickerOption[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const [form, setForm] = useState<FormState>({
@@ -289,12 +298,14 @@ export default function EditProductScreen() {
     price: '',
     stock: '',
     category: '',
+    subcategory: '',
     supplier: '',
     images: [],
     featured: false,
     favorite: false,
     discounted: false,
     discountAmount: '',
+    discountExpiresAt: '',
     isActive: true,
     specifications: [],
     policies: {},
@@ -308,6 +319,7 @@ export default function EditProductScreen() {
   useEffect(() => {
     loadSuppliers();
     loadCategories();
+    loadTags();
   }, []);
 
   const loadSuppliers = async () => {
@@ -375,6 +387,51 @@ export default function EditProductScreen() {
     }
   };
 
+  const loadSubcategories = async (categoryName: string) => {
+    if (!categoryName) {
+      setSubcategories([]);
+      return;
+    }
+    
+    try {
+      setLoadingSubcategories(true);
+      console.log(`🔄 Loading subcategories for category: ${categoryName}`);
+      const response = await subcategoryService.getSubcategoriesByCategory(categoryName);
+      
+      console.log('📊 Subcategory response:', response);
+      
+      if (response.success && response.data) {
+        const subcategoryOptions = response.data.map((subcategory: any) => ({
+          label: subcategory.name,
+          value: subcategory.name
+        }));
+        console.log(`✅ Loaded ${subcategoryOptions.length} subcategories:`, subcategoryOptions);
+        setSubcategories(subcategoryOptions);
+      } else {
+        console.log('⚠️ No subcategories found or response failed');
+        setSubcategories([]);
+      }
+    } catch (error: any) {
+      console.error('❌ Failed to load subcategories:', error);
+      setSubcategories([]);
+    } finally {
+      setLoadingSubcategories(false);
+    }
+  };
+
+  const loadTags = async () => {
+    try {
+      setLoadingTags(true);
+      const tagNames = await tagService.getTagNames();
+      setAvailableTags(tagNames);
+    } catch (error: any) {
+      console.error('Failed to load tags:', error);
+      setAvailableTags([]);
+    } finally {
+      setLoadingTags(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -410,17 +467,24 @@ export default function EditProductScreen() {
           price: product.price.toString(),
           stock: product.stock.toString(),
           category: product.category ?? '',
+          subcategory: product.subcategory ?? '',
           supplier: (product as any).supplierId?._id?.toString() || (product as any).supplierId?.toString() || '', // Handle both populated and non-populated supplierId
           images: product.images.map(uriToPickedImage),
           featured: product.isFeatured ?? false,
           favorite: product.isSellerFavorite ?? false,
           discounted: !!(product.discount && product.discount > 0),
           discountAmount: product.discount ? product.discount.toString() : '',
+          discountExpiresAt: product.discountExpiresAt ? new Date(product.discountExpiresAt).toISOString().split('T')[0] : '',
           isActive: product.isActive ?? true,
           specifications: specificationsArray,
           policies: (product as any).policies || {},
           tags: (product as any).tags || [],
         });
+        
+        // Load subcategories if category exists
+        if (product.category) {
+          loadSubcategories(product.category);
+        }
       } catch (error) {
         console.error('Error loading product:', error);
         if (!cancelled) setNotFound(true);
@@ -446,6 +510,12 @@ export default function EditProductScreen() {
     if (errors.general) {
       setErrors((prev) => ({ ...prev, general: undefined }));
     }
+    
+    // Load subcategories when category changes
+    if (key === 'category') {
+      setForm((prev) => ({ ...prev, subcategory: '' })); // Clear subcategory when category changes
+      loadSubcategories(value as string);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -467,12 +537,14 @@ export default function EditProductScreen() {
         price: parseFloat(form.price),
         stock: parseInt(form.stock, 10),
         categoryId: form.category, // Frontend interface expects 'categoryId'
+        subcategory: form.subcategory.trim() || undefined,
         supplierId: form.supplier, // Backend expects 'supplierId'
         images: form.images.map((img) => img.uploadedUrl || img.uri),
         isFeatured: form.featured,
         isActive: form.isActive,
         // Add discount if enabled
         discount: form.discounted && form.discountAmount ? parseFloat(form.discountAmount) : 0,
+        discountExpiresAt: form.discounted && form.discountExpiresAt ? form.discountExpiresAt : undefined,
         // Convert specifications array to object format for backend
         specifications: form.specifications.reduce((acc, spec) => {
           if (spec.key.trim() && spec.value.trim()) {
@@ -694,6 +766,20 @@ export default function EditProductScreen() {
           testID="edit-product-category"
         />
 
+        {/* Subcategory */}
+        {form.category && (
+          <PickerField
+            label="Subcategory"
+            value={form.subcategory}
+            onValueChange={(v) => setField('subcategory', v)}
+            options={subcategories}
+            placeholder={loadingSubcategories ? "Loading subcategories..." : subcategories.length === 0 ? "No subcategories available" : "Select a subcategory (optional)"}
+            disabled={loadingSubcategories}
+            error={errors.subcategory}
+            testID="edit-product-subcategory"
+          />
+        )}
+
         {/* Supplier */}
         <PickerField
           label="Supplier"
@@ -705,6 +791,29 @@ export default function EditProductScreen() {
           disabled={loadingSuppliers}
           error={errors.supplier}
           testID="edit-product-supplier"
+        />
+
+        
+        {/* Product Collection Tags */}
+        <TagSelector
+          label="Collection Tags"
+          description="Add tags to help categorize and filter this product"
+          tags={[
+            // Show all available tags from database
+            ...(availableTags || []).map(tag => ({
+              id: tag,
+              label: tag,
+              value: (form.tags || []).includes(tag)
+            }))
+          ]}
+          onTagToggle={(tagId) => {
+            const currentTags = form.tags || [];
+            const updatedTags = currentTags.includes(tagId)
+              ? currentTags.filter(tag => tag !== tagId)
+              : [...currentTags, tagId];
+            setField('tags', updatedTags);
+          }}
+          testID="edit-product-collection-tags"
         />
 
         {/* Product Status Tags */}
@@ -736,25 +845,6 @@ export default function EditProductScreen() {
           testID="edit-product-status-tags"
         />
 
-        {/* Product Collection Tags */}
-        <TagSelector
-          label="Collection Tags"
-          description="Add tags to help categorize and filter this product"
-          tags={COLLECTION_TAGS.map(tag => ({
-            id: tag,
-            label: TAG_LABELS[tag],
-            value: form.tags?.includes(tag) || false
-          }))}
-          onTagToggle={(tagId) => {
-            const currentTags = form.tags || [];
-            const updatedTags = currentTags.includes(tagId)
-              ? currentTags.filter(tag => tag !== tagId)
-              : [...currentTags, tagId];
-            setField('tags', updatedTags);
-          }}
-          testID="edit-product-collection-tags"
-        />
-
         {form.discounted && (
           <>
             <FormField
@@ -765,6 +855,14 @@ export default function EditProductScreen() {
               keyboardType="decimal-pad"
               helperText="Enter discount percentage (0-100)"
               testID="edit-product-discount-amount"
+            />
+
+            <DateField
+              label="Discount Expires At"
+              value={form.discountExpiresAt}
+              onChangeText={(v) => setField('discountExpiresAt', v)}
+              helperText="Optional: Set when this discount expires"
+              testID="edit-product-discount-expires"
             />
             
             {/* Discount Preview */}

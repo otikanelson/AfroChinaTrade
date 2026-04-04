@@ -7,14 +7,11 @@ import {
   StyleSheet,
   TextInput,
   Modal,
-  Platform,
-  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { ProductFilters } from '../types/navigation';
-import { COLLECTION_TAGS, TAG_LABELS } from '../constants/tags';
+import { tagService } from '../services/TagService';
 
 interface ProductFilterModalProps {
   visible: boolean;
@@ -51,6 +48,8 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
   const [minPrice, setMinPrice] = useState(initialFilters.minPrice?.toString() || '');
   const [maxPrice, setMaxPrice] = useState(initialFilters.maxPrice?.toString() || '');
   const [priceError, setPriceError] = useState('');
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [loadingTags, setLoadingTags] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -58,8 +57,22 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
       setMinPrice(initialFilters.minPrice?.toString() || '');
       setMaxPrice(initialFilters.maxPrice?.toString() || '');
       setPriceError('');
+      loadTags();
     }
   }, [visible]);
+
+  const loadTags = async () => {
+    try {
+      setLoadingTags(true);
+      const tagNames = await tagService.getTagNames();
+      setAvailableTags(tagNames);
+    } catch (error) {
+      console.error('Failed to load tags:', error);
+      setAvailableTags([]);
+    } finally {
+      setLoadingTags(false);
+    }
+  };
 
   const updateFilter = (key: keyof ProductFilters, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -320,17 +333,31 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
               {/* Tags */}
               <View style={s.section}>
                 <Text style={s.sectionTitle}>Tags</Text>
-                <View style={s.chips}>
-                  {COLLECTION_TAGS.map(tag => (
-                    <TouchableOpacity
-                      key={tag}
-                      style={[s.chip, filters.tag === tag && s.chipActive]}
-                      onPress={() => updateFilter('tag', filters.tag === tag ? undefined : tag)}
-                    >
-                      <Text style={[s.chipText, filters.tag === tag && s.chipTextActive]}>{TAG_LABELS[tag]}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                {loadingTags ? (
+                  <View style={s.chips}>
+                    <View style={[s.chip, { opacity: 0.5 }]}>
+                      <Text style={s.chipText}>Loading tags...</Text>
+                    </View>
+                  </View>
+                ) : availableTags.length > 0 ? (
+                  <View style={s.chips}>
+                    {availableTags.map(tag => (
+                      <TouchableOpacity
+                        key={tag}
+                        style={[s.chip, filters.tag === tag && s.chipActive]}
+                        onPress={() => updateFilter('tag', filters.tag === tag ? undefined : tag)}
+                      >
+                        <Text style={[s.chipText, filters.tag === tag && s.chipTextActive]}>{tag}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={s.chips}>
+                    <View style={[s.chip, { opacity: 0.5 }]}>
+                      <Text style={s.chipText}>No tags available</Text>
+                    </View>
+                  </View>
+                )}
               </View>
 
               {/* Price */}

@@ -39,6 +39,34 @@ import { collectionService } from '../../services/CollectionService';
 import { adService, Ad } from '../../services/AdService';
 import { Collection } from '../../types/product';
 
+const formatDiscountExpiry = (discountExpiresAt: string | undefined): { text: string; isUrgent: boolean } | null => {
+  if (!discountExpiresAt) return null;
+  
+  const expiryDate = new Date(discountExpiresAt);
+  const now = new Date();
+  const diffMs = expiryDate.getTime() - now.getTime();
+  
+  if (diffMs <= 0) return null; // Expired
+  
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+  
+  if (diffMinutes < 60) {
+    return { text: `Ends in ${diffMinutes}m`, isUrgent: true };
+  } else if (diffHours < 24) {
+    return { text: `Ends in ${diffHours}h`, isUrgent: diffHours <= 6 };
+  } else if (diffDays <= 7) {
+    return { text: `Ends in ${diffDays}d`, isUrgent: diffDays <= 2 };
+  } else {
+    const formattedDate = expiryDate.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
+    });
+    return { text: `Ends ${formattedDate}`, isUrgent: false };
+  }
+};
+
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function ProductDetailScreen() {
@@ -151,6 +179,54 @@ export default function ProductDetailScreen() {
       color: themeColors.textInverse,
       fontSize: fontSizes.sm,
       fontWeight: fontWeights.bold,
+    },
+    discountExpiryBadge: {
+      paddingHorizontal: themeSpacing.sm,
+      paddingVertical: themeSpacing.xs,
+      borderRadius: borderRadius.full,
+      marginLeft: themeSpacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    discountExpiryBadgeUrgent: {
+      backgroundColor: '#FF4444',
+      shadowColor: '#FF4444',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    discountExpiryBadgeNormal: {
+      backgroundColor: '#FF8C00',
+    },
+    discountExpiryText: {
+      color: themeColors.textInverse,
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.bold,
+    },
+    discountExpirySection: {
+      backgroundColor: themeColors.surface,
+      borderRadius: borderRadius.lg,
+      padding: themeSpacing.base,
+      marginBottom: themeSpacing.base,
+      borderLeftWidth: 4,
+      borderLeftColor: '#FF4444',
+      ...shadows.sm,
+    },
+    discountExpirySectionTitle: {
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.bold,
+      color: '#FF4444',
+      marginBottom: themeSpacing.xs,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: themeSpacing.xs,
+    },
+    discountExpiryDetails: {
+      fontSize: fontSizes.sm,
+      color: themeColors.textSecondary,
+      lineHeight: 20,
     },
     supplierContainer: {
       flexDirection: 'row',
@@ -971,12 +1047,64 @@ export default function ProductDetailScreen() {
               <View style={styles.discountBadge}>
                 <Text style={styles.discountBadgeText}>{product.discount}% OFF</Text>
               </View>
+              {(() => {
+                const expiryInfo = formatDiscountExpiry(product.discountExpiresAt);
+                if (!expiryInfo) return null;
+                
+                return (
+                  <View style={[
+                    styles.discountExpiryBadge,
+                    expiryInfo.isUrgent ? styles.discountExpiryBadgeUrgent : styles.discountExpiryBadgeNormal
+                  ]}>
+                    <Ionicons 
+                      name={expiryInfo.isUrgent ? "time" : "time-outline"} 
+                      size={12} 
+                      color="white" 
+                    />
+                    <Text style={styles.discountExpiryText}>
+                      {expiryInfo.text}
+                    </Text>
+                  </View>
+                );
+              })()}
             </View>
           ) : (
             <Text style={styles.productPrice}>
               ₦{product.price.toLocaleString()}
             </Text>
           )}
+
+          {/* Enhanced Discount Expiry Section */}
+          {(() => {
+            const expiryInfo = formatDiscountExpiry(product.discountExpiresAt);
+            if (!expiryInfo || !product.discount || product.discount <= 0) return null;
+            
+            const savings = Math.round(product.price * (product.discount / 100));
+            const expiryDate = new Date(product.discountExpiresAt!);
+            const formattedDate = expiryDate.toLocaleDateString('en-US', { 
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long', 
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            
+            return (
+              <View style={styles.discountExpirySection}>
+                <View style={styles.discountExpirySectionTitle}>
+                  <Ionicons name="flash" size={18} color="#FF4444" />
+                  <Text style={styles.discountExpirySectionTitle}>
+                    {expiryInfo.isUrgent ? 'Limited Time Offer!' : 'Special Discount'}
+                  </Text>
+                </View>
+                <Text style={styles.discountExpiryDetails}>
+                  Save ₦{savings.toLocaleString()} ({product.discount}% off) • {expiryInfo.text.charAt(0).toUpperCase() + expiryInfo.text.slice(1)} on {formattedDate}
+                  {expiryInfo.isUrgent && ' ⚡ Hurry up!'}
+                </Text>
+              </View>
+            );
+          })()}
 
           <View style={styles.metaInfo}>
             <TouchableOpacity 
@@ -1021,7 +1149,7 @@ export default function ProductDetailScreen() {
                   return logo ? (
                     <Image
                       source={{ uri: logo }}
-                      style={{ width: 48, height: 48, borderRadius: borderRadius.base, marginRight: themeSpacing.base }}
+                      style={{ width: 48, height: 48, borderRadius: borderRadius.base, marginRight: themeSpacing.base, backgroundColor: '#FFFFFF', padding: 4 }}
                       resizeMode="contain"
                     />
                   ) : (
@@ -1031,9 +1159,14 @@ export default function ProductDetailScreen() {
                   );
                 })()}
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.supplierName}>
-                    {(product.supplier?.name || (product.supplierId as any)?.name) || 'Unknown Supplier'}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {(product.supplier?.verified || (product.supplierId as any)?.verified) && (
+                      <Ionicons name="shield-checkmark" size={16} color={themeColors.primary} />
+                    )}
+                    <Text style={[styles.supplierName, { marginLeft: (product.supplier?.verified || (product.supplierId as any)?.verified) ? -2 : 0 }]}>
+                      {(product.supplier?.name || (product.supplierId as any)?.name) || 'Unknown Supplier'}
+                    </Text>
+                  </View>
                   <Text style={styles.supplierLocation}>
                     <Ionicons name="location-outline" size={14} color={themeColors.textSecondary} />
                     {' '}{(product.supplier?.location || (product.supplierId as any)?.location) || 'Location not specified'}
@@ -1141,7 +1274,7 @@ export default function ProductDetailScreen() {
                 actionText="See All"
                 icon="pricetag-outline"
                 onActionPress={() => router.push({
-                  pathname: '/product-listing',
+                  pathname: '/products',
                   params: { category: product.category, title: `More in ${product.category}` },
                 })}
               />
@@ -1161,7 +1294,7 @@ export default function ProductDetailScreen() {
 
           {/* 3. Ad Carousel */}
           {detailAds.length > 0 && (
-            <View style={{ marginBottom: themeSpacing.lg, marginHorizontal: -spacing.base }}>
+            <View style={{ marginHorizontal: -spacing.base }}>
               <AdCarousel ads={detailAds} />
             </View>
           )}
@@ -1183,7 +1316,7 @@ export default function ProductDetailScreen() {
                   actionText="See All"
                   icon="grid-outline"
                   onActionPress={() => router.push({
-                    pathname: '/product-listing',
+                    pathname: '/products',
                     params: { collectionId: (item.collection as any)._id || item.collection.id, title: item.collection.name },
                   })}
                 />
@@ -1210,7 +1343,7 @@ export default function ProductDetailScreen() {
                 actionText="See All"
                 icon="trending-up-outline"
                 onActionPress={() => router.push({
-                  pathname: '/product-listing',
+                  pathname: '/products',
                   params: { collection: 'trending', title: 'Trending Products' },
                 })}
               />

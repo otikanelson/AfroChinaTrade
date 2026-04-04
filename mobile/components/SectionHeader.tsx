@@ -34,7 +34,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
       onActionPress();
     } else if (navigationSource && collectionType) {
       router.push({
-        pathname: '/product-listing',
+        pathname: '/products',
         params: { source: navigationSource, collectionType, title },
       });
     }

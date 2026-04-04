@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Header } from '../components/Header';
+import { DateDivider, createListWithDateDividers } from '../components/DateDivider';
 import { refundService, Refund } from '../services/RefundService';
 import { spacing } from '../theme/spacing';
 
@@ -198,41 +199,54 @@ export default function RefundsScreen() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const renderItem = useCallback(({ item }: { item: Refund }) => {
-    const isExpanded = expandedId === item.id;
-    const statusColor = getStatusColor(item.status);
-    const orderId = typeof item.orderId === 'object'
-      ? (item.orderId as any).orderId
-      : String(item.orderId).slice(-8).toUpperCase();
+  const listItems = useMemo(() => {
+    return createListWithDateDividers(
+      refunds,
+      (item) => item.id,
+      (item) => item.createdAt
+    );
+  }, [refunds]);
+
+  const renderItem = useCallback(({ item }: { item: any }) => {
+    if (item.type === 'divider') {
+      return <DateDivider date={item.label} />;
+    }
+
+    const refund = item.data;
+    const isExpanded = expandedId === refund.id;
+    const statusColor = getStatusColor(refund.status);
+    const orderId = typeof refund.orderId === 'object'
+      ? (refund.orderId as any).orderId
+      : String(refund.orderId).slice(-8).toUpperCase();
 
     return (
       <TouchableOpacity
         style={[styles.refundCard, { borderLeftWidth: 4, borderLeftColor: statusColor }]}
-        onPress={() => setExpandedId(isExpanded ? null : item.id)}
+        onPress={() => setExpandedId(isExpanded ? null : refund.id)}
         activeOpacity={0.85}
       >
         <View style={styles.refundHeader}>
           <Text style={styles.orderNumber}>Order #{orderId}</Text>
           <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
             <Text style={styles.statusText}>
-              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+              {refund.status.charAt(0).toUpperCase() + refund.status.slice(1)}
             </Text>
           </View>
         </View>
-        <Text style={styles.refundAmount}>₦{item.amount.toLocaleString()}</Text>
-        <Text style={styles.refundReason} numberOfLines={isExpanded ? undefined : 2}>{item.reason}</Text>
-        <Text style={styles.refundDate}>Requested on {formatDate(item.createdAt)}</Text>
+        <Text style={styles.refundAmount}>₦{refund.amount.toLocaleString()}</Text>
+        <Text style={styles.refundReason} numberOfLines={isExpanded ? undefined : 2}>{refund.reason}</Text>
+        <Text style={styles.refundDate}>Requested on {formatDate(refund.createdAt)}</Text>
 
         {isExpanded && (
           <View style={{ marginTop: spacing.sm, gap: spacing.xs }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary }}>Type</Text>
-              <Text style={{ fontSize: fontSizes.xs, color: colors.text, textTransform: 'capitalize', fontWeight: fontWeights.medium }}>{item.type}</Text>
+              <Text style={{ fontSize: fontSizes.xs, color: colors.text, textTransform: 'capitalize', fontWeight: fontWeights.medium }}>{refund.type}</Text>
             </View>
-            {item.processedAt && (
+            {refund.processedAt && (
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary }}>Processed on</Text>
-                <Text style={{ fontSize: fontSizes.xs, color: colors.text }}>{formatDate(item.processedAt)}</Text>
+                <Text style={{ fontSize: fontSizes.xs, color: colors.text }}>{formatDate(refund.processedAt)}</Text>
               </View>
             )}
             {item.processedBy && (
@@ -293,9 +307,9 @@ export default function RefundsScreen() {
         </View>
       ) : (
         <FlatList
-          data={refunds}
+          data={listItems}
           renderItem={renderItem}
-          keyExtractor={keyExtractor}
+          keyExtractor={(item: any) => item.key}
           contentContainerStyle={styles.refundsList}
           showsVerticalScrollIndicator={false}
           refreshControl={

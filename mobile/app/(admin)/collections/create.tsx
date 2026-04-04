@@ -15,9 +15,9 @@ import { FormField } from '../../../components/admin/forms/FormField';
 import { PickerField } from '../../../components/admin/forms/PickerField';
 import { collectionService } from '../../../services/CollectionService';
 import { categoryService } from '../../../services/CategoryService';
+import { tagService } from '../../../services/TagService';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { CollectionFilter, Category } from '../../../types/product';
-import { COLLECTION_TAGS } from '../../../constants/tags';
 
 const FILTER_TYPES = [
   { 
@@ -58,14 +58,14 @@ const FILTER_TYPES = [
   },
 ];
 
-const TAG_OPTIONS = COLLECTION_TAGS;
-
 export default function CreateCollection() {
   const router = useRouter();
   const { colors, spacing, fontSizes, borderRadius, fontWeights } = useTheme();
   const [loading, setLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [tagsLoading, setTagsLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   
   const [formData, setFormData] = useState({
@@ -361,6 +361,7 @@ export default function CreateCollection() {
 
   useEffect(() => {
     loadCategories();
+    loadTags();
   }, []);
 
   const loadCategories = async () => {
@@ -380,6 +381,20 @@ export default function CreateCollection() {
       setCategories([]);
     } finally {
       setCategoriesLoading(false);
+    }
+  };
+
+  const loadTags = async () => {
+    try {
+      setTagsLoading(true);
+      const tagNames = await tagService.getTagNames();
+      setAvailableTags(tagNames);
+    } catch (error) {
+      console.error('Error loading tags:', error);
+      Alert.alert('Warning', 'Failed to load tags. Tag filters may not work properly.');
+      setAvailableTags([]);
+    } finally {
+      setTagsLoading(false);
     }
   };
 
@@ -439,7 +454,7 @@ export default function CreateCollection() {
             label="Tag"
             value={filter.value as string}
             onValueChange={(value) => handleFilterChange(index, 'value', value)}
-            options={TAG_OPTIONS.map(tag => ({ label: tag, value: tag }))}
+            options={availableTags.map(tag => ({ label: tag, value: tag }))}
             placeholder="Select tag"
           />
         );

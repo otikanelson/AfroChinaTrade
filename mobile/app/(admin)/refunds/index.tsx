@@ -13,7 +13,6 @@ import {
   ActivityIndicator,
   Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { refundService } from '../../../services/RefundService';
 import { Refund } from '../../../types/product';
 import { Card } from '../../../components/admin/Card';
@@ -330,7 +329,7 @@ export default function RefundsManagementScreen() {
   };
 
   return (
-    <SafeAreaView style={s.screen}>
+    <View style={s.screen}>
       <Header title="Refund Management" subtitle="Manage refund requests" showBack />
 
       <View style={s.statsRow}>
@@ -538,6 +537,6 @@ export default function RefundsManagementScreen() {
           </Animated.View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }

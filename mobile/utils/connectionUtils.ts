@@ -61,7 +61,7 @@ export const resolveApiUrl = async (): Promise<{
     await pingUrl(API_BASE_URL, CONNECTION_CONFIG.timeout);
     if (APP_CONFIG.debug) console.log('✅ Primary API reachable:', API_BASE_URL);
     return { url: API_BASE_URL, usedFallback: false };
-  } catch {
+  } catch (error) {
     if (APP_CONFIG.debug)
       console.warn(
         `⚠️ Primary API unreachable (${API_BASE_URL}). Switching to fallback: ${FALLBACK_API_URL}`

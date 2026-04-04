@@ -27,7 +27,8 @@ const CategoryFormModal: React.FC<FormModalProps> = ({ visible, category, onClos
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('');
-  const [subcategories, setSubcategories] = useState('');
+  const [subcategories, setSubcategories] = useState<string[]>([]);
+  const [newSubcategory, setNewSubcategory] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -35,21 +36,46 @@ const CategoryFormModal: React.FC<FormModalProps> = ({ visible, category, onClos
       setName(category.name);
       setDescription(category.description || '');
       setIcon(category.icon || '');
-      setSubcategories((category.subcategories || []).join(', '));
+      setSubcategories(category.subcategories || []);
     } else {
-      setName(''); setDescription(''); setIcon(''); setSubcategories('');
+      setName(''); 
+      setDescription(''); 
+      setIcon(''); 
+      setSubcategories([]);
     }
+    setNewSubcategory('');
   }, [category, visible]);
 
+  const addSubcategory = () => {
+    const trimmed = newSubcategory.trim();
+    if (trimmed && !subcategories.includes(trimmed)) {
+      setSubcategories([...subcategories, trimmed]);
+      setNewSubcategory('');
+    }
+  };
+
+  const removeSubcategory = (index: number) => {
+    setSubcategories(subcategories.filter((_, i) => i !== index));
+  };
+
   const handleSave = async () => {
-    if (!name.trim()) { Alert.alert('Validation', 'Category name is required'); return; }
+    if (!name.trim()) { 
+      Alert.alert('Validation', 'Category name is required'); 
+      return; 
+    }
+    
+    if (subcategories.length === 0) {
+      Alert.alert('Validation', 'At least one subcategory is required'); 
+      return; 
+    }
+    
     setSaving(true);
     try {
       const payload: CreateCategoryData = {
         name: name.trim(),
         description: description.trim() || undefined,
         icon: icon.trim() || undefined,
-        subcategories: subcategories.split(',').map(s => s.trim()).filter(Boolean),
+        subcategories: subcategories,
       };
       const res = category
         ? await categoryService.updateCategory((category as any)._id || category.id, payload)
@@ -62,7 +88,7 @@ const CategoryFormModal: React.FC<FormModalProps> = ({ visible, category, onClos
 
   const s = StyleSheet.create({
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    sheet: { backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg, gap: spacing.md },
+    sheet: { backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg, gap: spacing.md, maxHeight: '90%' },
     title: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold as any, color: colors.text },
     label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium as any, color: colors.text, marginBottom: 4 },
     input: { borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.md, padding: spacing.sm, fontSize: fontSizes.base, color: colors.text, backgroundColor: colors.surface },
@@ -70,6 +96,71 @@ const CategoryFormModal: React.FC<FormModalProps> = ({ visible, category, onClos
     row: { flexDirection: 'row', gap: spacing.sm },
     btn: { flex: 1, paddingVertical: spacing.md, borderRadius: borderRadius.md, alignItems: 'center' },
     btnText: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold as any },
+    subcategoryContainer: { 
+      borderWidth: 1, 
+      borderColor: colors.border, 
+      borderRadius: borderRadius.md, 
+      backgroundColor: colors.surface,
+      minHeight: 100,
+      padding: spacing.sm
+    },
+    subcategoryList: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+      marginBottom: spacing.sm
+    },
+    subcategoryChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primary + '20',
+      borderRadius: borderRadius.full,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      gap: spacing.xs
+    },
+    subcategoryText: {
+      fontSize: fontSizes.sm,
+      color: colors.primary,
+      fontWeight: fontWeights.medium as any
+    },
+    removeButton: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    addSubcategoryRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      alignItems: 'center'
+    },
+    addSubcategoryInput: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      borderRadius: borderRadius.sm,
+      padding: spacing.sm,
+      fontSize: fontSizes.sm,
+      color: colors.text,
+      backgroundColor: colors.background
+    },
+    addButton: {
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    emptySubcategories: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.lg,
+      opacity: 0.6
+    }
   });
 
   return (
@@ -77,31 +168,108 @@ const CategoryFormModal: React.FC<FormModalProps> = ({ visible, category, onClos
       <View style={s.overlay}>
         <ScrollView style={s.sheet} keyboardShouldPersistTaps="handled">
           <Text style={s.title}>{category ? 'Edit Category' : 'New Category'}</Text>
+          
           <View>
             <Text style={s.label}>Name *</Text>
-            <TextInput style={s.input} value={name} onChangeText={setName} placeholder="e.g. Electronics" placeholderTextColor={colors.textLight} />
+            <TextInput 
+              style={s.input} 
+              value={name} 
+              onChangeText={setName} 
+              placeholder="e.g. Electronics" 
+              placeholderTextColor={colors.textLight} 
+            />
           </View>
+          
           <View>
             <Text style={s.label}>Description</Text>
-            <TextInput style={[s.input, { minHeight: 70, textAlignVertical: 'top' }]} value={description} onChangeText={setDescription} placeholder="Brief description" placeholderTextColor={colors.textLight} multiline />
+            <TextInput 
+              style={[s.input, { minHeight: 70, textAlignVertical: 'top' }]} 
+              value={description} 
+              onChangeText={setDescription} 
+              placeholder="Brief description" 
+              placeholderTextColor={colors.textLight} 
+              multiline 
+            />
           </View>
+          
           <View>
             <Text style={s.label}>Icon</Text>
-            <TextInput style={s.input} value={icon} onChangeText={setIcon} placeholder="e.g. phone-portrait" placeholderTextColor={colors.textLight} autoCapitalize="none" />
+            <TextInput 
+              style={s.input} 
+              value={icon} 
+              onChangeText={setIcon} 
+              placeholder="e.g. phone-portrait" 
+              placeholderTextColor={colors.textLight} 
+              autoCapitalize="none" 
+            />
           </View>
+          
           <View>
-            <Text style={s.label}>Subcategories</Text>
-            <TextInput style={s.input} value={subcategories} onChangeText={setSubcategories} placeholder="Phones, Tablets, Laptops" placeholderTextColor={colors.textLight} />
-            <Text style={s.hint}>Comma-separated list</Text>
+            <Text style={s.label}>Subcategories *</Text>
+            <View style={s.subcategoryContainer}>
+              {subcategories.length > 0 ? (
+                <View style={s.subcategoryList}>
+                  {subcategories.map((sub, index) => (
+                    <View key={index} style={s.subcategoryChip}>
+                      <Text style={s.subcategoryText}>{sub}</Text>
+                      <TouchableOpacity 
+                        style={s.removeButton}
+                        onPress={() => removeSubcategory(index)}
+                      >
+                        <Ionicons name="close" size={10} color={colors.textInverse} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={s.emptySubcategories}>
+                  <Ionicons name="folder-outline" size={24} color={colors.textSecondary} />
+                  <Text style={{ fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 4 }}>
+                    No subcategories added yet
+                  </Text>
+                </View>
+              )}
+              
+              <View style={s.addSubcategoryRow}>
+                <TextInput
+                  style={s.addSubcategoryInput}
+                  value={newSubcategory}
+                  onChangeText={setNewSubcategory}
+                  placeholder="Add subcategory"
+                  placeholderTextColor={colors.textLight}
+                  onSubmitEditing={addSubcategory}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity 
+                  style={s.addButton}
+                  onPress={addSubcategory}
+                  disabled={!newSubcategory.trim()}
+                >
+                  <Ionicons name="add" size={16} color={colors.textInverse} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <Text style={s.hint}>At least one subcategory is required</Text>
           </View>
+          
           <View style={s.row}>
-            <TouchableOpacity style={[s.btn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]} onPress={onClose}>
+            <TouchableOpacity 
+              style={[s.btn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]} 
+              onPress={onClose}
+            >
               <Text style={[s.btnText, { color: colors.textSecondary }]}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.btn, { backgroundColor: colors.primary }]} onPress={handleSave} disabled={saving}>
-              <Text style={[s.btnText, { color: colors.textInverse }]}>{saving ? 'Saving…' : 'Save'}</Text>
+            <TouchableOpacity 
+              style={[s.btn, { backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }]} 
+              onPress={handleSave} 
+              disabled={saving}
+            >
+              <Text style={[s.btnText, { color: colors.textInverse }]}>
+                {saving ? 'Saving…' : 'Save'}
+              </Text>
             </TouchableOpacity>
           </View>
+          
           <View style={{ height: 20 }} />
         </ScrollView>
       </View>

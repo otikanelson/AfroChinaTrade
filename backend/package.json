@@ -30,7 +30,16 @@
     "db:fix:reviews": "ts-node src/scripts/fixReviewDiscrepancies.ts",
     "db:seed:collections": "ts-node src/scripts/seedCollections.ts",
     "db:seed:advanced-collections": "ts-node src/scripts/seedAdvancedCollections.ts",
-    "db:seed:collection-products": "ts-node src/scripts/seedCollectionProducts.ts"
+    "db:seed:collection-products": "ts-node src/scripts/seedCollectionProducts.ts",
+    "db:seed:discount-expiry": "ts-node src/scripts/seedDiscountExpiry.ts",
+    "db:fix:collection-filters": "ts-node src/scripts/fixCollectionFilters.ts",
+    "db:reseed:collections": "ts-node src/scripts/reseedCollections.ts",
+    "db:remove:new-collection": "ts-node src/scripts/removeNewCollection.ts",
+    "db:clear:collections-tags": "ts-node src/scripts/clearCollectionsAndTags.ts",
+    "db:seed:tags": "ts-node src/scripts/seedProductTags.ts",
+    "db:seed:tags-from-products": "ts-node src/scripts/seedTagsFromProducts.ts",
+    "db:seed:realistic-collections": "ts-node src/scripts/seedRealisticCollections.ts",
+    "db:cleanup:browsing-history": "ts-node src/scripts/cleanupBrowsingHistory.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

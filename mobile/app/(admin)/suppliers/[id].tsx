@@ -334,7 +334,7 @@ export default function SupplierFormScreen() {
               aspectRatio={[3, 1]}
               previewShape="square"
             />
-            <Text style={{ fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: -spacing.xs }}>
+            <Text style={{ fontSize: fontSizes.xs, color: colors.primaryDark, marginTop: -spacing.xs }}>
               Upload a PNG with a transparent background. Wide/landscape format (e.g. 300 × 80px) works best for logos that include the company name. The logo will appear directly on product cards — no background will be added.
             </Text>
 

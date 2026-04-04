@@ -66,7 +66,7 @@ class SimpleApiClient {
             : `✅ Using primary API: ${url}`
         );
       }
-    } catch {
+    } catch (error) {
       // resolveApiUrl never throws, but just in case — keep the default
     }
   }
@@ -337,6 +337,9 @@ class SimpleApiClient {
 
   private async makeRequest<T>(requestFn: () => Promise<AxiosResponse<T>>): Promise<ApiResponse<T>> {
     try {
+      // Wait for API client to be ready (URL resolution)
+      await this.readyPromise;
+      
       const response = await requestFn();
       const backendResponse = response.data as any;
       
@@ -364,6 +367,7 @@ class SimpleApiClient {
         success: true,
         data: this.transformData(response.data)
       };
+      
     } catch (error) {
       const apiError = error as ApiError;
       

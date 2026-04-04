@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,9 +7,11 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import { Header } from '../../components/Header';
 import { ThemeModal } from '../../components/ThemeModal';
+import { PromoTiles } from '../../components/PromoTiles';
 import { spacing } from '../../theme/spacing';
 import { getDisplayPhone } from '../../utils/phoneUtils';
 import { fontWeights } from '../../theme';
+import { adService, Ad } from '../../services/AdService';
 
 interface MenuItemProps {
   icon: string;
@@ -130,9 +132,17 @@ export default function AccountTab() {
   const { colors, fonts, fontSizes } = useTheme();
   const { unreadCount } = useNotifications();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
+  const [accountTiles, setAccountTiles] = useState<Ad[]>([]);
 
   // Check if admin is viewing customer app
   const isAdminViewingCustomer = isAdmin;
+
+  // Load promo tiles for account page
+  useEffect(() => {
+    adService.getAds('account', 'tile').then(res => {
+      if (res.success && res.data) setAccountTiles(res.data);
+    }).catch(() => {});
+  }, []);
 
   const styles = StyleSheet.create({
     container: {
@@ -354,15 +364,6 @@ export default function AccountTab() {
       />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Admin Viewing Notice */}
-        {isAdminViewingCustomer && (
-          <View style={styles.adminNotice}>
-            <Ionicons name="eye" size={20} color={colors.warning} />
-            <Text style={styles.adminNoticeText}>
-              You are viewing as admin - customer settings are disabled
-            </Text>
-          </View>
-        )}
 
         {/* User Profile Card */}
         <View style={styles.userCard}>
@@ -391,6 +392,10 @@ export default function AccountTab() {
 
         {/* Orders Section */}
         <Text style={styles.sectionTitle}>Features</Text>
+        
+        {/* Promo Tiles */}
+        {accountTiles.length > 0 && <PromoTiles ads={accountTiles} />}
+        
         <View style={styles.gridContainer}>
           <View style={styles.gridItem}>
             <MenuItem

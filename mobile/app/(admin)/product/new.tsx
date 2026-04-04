@@ -9,12 +9,14 @@ import { PickerField, PickerOption } from '../../../components/admin/forms/Picke
 import { TagSelector } from '../../../components/admin/forms/TagSelector';
 import { SpecificationsTable } from '../../../components/admin/forms/SpecificationsTable';
 import { PolicyFields } from '../../../components/admin/forms/PolicyFields';
-import { COLLECTION_TAGS, TAG_LABELS } from '../../../constants/tags';
 import { Header } from '../../../components/Header';
 import { mobileToastManager } from '../../../utils/toast';
 import { productService } from '../../../services/ProductService';
 import { supplierService } from '../../../services/SupplierService';
 import { categoryService } from '../../../services/CategoryService';
+import { subcategoryService } from '../../../services/SubcategoryService';
+import { tagService } from '../../../services/TagService';
+import { DateField } from '../../../components/admin/forms/DateField';
 import { useTheme } from '../../../contexts/ThemeContext';
 
 // ---------------------------------------------------------------------------
@@ -47,12 +49,14 @@ interface FormState {
   price: string;
   stock: string;
   category: string;
+  subcategory: string;
   supplier: string;
   images: PickedImage[];
   featured: boolean;
   favorite: boolean;
   discounted: boolean;
   discountAmount: string;
+  discountExpiresAt: string;
   isActive: boolean;
   specifications: Specification[];
   policies: PolicyData;
@@ -65,6 +69,7 @@ interface FormErrors {
   price?: string;
   stock?: string;
   category?: string;
+  subcategory?: string;
   supplier?: string;
   supplierId?: string;
   general?: string;
@@ -116,8 +121,12 @@ export default function NewProductScreen() {
   const [saving, setSaving] = useState(false);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingSubcategories, setLoadingSubcategories] = useState(false);
+  const [loadingTags, setLoadingTags] = useState(true);
   const [suppliers, setSuppliers] = useState<PickerOption[]>([]);
   const [categories, setCategories] = useState<PickerOption[]>([]);
+  const [subcategories, setSubcategories] = useState<PickerOption[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   const [form, setForm] = useState<FormState>({
     name: '',
@@ -125,12 +134,14 @@ export default function NewProductScreen() {
     price: '',
     stock: '',
     category: '',
+    subcategory: '',
     supplier: '',
     images: [],
     featured: false,
     favorite: false,
     discounted: false,
     discountAmount: '',
+    discountExpiresAt: '',
     isActive: true,
     specifications: [],
     policies: {},
@@ -143,6 +154,7 @@ export default function NewProductScreen() {
   useEffect(() => {
     loadSuppliers();
     loadCategories();
+    loadTags();
   }, []);
 
   const loadSuppliers = async () => {
@@ -212,9 +224,50 @@ export default function NewProductScreen() {
     }
   };
 
+  const loadSubcategories = async (categoryName: string) => {
+    if (!categoryName) {
+      setSubcategories([]);
+      return;
+    }
+    
+    try {
+      setLoadingSubcategories(true);
+      const response = await subcategoryService.getSubcategoriesByCategory(categoryName);
+      
+      if (response.success && 'data' in response && response.data && Array.isArray(response.data)) {
+        const subcategoryOptions = response.data.map((subcategory: any) => ({
+          label: subcategory.name,
+          value: subcategory.name
+        }));
+        setSubcategories(subcategoryOptions);
+      } else {
+        setSubcategories([]);
+      }
+    } catch (error: any) {
+      console.error('Failed to load subcategories:', error);
+      setSubcategories([]);
+    } finally {
+      setLoadingSubcategories(false);
+    }
+  };
+
+  const loadTags = async () => {
+    try {
+      setLoadingTags(true);
+      const tagNames = await tagService.getTagNames();
+      setAvailableTags(tagNames);
+    } catch (error: any) {
+      console.error('Failed to load tags:', error);
+      setAvailableTags([]);
+    } finally {
+      setLoadingTags(false);
+    }
+  };
+
   // Generic field updater
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    
     // Clear error on change
     if (key in errors) {
       setErrors((prev) => ({ ...prev, [key]: undefined }));
@@ -222,6 +275,12 @@ export default function NewProductScreen() {
     // Clear general error when any field changes
     if (errors.general) {
       setErrors((prev) => ({ ...prev, general: undefined }));
+    }
+    
+    // Load subcategories when category changes
+    if (key === 'category') {
+      setForm((prev) => ({ ...prev, subcategory: '' })); // Clear subcategory when category changes
+      loadSubcategories(value as string);
     }
   };
 
@@ -244,12 +303,14 @@ export default function NewProductScreen() {
         price: parseFloat(form.price),
         stock: parseInt(form.stock, 10),
         categoryId: form.category, // Frontend interface expects 'categoryId'
+        subcategory: form.subcategory.trim() || undefined,
         supplierId: form.supplier, // Use selected supplier ID
         images: form.images.map((img) => img.uploadedUrl || img.uri),
         isFeatured: form.featured,
         isActive: form.isActive,
         // Add discount if enabled
         discount: form.discounted && form.discountAmount ? parseFloat(form.discountAmount) : 0,
+        discountExpiresAt: form.discounted && form.discountExpiresAt ? form.discountExpiresAt : undefined,
         // Convert specifications array to object format for backend
         specifications: form.specifications.reduce((acc, spec) => {
           if (spec.key.trim() && spec.value.trim()) {
@@ -488,6 +549,20 @@ export default function NewProductScreen() {
           testID="new-product-category"
         />
 
+        {/* Subcategory */}
+        {form.category && (
+          <PickerField
+            label="Subcategory"
+            value={form.subcategory}
+            onValueChange={(v) => setField('subcategory', v)}
+            options={subcategories}
+            placeholder={loadingSubcategories ? "Loading subcategories..." : subcategories.length === 0 ? "No subcategories available" : "Select a subcategory (optional)"}
+            disabled={loadingSubcategories}
+            error={errors.subcategory}
+            testID="new-product-subcategory"
+          />
+        )}
+
         {/* Supplier */}
         <PickerField
           label="Supplier"
@@ -534,9 +609,9 @@ export default function NewProductScreen() {
         <TagSelector
           label="Collection Tags"
           description="Add tags to help categorize and filter this product"
-          tags={COLLECTION_TAGS.map(tag => ({
+          tags={availableTags.map(tag => ({
             id: tag,
-            label: TAG_LABELS[tag],
+            label: tag,
             value: form.tags?.includes(tag) || false
           }))}
           onTagToggle={(tagId) => {
@@ -560,6 +635,14 @@ export default function NewProductScreen() {
               keyboardType="decimal-pad"
               helperText="Enter discount percentage (0-100)"
               testID="new-product-discount-amount"
+            />
+
+            <DateField
+              label="Discount Expires At (Optional)"
+              value={form.discountExpiresAt}
+              onChangeText={(v) => setField('discountExpiresAt', v)}
+              helperText="Leave empty for no expiration"
+              testID="new-product-discount-expires"
             />
             
             {/* Discount Preview */}

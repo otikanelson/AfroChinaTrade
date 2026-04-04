@@ -3,6 +3,7 @@ import { Product, Category } from '../types/product';
 
 export interface ProductFilters {
   category?: string;
+  subcategory?: string;
   minPrice?: number;
   maxPrice?: number;
   minRating?: number;
@@ -64,6 +65,7 @@ class ProductService {
       
       // Add filters
       if (params.category) queryParams.append('category', params.category);
+      if (params.subcategory) queryParams.append('subcategory', params.subcategory);
       if (params.minPrice !== undefined) queryParams.append('minPrice', params.minPrice.toString());
       if (params.maxPrice !== undefined) queryParams.append('maxPrice', params.maxPrice.toString());
       if (params.minRating !== undefined) queryParams.append('minRating', params.minRating.toString());
@@ -125,6 +127,9 @@ class ProductService {
     // Add pagination
     if (params.page) queryParams.append('page', params.page.toString());
     if (params.limit) queryParams.append('limit', params.limit.toString());
+    
+    // Add subcategory filter if provided
+    if (params.subcategory) queryParams.append('subcategory', params.subcategory);
     
     // Add other filters (excluding category since it's in the path)
     if (params.minPrice !== undefined) queryParams.append('minPrice', params.minPrice.toString());

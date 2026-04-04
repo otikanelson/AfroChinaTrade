@@ -3,7 +3,6 @@ import {
   View,
   FlatList,
   StyleSheet,
-  StatusBar,
   Text,
   ActivityIndicator,
   Alert,
@@ -20,6 +19,7 @@ import { ProductSectionSkeleton } from '../../components/ProductSectionSkeleton'
 import { CameraSearchModal } from '../../components/CameraSearchModal';
 import { categoryService } from '../../services/CategoryService';
 import { collectionService } from '../../services/CollectionService';
+import { productService } from '../../services/ProductService';
 import { productCacheService } from '../../services/ProductCacheService';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCart } from '../../contexts/CartContext';
@@ -65,14 +65,18 @@ function getCollectionMeta(name: string): { icon: keyof typeof import('@expo/vec
 
 // How many collections to reveal per "page" as user scrolls
 const COLLECTIONS_PER_PAGE = 3;
+// Delay between loading each section for progressive loading (in ms)
+const SECTION_LOAD_DELAY = 300;
 
 type SectionItem =
   | { type: 'features' }
   | { type: 'ads' }
   | { type: 'promo_tiles' }
+  | { type: 'section'; key: string; title: string; products: Product[]; badge?: string }
+  | { type: 'skeleton'; key: string; variant: 'horizontal' | 'grid' }
+  | { type: 'recommendations' }
   | { type: 'collection'; collection: Collection }
-  | { type: 'skeleton'; id: string }
-  | { type: 'recommendations' };
+  | { type: 'loading_more' };
 
 export default function HomeTab() {
   const router = useRouter();
@@ -81,18 +85,32 @@ export default function HomeTab() {
   const { user } = useAuth();
 
   const [allCollections, setAllCollections] = useState<Collection[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
+  const [sellerFavorites, setSellerFavorites] = useState<Product[]>([]);
+  const [discountedProducts, setDiscountedProducts] = useState<Product[]>([]);
+  const [newArrivals, setNewArrivals] = useState<Product[]>([]);
   const [ads, setAds] = useState<Ad[]>([]);
   const [promoTiles, setPromoTiles] = useState<Ad[]>([]);
   const [pageLayout, setPageLayout] = useState<LayoutBlock[]>([]);
   const [visibleCount, setVisibleCount] = useState(COLLECTIONS_PER_PAGE);
   const [collectionProducts, setCollectionProducts] = useState<Record<string, Product[]>>({});
-  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({
+    featured: true,
+    trending: true,
+    seller_favorites: true,
+    discounted: true,
+    new_arrivals: true
+  });
+  const [sectionsLoaded, setSectionsLoaded] = useState<Record<string, boolean>>({});
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isLoadingMoreCollections, setIsLoadingMoreCollections] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
+  const [layoutVersion, setLayoutVersion] = useState<string>('');
   const { width: screenWidth } = Dimensions.get('window');
   const loadingCollectionIds = useRef<Set<string>>(new Set());
+  const sectionLoadTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
   const { recommendations, hasRecommendations, refreshRecommendations } = useRecommendations();
 
@@ -196,13 +214,76 @@ export default function HomeTab() {
     }
   }, []);
 
+  const loadSectionProgressively = useCallback(async (
+    sectionKey: string,
+    loader: () => Promise<any>,
+    setter: (data: Product[]) => void,
+    cacher: (data: Product[]) => void,
+    transformer?: (response: any) => Product[],
+    delay: number = 0
+  ) => {
+    // Clear any existing timeout for this section
+    if (sectionLoadTimeouts.current[sectionKey]) {
+      clearTimeout(sectionLoadTimeouts.current[sectionKey]);
+    }
+
+    // Set loading state immediately
+    setLoadingStates(prev => ({ ...prev, [sectionKey]: true }));
+
+    // Load cached data first if available
+    const getCachedData = () => {
+      switch (sectionKey) {
+        case 'featured': return productCacheService.getCachedFeaturedProducts();
+        case 'trending': return productCacheService.getCachedTrendingProducts();
+        case 'seller_favorites': return productCacheService.getCachedSellerFavorites();
+        case 'discounted': return productCacheService.getCachedDiscountedProducts();
+        default: return null;
+      }
+    };
+
+    const cachedData = getCachedData();
+    if (cachedData) {
+      setter(cachedData);
+      setLoadingStates(prev => ({ ...prev, [sectionKey]: false }));
+      setSectionsLoaded(prev => ({ ...prev, [sectionKey]: true }));
+    }
+
+    // Load fresh data with delay for progressive loading
+    sectionLoadTimeouts.current[sectionKey] = setTimeout(async () => {
+      try {
+        const response = await loader();
+        if (response.success && response.data) {
+          const data = transformer ? transformer(response) : response.data;
+          setter(data);
+          cacher(data);
+        }
+      } catch {
+        // silently skip failed sections
+      } finally {
+        setLoadingStates(prev => ({ ...prev, [sectionKey]: false }));
+        setSectionsLoaded(prev => ({ ...prev, [sectionKey]: true }));
+      }
+    }, delay);
+  }, []);
+
   const loadInitialData = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) {
+        // Clear all timeouts
+        Object.values(sectionLoadTimeouts.current).forEach(timeout => clearTimeout(timeout));
+        sectionLoadTimeouts.current = {};
+        
         productCacheService.clear();
         loadingCollectionIds.current.clear();
         setCollectionProducts({});
-        setLoadingStates({});
+        setSectionsLoaded({});
+        setLoadingStates({
+          featured: true,
+          trending: true,
+          seller_favorites: true,
+          discounted: true,
+          new_arrivals: true
+        });
         setVisibleCount(COLLECTIONS_PER_PAGE);
       }
 
@@ -215,16 +296,29 @@ export default function HomeTab() {
         ]);
       }
 
-      const [, collectionsResponse] = await Promise.all([
+      // Load collections and layout first
+      const [, collectionsResponse, layoutResponse] = await Promise.all([
         categoryService.getCategories(),
         collectionService.getActiveCollections(),
+        pageLayoutService.getLayout('home'),
       ]);
 
       if (collectionsResponse.success && collectionsResponse.data) {
         const cols = collectionsResponse.data;
         setAllCollections(cols);
-        // Immediately start loading the first batch of collection products
+        // Load collection products for the first batch
         loadCollectionProducts(cols.slice(0, COLLECTIONS_PER_PAGE));
+      }
+
+      // Set page layout and track version for change detection
+      if (layoutResponse.success && layoutResponse.data) {
+        setPageLayout(layoutResponse.data.blocks);
+        setLayoutVersion(layoutResponse.data.updatedAt);
+        // Load only the product sections that are enabled in the layout
+        loadEnabledProductSectionsProgressively(layoutResponse.data.blocks);
+      } else {
+        // No layout configured, load default sections
+        loadProductSectionsProgressively();
       }
 
       // Load ads (non-blocking)
@@ -234,29 +328,220 @@ export default function HomeTab() {
       adService.getAds('home', 'tile').then(res => {
         if (res.success && res.data) setPromoTiles(res.data);
       }).catch(() => {});
-      // Load page layout (non-blocking)
-      pageLayoutService.getLayout('home').then(res => {
-        if (res.success && res.data) setPageLayout(res.data.blocks);
-      }).catch(() => {});
     } catch {
       if (!isRefresh) Alert.alert('Error', 'Failed to load data. Please try again.');
     } finally {
       setIsInitialLoading(false);
     }
-  }, [loadCollectionProducts]);
+  }, [loadCollectionProducts, loadSectionProgressively]);
+
+  const loadProductSectionsProgressively = async () => {
+    const sections = [
+      {
+        key: 'featured',
+        loader: () => productService.getFeaturedProducts(12),
+        setter: setFeaturedProducts,
+        cacher: (data: Product[]) => productCacheService.cacheFeaturedProducts(data),
+        delay: 0
+      },
+      {
+        key: 'trending',
+        loader: () => productService.getTrendingProducts('7d', 1, 12),
+        setter: setTrendingProducts,
+        cacher: (data: Product[]) => productCacheService.cacheTrendingProducts(data),
+        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data?.products || [],
+        delay: SECTION_LOAD_DELAY
+      },
+      {
+        key: 'seller_favorites',
+        loader: () => productService.getSellerFavorites(1, 12),
+        setter: setSellerFavorites,
+        cacher: (data: Product[]) => productCacheService.cacheSellerFavorites(data),
+        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data?.products || [],
+        delay: SECTION_LOAD_DELAY * 2
+      },
+      {
+        key: 'discounted',
+        loader: () => productService.getProducts({ limit: 12, minPrice: 1, sortBy: 'price_desc' as any }),
+        setter: setDiscountedProducts,
+        cacher: (data: Product[]) => productCacheService.cacheDiscountedProducts(data),
+        transformer: (response: any) => {
+          const products = Array.isArray(response.data) ? response.data : response.data || [];
+          return products.filter((product: Product) => product.discount && product.discount > 0);
+        },
+        delay: SECTION_LOAD_DELAY * 3
+      },
+      {
+        key: 'new_arrivals',
+        loader: () => productService.getProducts({ limit: 12, sortBy: 'newest' as any }),
+        setter: setNewArrivals,
+        cacher: (data: Product[]) => productCacheService.cacheAllProducts(data, { limit: 12, sortBy: 'newest' }),
+        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data || [],
+        delay: SECTION_LOAD_DELAY * 4
+      }
+    ];
+
+    // Load sections progressively with delays
+    sections.forEach(section => {
+      loadSectionProgressively(
+        section.key,
+        section.loader,
+        section.setter,
+        section.cacher,
+        section.transformer,
+        section.delay
+      );
+    });
+  };
+
+  const loadEnabledProductSectionsProgressively = async (blocks: LayoutBlock[]) => {
+    // Only load sections that are enabled in the layout
+    const enabledSections = blocks.filter(block => block.enabled);
+    const sectionsToLoad: string[] = [];
+    
+    for (const block of enabledSections) {
+      switch (block.type) {
+        case 'featured_products':
+          sectionsToLoad.push('featured');
+          break;
+        case 'trending_products':
+          sectionsToLoad.push('trending');
+          break;
+        case 'seller_favorites':
+          sectionsToLoad.push('seller_favorites');
+          break;
+        case 'discounted_products':
+          sectionsToLoad.push('discounted');
+          break;
+        case 'new_arrivals':
+          sectionsToLoad.push('new_arrivals');
+          break;
+        case 'collection':
+          // Handle custom collections
+          if (block.config?.collectionId) {
+            loadCollectionProducts([{ id: block.config.collectionId } as any]);
+          }
+          break;
+      }
+    }
+
+    // Clear data for sections that are NOT enabled immediately
+    if (!sectionsToLoad.includes('featured')) {
+      setFeaturedProducts([]);
+    }
+    if (!sectionsToLoad.includes('trending')) {
+      setTrendingProducts([]);
+    }
+    if (!sectionsToLoad.includes('seller_favorites')) {
+      setSellerFavorites([]);
+    }
+    if (!sectionsToLoad.includes('discounted')) {
+      setDiscountedProducts([]);
+    }
+    if (!sectionsToLoad.includes('new_arrivals')) {
+      setNewArrivals([]);
+    }
+
+    // Load only the enabled sections progressively
+    const sections = [
+      {
+        key: 'featured',
+        loader: () => productService.getFeaturedProducts(12),
+        setter: setFeaturedProducts,
+        cacher: (data: Product[]) => productCacheService.cacheFeaturedProducts(data),
+        delay: 0
+      },
+      {
+        key: 'trending',
+        loader: () => productService.getTrendingProducts('7d', 1, 12),
+        setter: setTrendingProducts,
+        cacher: (data: Product[]) => productCacheService.cacheTrendingProducts(data),
+        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data?.products || [],
+        delay: SECTION_LOAD_DELAY
+      },
+      {
+        key: 'seller_favorites',
+        loader: () => productService.getSellerFavorites(1, 12),
+        setter: setSellerFavorites,
+        cacher: (data: Product[]) => productCacheService.cacheSellerFavorites(data),
+        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data?.products || [],
+        delay: SECTION_LOAD_DELAY * 2
+      },
+      {
+        key: 'discounted',
+        loader: () => productService.getProducts({ limit: 12, minPrice: 1, sortBy: 'price_desc' as any }),
+        setter: setDiscountedProducts,
+        cacher: (data: Product[]) => productCacheService.cacheDiscountedProducts(data),
+        transformer: (response: any) => {
+          const products = Array.isArray(response.data) ? response.data : response.data || [];
+          return products.filter((product: Product) => product.discount && product.discount > 0);
+        },
+        delay: SECTION_LOAD_DELAY * 3
+      },
+      {
+        key: 'new_arrivals',
+        loader: () => productService.getProducts({ limit: 12, sortBy: 'newest' as any }),
+        setter: setNewArrivals,
+        cacher: (data: Product[]) => productCacheService.cacheAllProducts(data, { limit: 12, sortBy: 'newest' }),
+        transformer: (response: any) => Array.isArray(response.data) ? response.data : response.data || [],
+        delay: SECTION_LOAD_DELAY * 4
+      }
+    ].filter(section => sectionsToLoad.includes(section.key));
+
+    // Load sections progressively with delays
+    let delayIndex = 0;
+    sections.forEach(section => {
+      loadSectionProgressively(
+        section.key,
+        section.loader,
+        section.setter,
+        section.cacher,
+        section.transformer,
+        delayIndex * SECTION_LOAD_DELAY
+      );
+      delayIndex++;
+    });
+
+    // Set loading states to false for disabled sections immediately
+    setLoadingStates(prev => ({
+      ...prev,
+      ...(sectionsToLoad.includes('featured') ? {} : { featured: false }),
+      ...(sectionsToLoad.includes('trending') ? {} : { trending: false }),
+      ...(sectionsToLoad.includes('seller_favorites') ? {} : { seller_favorites: false }),
+      ...(sectionsToLoad.includes('discounted') ? {} : { discounted: false }),
+      ...(sectionsToLoad.includes('new_arrivals') ? {} : { new_arrivals: false }),
+    }));
+  };
 
   useEffect(() => {
     loadInitialData();
+    
+    // Cleanup timeouts on unmount
+    return () => {
+      Object.values(sectionLoadTimeouts.current).forEach(timeout => clearTimeout(timeout));
+    };
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       refreshRecommendations();
-      // Refresh page layout when screen comes into focus to ensure users see admin changes immediately
+      // Check for layout changes and reload immediately if changed
       pageLayoutService.getLayout('home').then(res => {
-        if (res.success && res.data) setPageLayout(res.data.blocks);
+        if (res.success && res.data) {
+          const newLayoutVersion = res.data.updatedAt;
+          if (layoutVersion && newLayoutVersion !== layoutVersion) {
+            // Layout has changed, reload immediately
+            setLayoutVersion(newLayoutVersion);
+            setPageLayout(res.data.blocks);
+            loadEnabledProductSectionsProgressively(res.data.blocks);
+          } else if (!layoutVersion) {
+            // First time setting layout version
+            setLayoutVersion(newLayoutVersion);
+            setPageLayout(res.data.blocks);
+          }
+        }
       }).catch(() => {});
-    }, [refreshRecommendations])
+    }, [refreshRecommendations, layoutVersion, loadEnabledProductSectionsProgressively])
   );
 
   // ─── Lazy-load more collections when user nears the bottom ─────────────────
@@ -279,10 +564,6 @@ export default function HomeTab() {
       await Promise.all([
         loadInitialData(true),
         refreshRecommendations(),
-        // Refresh page layout to ensure users see admin changes
-        pageLayoutService.getLayout('home').then(res => {
-          if (res.success && res.data) setPageLayout(res.data.blocks);
-        })
       ]);
     } finally {
       setRefreshing(false);
@@ -294,96 +575,101 @@ export default function HomeTab() {
     router.push({ pathname: '/product-detail/[id]', params: { id: productId } });
   };
 
+  const handleSeeAll = (section: string) => {
+    router.push({
+      pathname: '/products',
+      params: { 
+        collection: section,
+        title: section === 'featured' ? 'Featured Products' : 
+               section === 'trending' ? 'Trending Products' : 
+               section === 'seller_favorites' ? 'Seller Favorites' :
+               section === 'discounted' ? 'Discounted Products' :
+               section === 'new_arrivals' ? 'New Arrivals' : 'Products'
+      }
+    });
+  };
+
   // ─── Build FlatList data ───────────────────────────────────────────────────
 
   const sections: SectionItem[] = React.useMemo(() => {
     const items: SectionItem[] = [{ type: 'features' }];
 
-    // If layout is loaded, use it to order sections; otherwise fall back to defaults
+    const addSection = (key: string, title: string, products: Product[], badge?: string, variant: 'horizontal' | 'grid' = 'horizontal') => {
+      if (loadingStates[key] && products.length === 0) {
+        items.push({ type: 'skeleton', key, variant });
+      } else if (products.length > 0) {
+        items.push({ type: 'section', key, title, products, badge });
+      }
+    };
+
+    // Map block types to section data
+    const SECTION_MAP: Record<string, () => void> = {
+      featured_products:  () => addSection('featured', 'Featured Products', featuredProducts),
+      seller_favorites:   () => addSection('seller_favorites', 'Seller Favorites', sellerFavorites, 'Seller Pick'),
+      discounted_products:() => addSection('discounted', 'Special Discounts', discountedProducts),
+      trending_products:  () => addSection('trending', 'Trending Products', trendingProducts),
+      new_arrivals:       () => addSection('new_arrivals', 'New Arrivals', newArrivals),
+      recommendations:    () => { if (user && hasRecommendations && recommendations.length > 0) items.push({ type: 'recommendations' }); },
+      ad_carousel:        () => { if (ads.length > 0) items.push({ type: 'ads' }); },
+      promo_tiles:        () => { if (promoTiles.length > 0) items.push({ type: 'promo_tiles' }); },
+    };
+
     const orderedBlocks = pageLayout.length > 0
       ? [...pageLayout].sort((a, b) => a.order - b.order).filter(b => b.enabled)
       : null;
 
-    const addAds = () => {
-      if (ads.length > 0) items.push({ type: 'ads' });
-      if (promoTiles.length > 0) items.push({ type: 'promo_tiles' });
-    };
-
-    const addRecommendations = () => {
-      if (user && hasRecommendations) items.push({ type: 'recommendations' });
-    };
+    // All block types present in the layout (enabled OR disabled)
+    const allLayoutTypes = new Set(pageLayout.map(b => b.type));
 
     if (orderedBlocks) {
-      // Layout-driven rendering
+      const rendered = new Set<string>();
       for (const block of orderedBlocks) {
-        switch (block.type) {
-          case 'ad_carousel':
-            if (ads.length > 0) items.push({ type: 'ads' });
-            break;
-          case 'promo_tiles':
-            if (promoTiles.length > 0) items.push({ type: 'promo_tiles' });
-            break;
-          case 'recommendations':
-            addRecommendations();
-            break;
-          case 'collection': {
-            // Specific collection by ID
-            const colId = block.config?.collectionId;
-            if (colId) {
-              const col = allCollections.find(c => ((c as any)._id || c.id) === colId);
-              if (col) {
-                const isLoading = loadingStates[col.id];
-                const products = collectionProducts[col.id];
-                if (isLoading && !products) {
-                  items.push({ type: 'skeleton', id: col.id });
-                } else if (products && products.length > 0) {
-                  items.push({ type: 'collection', collection: col });
-                }
-              }
+        if (block.type === 'collection' && block.config?.collectionId) {
+          // Handle specific collection blocks
+          const colId = block.config.collectionId;
+          const col = allCollections.find(c => ((c as any)._id || c.id) === colId);
+          if (col) {
+            const isLoading = loadingStates[col.id];
+            const products = collectionProducts[col.id];
+            if (isLoading && !products) {
+              items.push({ type: 'skeleton', key: col.id, variant: 'horizontal' });
+            } else if (products && products.length > 0) {
+              items.push({ type: 'collection', collection: col });
             }
-            break;
           }
-          // featured/trending/new_arrivals/etc. — show all collections in order
-          default:
-            break;
-        }
-      }
-
-      // Always append collections not explicitly in layout (lazy-loaded batch)
-      const layoutCollectionIds = new Set(
-        orderedBlocks.filter(b => b.type === 'collection').map(b => b.config?.collectionId).filter(Boolean)
-      );
-      const visibleCollections = allCollections.slice(0, visibleCount);
-      for (const col of visibleCollections) {
-        const colId = (col as any)._id || col.id;
-        if (layoutCollectionIds.has(colId)) continue; // already added above
-        const isLoading = loadingStates[col.id];
-        const products = collectionProducts[col.id];
-        if (isLoading && !products) {
-          items.push({ type: 'skeleton', id: col.id });
-        } else if (products && products.length > 0) {
-          items.push({ type: 'collection', collection: col });
+        } else {
+          const fn = SECTION_MAP[block.type];
+          if (fn && !rendered.has(block.type)) { fn(); rendered.add(block.type); }
         }
       }
     } else {
-      // Default order (no layout saved yet)
-      addAds();
+      // Default order (only when no layout is configured at all)
+      // Show a minimal set of sections
+      if (ads.length > 0) items.push({ type: 'ads' });
+      if (promoTiles.length > 0) items.push({ type: 'promo_tiles' });
+      
+      // Add collections as fallback only when no layout exists
       const visibleCollections = allCollections.slice(0, visibleCount);
       for (const col of visibleCollections) {
         const isLoading = loadingStates[col.id];
         const products = collectionProducts[col.id];
         if (isLoading && !products) {
-          items.push({ type: 'skeleton', id: col.id });
+          items.push({ type: 'skeleton', key: col.id, variant: 'horizontal' });
         } else if (products && products.length > 0) {
           items.push({ type: 'collection', collection: col });
         }
       }
-      addRecommendations();
     }
 
     if (isLoadingMoreCollections) {
-      items.push({ type: 'skeleton', id: 'more_1' });
-      items.push({ type: 'skeleton', id: 'more_2' });
+      items.push({ type: 'skeleton', key: 'more_1', variant: 'horizontal' });
+      items.push({ type: 'skeleton', key: 'more_2', variant: 'horizontal' });
+    }
+
+    // Add loading more indicator at the bottom when sections are still loading
+    const stillLoading = Object.values(loadingStates).some(Boolean);
+    if (stillLoading && !isInitialLoading) {
+      items.push({ type: 'loading_more' });
     }
 
     return items;
@@ -399,6 +685,12 @@ export default function HomeTab() {
     ads,
     promoTiles,
     pageLayout,
+    featuredProducts,
+    trendingProducts,
+    sellerFavorites,
+    discountedProducts,
+    newArrivals,
+    recommendations,
   ]);
 
   // ─── Render each section ───────────────────────────────────────────────────
@@ -449,11 +741,39 @@ export default function HomeTab() {
     if (item.type === 'skeleton') {
       return (
         <ProductSectionSkeleton
-          key={item.id}
-          variant="horizontal"
+          key={item.key}
+          variant={item.variant}
           itemCount={4}
           showHeader={true}
         />
+      );
+    }
+
+    if (item.type === 'section') {
+      return (
+        <View style={styles.section}>
+          <SectionHeader
+            title={item.title}
+            actionText="See All"
+            onActionPress={() => handleSeeAll(item.key)}
+          />
+          <FlatList
+            data={item.products}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={p => (p as any)._id || p.id}
+            renderItem={({ item: product }) => (
+              <View style={styles.featuredCardWrapper}>
+                <ProductCard
+                  product={product}
+                  onPress={() => handleProductPress(product)}
+                  badge={item.badge}
+                  showViewCount={true}
+                />
+              </View>
+            )}
+          />
+        </View>
       );
     }
 
@@ -472,7 +792,7 @@ export default function HomeTab() {
             iconColor={meta.color}
             onActionPress={() =>
               router.push({
-                pathname: '/product-listing',
+                pathname: '/products',
                 params: { collectionId: collection.id, title: collection.name },
               })
             }
@@ -527,15 +847,23 @@ export default function HomeTab() {
       );
     }
 
+    if (item.type === 'loading_more') {
+      return (
+        <View style={styles.loadingMoreFooter}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.loadingMoreText}>Loading more sections...</Text>
+        </View>
+      );
+    }
+
     return null;
-  }, [collectionProducts, loadingStates, recommendations, colors, styles, ads, promoTiles]);
+  }, [collectionProducts, loadingStates, recommendations, colors, styles, ads, promoTiles, handleSeeAll]);
 
   // ─── Initial skeleton screen ───────────────────────────────────────────────
 
   if (isInitialLoading) {
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={colors.surface} barStyle={isDark ? 'light-content' : 'dark-content'} />
         <Header
           title="AfroChinaTrade"
           showLogo={true}
@@ -550,7 +878,7 @@ export default function HomeTab() {
               onChangeText={() => {}}
               placeholder="Search products, suppliers..."
               onCameraPress={() => setShowCameraModal(true)}
-              onPress={() => router.push('/search')}
+              onPress={() => router.push('/products')}
               editable={false}
             />
           </View>
@@ -571,8 +899,6 @@ export default function HomeTab() {
 
   return (
     <View style={styles.container}>
-      <StatusBar backgroundColor={colors.surface} barStyle={isDark ? 'light-content' : 'dark-content'} />
-
       <Header
         title="AfroChinaTrade"
         showLogo={true}
@@ -588,7 +914,7 @@ export default function HomeTab() {
             onChangeText={() => {}}
             placeholder="Search products, suppliers..."
             onCameraPress={() => setShowCameraModal(true)}
-            onPress={() => router.push('/search')}
+            onPress={() => router.push('/products')}
             editable={false}
           />
         </View>
@@ -598,7 +924,8 @@ export default function HomeTab() {
         data={sections}
         keyExtractor={(item, index) => {
           if (item.type === 'collection') return `col_${item.collection.id}`;
-          if (item.type === 'skeleton') return `skel_${item.id}`;
+          if (item.type === 'skeleton') return `skel_${item.key}`;
+          if (item.type === 'section') return `sec_${item.key}`;
           return `${item.type}_${index}`;
         }}
         renderItem={renderSection}
@@ -625,14 +952,8 @@ export default function HomeTab() {
               <ActivityIndicator size="small" color={colors.primary} />
               <Text style={styles.loadingMoreText}>Loading more...</Text>
             </View>
-          ) : isInitialLoading || Object.values(loadingStates).some(Boolean) || visibleCount < allCollections.length ? (
-            <View style={styles.listFooter} />
           ) : (
-            <View style={styles.endOfFeedFooter}>
-              <View style={styles.endOfFeedLine} />
-              <Text style={styles.endOfFeedText}>You're all caught up</Text>
-              <View style={styles.endOfFeedLine} />
-            </View>
+            <View style={styles.listFooter} />
           )
         }
       />

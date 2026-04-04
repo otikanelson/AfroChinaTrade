@@ -23,6 +23,7 @@ export interface IProduct extends Document {
     suggestions?: string;
   };
   discount: number;
+  discountExpiresAt?: Date;
   isNewProduct: boolean;
   isFeatured: boolean;
   isActive: boolean;
@@ -123,6 +124,9 @@ const ProductSchema = new Schema<IProduct>(
       default: 0,
       min: [0, 'Discount must be between 0 and 100'],
       max: [100, 'Discount must be between 0 and 100'],
+    },
+    discountExpiresAt: {
+      type: Date,
     },
     isNewProduct: {
       type: Boolean,

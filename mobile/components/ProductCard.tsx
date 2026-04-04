@@ -6,6 +6,7 @@ import { useCart } from '../contexts/CartContext';
 import { useWishlist } from '../contexts/WishlistContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlertContext } from '../contexts/AlertContext';
+import { HighlightedText } from './HighlightedText';
 import { colors } from '../theme/colors';
 import { spacing, borderRadius, shadows } from '../theme/spacing';
 import { typography, fontSizes, fontWeights } from '../theme/typography';
@@ -17,7 +18,7 @@ interface ProductCardProps {
   showAddButton?: boolean;
   variant?: 'grid' | 'list';
   showViewCount?: boolean;
-  isNew?: boolean;
+  searchQuery?: string;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -27,7 +28,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   showAddButton = false, 
   variant = 'grid',
   showViewCount = true,
-  isNew,
+  searchQuery,
 }) => {
   const { addToCart, isOperationPending } = useCart();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
@@ -51,8 +52,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const hasDiscount = productDiscount > 0;
   const isOutOfStock = productStock === 0;
 
-  // New arrival: explicit prop OR created within last 7 days
-  const isNewProduct = isNew ?? (() => {
+  // New arrival: created within last 7 days
+  const isNewProduct = (() => {
     const createdAt = product.createdAt;
     if (!createdAt) return false;
     const age = Date.now() - new Date(createdAt).getTime();
@@ -78,6 +79,25 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       return productPrice - discountAmount;
     }
     return productPrice;
+  };
+
+  const formatDiscountExpiry = () => {
+    if (!product.discountExpiresAt || !hasDiscount) return null;
+    
+    const expiryDate = new Date(product.discountExpiresAt);
+    const now = new Date();
+    const diffMs = expiryDate.getTime() - now.getTime();
+    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffMs < 0) return null; // Don't show expired
+    
+    if (diffHours < 1) return 'Ends soon';
+    if (diffHours < 24) return `${diffHours}h left`;
+    if (diffDays === 1) return 'Ends tomorrow';
+    if (diffDays <= 7) return `${diffDays} days left`;
+    
+    return `${diffDays} days left`; // Show for all future dates
   };
 
   const getSupplier = () => {
@@ -223,40 +243,46 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               </View>
             </View>
           )}
+
+          {/* Discount Expiry Badge for List */}
+          {hasDiscount && formatDiscountExpiry() && (
+            <View style={[styles.listDiscountExpiryBadge, { backgroundColor: 'rgba(255, 87, 34, 0.9)', paddingHorizontal: spacing.xs, paddingVertical: 2, borderRadius: borderRadius.sm }]}>
+              <Text style={[styles.discountExpiryText, { color: '#FFFFFF', fontSize: 8, fontWeight: fontWeights.medium }]}>
+                {formatDiscountExpiry()}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Content Section */}
         <View style={[styles.listContent, { padding: spacing.sm, flex: 1 }]}>
           {/* Product Name */}
-          <Text 
-            style={[
-              styles.listName, 
-              { 
-                ...typography.body, 
-                fontSize: fontSizes.sm, 
-                color: colors.text, 
-                lineHeight: 18 
-              }
-            ]} 
+          <HighlightedText
+            text={String(productName)}
+            searchQuery={searchQuery}
+            style={{
+              ...typography.body, 
+              fontSize: fontSizes.xs, 
+              color: colors.text, 
+              lineHeight: 16 
+            }}
             numberOfLines={2}
-          >
-            {String(productName)}
-          </Text>
+          />
 
           {/* Supplier Info */}
           {supplier && (supplier.name || supplier.logo) && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs, gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs }}>
               {supplier.verified && (
                 <Ionicons name="shield-checkmark" size={11} color={colors.primary} />
               )}
               {supplier.logo ? (
                 <Image
                   source={{ uri: supplier.logo }}
-                  style={{ height: 16, width: 64 }}
+                  style={{ height: 20, width: 80, marginLeft: -2 }}
                   resizeMode="contain"
                 />
               ) : (
-                <Text style={[styles.listSupplier, { fontSize: fontSizes.xs, color: colors.primary }]} numberOfLines={1}>
+                <Text style={[styles.listSupplier, { fontSize: fontSizes.xs, color: colors.primary, marginLeft: 2 }]} numberOfLines={1}>
                   {String(supplier.name)}
                 </Text>
               )}
@@ -271,7 +297,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   <Text style={[styles.originalPrice, { fontSize: fontSizes.xs, color: colors.textSecondary, textDecorationLine: 'line-through' }]} numberOfLines={1}>
                     {formatPrice(productPrice)}
                   </Text>
-                  <Text style={[styles.discountedPrice, { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.error }]} numberOfLines={1}>
+                  <Text style={[styles.discountedPrice, { fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.error }]} numberOfLines={1}>
                     {formatPrice(getDiscountedPrice())}
                   </Text>
                 </>
@@ -391,6 +417,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </Text>
           </View>
         )}
+        
+        {/* Discount Expiry Badge */}
+        {hasDiscount && formatDiscountExpiry() && (
+          <View style={[styles.discountExpiryBadge, { backgroundColor: 'rgba(255, 87, 34, 0.9)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: borderRadius.sm }]}>
+            <Text style={[styles.discountExpiryText, { color: '#FFFFFF', fontSize: 8, fontWeight: fontWeights.bold }]}>
+              {formatDiscountExpiry()}
+            </Text>
+          </View>
+        )}
 
         {/* New Arrival corner ribbon — top-right */}
         {isNewProduct && (
@@ -426,20 +461,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Content Section */}
       <View style={[styles.content, { paddingHorizontal: spacing.xs, paddingVertical: spacing.xs, gap: spacing.xs }]}>
         {/* Product Name */}
-        <Text 
-          style={[
-            styles.name, 
-            { 
-              ...typography.body, 
-              fontSize: fontSizes.xs, 
-              color: colors.text, 
-              lineHeight: 18 
-            }
-          ]} 
+        <HighlightedText
+          text={String(productName)}
+          searchQuery={searchQuery}
+          style={{
+            ...typography.body, 
+            fontSize: fontSizes.xs, 
+            color: colors.text, 
+            lineHeight: 18 
+          }}
           numberOfLines={2}
-        >
-          {String(productName)}
-        </Text>
+        />
 
         {/* Price and Add Button Row */}
         <View style={styles.priceRow}>
@@ -489,18 +521,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Supplier and Stats Row */}
         <View style={[styles.footer, { marginTop: spacing.xs }]}>
           {supplier && (supplier.name || supplier.logo) && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               {supplier.verified && (
                 <Ionicons name="shield-checkmark" size={10} color={colors.primary} />
               )}
               {supplier.logo ? (
                 <Image
                   source={{ uri: supplier.logo }}
-                  style={{ height: 20, width: 80 }}
+                  style={{ height: 30, width: 130, marginLeft: -20 }}
                   resizeMode="contain"
                 />
               ) : (
-                <Text style={[styles.supplier, { fontSize: 10, color: colors.primary }]} numberOfLines={1}>
+                <Text style={[styles.supplier, { fontSize: 10, color: colors.primary, marginLeft: 2 }]} numberOfLines={1}>
                   {String(supplier.name)}
                 </Text>
               )}
@@ -568,6 +600,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: spacing.xs,
     right: spacing.xs,
+  },
+  listDiscountExpiryBadge: {
+    position: 'absolute',
+    bottom: spacing.xs,
+    left: spacing.xs,
   },
   listContent: {
     justifyContent: 'space-between',
@@ -658,7 +695,7 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    bottom: spacing.sm,
+    bottom: spacing.sm + 20, // Move up to avoid conflict with discount expiry
     left: spacing.xs,
     borderRadius: borderRadius.sm,
   },
@@ -669,6 +706,12 @@ const styles = StyleSheet.create({
     left: spacing.sm,
   },
   discountText: {},
+  discountExpiryBadge: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    left: spacing.sm,
+  },
+  discountExpiryText: {},
   outOfStockBadge: {
     position: 'absolute',
     top: spacing.sm,

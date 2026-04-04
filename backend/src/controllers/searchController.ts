@@ -39,9 +39,16 @@ export const searchProducts = async (req: Request, res: Response) => {
 
     const filter: any = { isActive: true };
 
-    // Full-text search on name and description
+    // Enhanced search - use regex for better partial matching
     if (q) {
-      filter.$text = { $search: q as string };
+      const searchTerm = q as string;
+      filter.$or = [
+        // Regex search for partial matches (case-insensitive)
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } },
+        // Tag search
+        { tags: { $in: [new RegExp(searchTerm, 'i')] } }
+      ];
     }
 
     // Multiple category filtering
@@ -74,9 +81,14 @@ export const searchProducts = async (req: Request, res: Response) => {
       .select('-specifications -policies') // Exclude heavy fields
       .lean(); // Use lean for faster queries
 
-    // Search result ranking based on relevance score
+    // Enhanced search result ranking
     if (q) {
-      query = query.sort({ score: { $meta: 'textScore' } });
+      // Sort by relevance factors since we're using regex
+      query = query.sort({ 
+        isFeatured: -1,
+        rating: -1,
+        createdAt: -1 
+      });
     } else {
       query = query.sort({ createdAt: -1 });
     }

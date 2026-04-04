@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Header } from '../../components/Header';
+import { DateDivider, createListWithDateDividers } from '../../components/DateDivider';
 import { messageService } from '../../services/MessageService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMessages } from '../../contexts/MessagesContext';
@@ -115,42 +116,57 @@ export default function MessagesTab() {
     }
   };
 
-  const renderThreadItem = ({ item: thread }: { item: MessageThread }) => (
-    <TouchableOpacity
-      style={styles.threadItem}
-      onPress={() => handleThreadPress(thread.threadId)}
-    >
-      <View style={styles.threadAvatar}>
-        <Ionicons name="chatbubble" size={24} color={colors.textInverse} />
-      </View>
-      <View style={styles.threadContent}>
-        <View style={styles.threadHeader}>
-          <Text style={styles.threadName}>AfroVendor</Text>
-          <Text style={styles.threadTime}>{formatDate(thread.lastMessageAt)}</Text>
+  const listItems = useMemo(() => {
+    return createListWithDateDividers(
+      threads,
+      (item) => item.threadId,
+      (item) => item.lastMessageAt
+    );
+  }, [threads]);
+
+  const renderThreadItem = useCallback(({ item }: { item: any }) => {
+    if (item.type === 'divider') {
+      return <DateDivider date={item.label} />;
+    }
+
+    const thread = item.data;
+    return (
+      <TouchableOpacity
+        style={styles.threadItem}
+        onPress={() => handleThreadPress(thread.threadId)}
+      >
+        <View style={styles.threadAvatar}>
+          <Ionicons name="chatbubble" size={24} color={colors.textInverse} />
         </View>
-        <Text style={styles.threadMessage} numberOfLines={2}>
-          {thread.lastMessage}
-        </Text>
-        <View style={styles.threadMeta}>
-          <Text style={styles.threadType}>
-            {getThreadTypeLabel(thread.threadType)}
+        <View style={styles.threadContent}>
+          <View style={styles.threadHeader}>
+            <Text style={styles.threadName}>AfroVendor</Text>
+            <Text style={styles.threadTime}>{formatDate(thread.lastMessageAt)}</Text>
+          </View>
+          <Text style={styles.threadMessage} numberOfLines={2}>
+            {thread.lastMessage}
           </Text>
-          {thread.productName && (
-            <Text style={styles.productName} numberOfLines={1}>
-              {thread.productName}
+          <View style={styles.threadMeta}>
+            <Text style={styles.threadType}>
+              {getThreadTypeLabel(thread.threadType)}
             </Text>
-          )}
+            {thread.productName && (
+              <Text style={styles.productName} numberOfLines={1}>
+                {thread.productName}
+              </Text>
+            )}
+          </View>
         </View>
-      </View>
-      {thread.unreadCount > 0 && (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadText}>
-            {thread.unreadCount > 99 ? '99+' : thread.unreadCount}
-          </Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+        {thread.unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadText}>
+              {thread.unreadCount > 99 ? '99+' : thread.unreadCount}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  }, [colors]);
 
   const styles = StyleSheet.create({
     container: {
@@ -386,9 +402,9 @@ export default function MessagesTab() {
 
       <View style={styles.content}>
         <FlatList
-          data={threads}
+          data={listItems}
           renderItem={renderThreadItem}
-          keyExtractor={(item) => item.threadId}
+          keyExtractor={(item: any) => item.key}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

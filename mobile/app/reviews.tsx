@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { Header } from '../components/Header';
+import { DateDivider, createListWithDateDividers } from '../components/DateDivider';
 import { reviewService, Review } from '../services/ReviewService';
 import { spacing } from '../theme/spacing';
 
@@ -191,39 +192,54 @@ export default function ReviewsScreen() {
     );
   };
 
-  const renderItem = useCallback(({ item }: { item: Review }) => (
-    <TouchableOpacity 
-      style={styles.reviewCard}
-      onPress={() => {
-        const productId = typeof item.productId === 'object' ? item.productId._id : item.productId;
-        router.push(`/product-detail/${productId}`);
-      }}
-    >
-      <View style={styles.productInfo}>
-        <Image
-          source={{ 
-            uri: typeof item.productId === 'object' && item.productId.images?.[0] 
-              ? item.productId.images[0] 
-              : 'https://via.placeholder.com/50' 
-          }}
-          style={styles.productImage}
-        />
-        <Text style={styles.productName} numberOfLines={2}>
-          {typeof item.productId === 'object' ? item.productId.name : 'Product'}
-        </Text>
-      </View>
-      
-      {renderStars(item.rating)}
-      
-      {item.comment && <Text style={styles.comment}>{item.comment}</Text>}
-      
-      <View style={styles.footer}>
-        <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
-      </View>
-    </TouchableOpacity>
-  ), [styles, colors, router]);
+  const listItems = useMemo(() => {
+    return createListWithDateDividers(
+      reviews,
+      (item) => item._id,
+      (item) => item.createdAt
+    );
+  }, [reviews]);
 
-  const keyExtractor = useCallback((item: Review) => item._id, []);
+  const renderItem = useCallback(({ item }: { item: any }) => {
+    if (item.type === 'divider') {
+      return <DateDivider date={item.label} />;
+    }
+
+    const review = item.data;
+    return (
+      <TouchableOpacity 
+        style={styles.reviewCard}
+        onPress={() => {
+          const productId = typeof review.productId === 'object' ? review.productId._id : review.productId;
+          router.push(`/product-detail/${productId}`);
+        }}
+      >
+        <View style={styles.productInfo}>
+          <Image
+            source={{ 
+              uri: typeof review.productId === 'object' && review.productId.images?.[0] 
+                ? review.productId.images[0] 
+                : 'https://via.placeholder.com/50' 
+            }}
+            style={styles.productImage}
+          />
+          <Text style={styles.productName} numberOfLines={2}>
+            {typeof review.productId === 'object' ? review.productId.name : 'Product'}
+          </Text>
+        </View>
+        
+        {renderStars(review.rating)}
+        
+        {review.comment && <Text style={styles.comment}>{review.comment}</Text>}
+        
+        <View style={styles.footer}>
+          <Text style={styles.date}>{formatDate(review.createdAt)}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [styles, colors, router]);
+
+  const keyExtractor = useCallback((item: any) => item.key, []);
 
   if (!isAuthenticated) {
     return null;
@@ -262,7 +278,7 @@ export default function ReviewsScreen() {
         </View>
       ) : (
         <FlatList
-          data={reviews}
+          data={listItems}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.reviewsList}

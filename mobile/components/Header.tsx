@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
@@ -48,10 +49,12 @@ export const Header: React.FC<HeaderProps> = ({
   const isAdminPage = segments.some(s => s === '(admin)' || s === 'admin');
   const { colors, fontSizes, fontWeights } = useTheme();
   const [sidebarVisible, setSidebarVisible] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const styles = StyleSheet.create({
     container: {
       backgroundColor: colors.background,
+      paddingTop: insets.top,
     },
     safeArea: {
       backgroundColor: colors.background,

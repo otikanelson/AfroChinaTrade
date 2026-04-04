@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
-import { COLLECTION_TAGS, TAG_LABELS } from '../../constants/tags';
+import { tagService } from '../../services/TagService';
 
 export interface FilterOptions {
   statusFilter: 'all' | 'active' | 'inactive';
@@ -46,6 +46,25 @@ export const ProductFiltersDropdown: React.FC<ProductFiltersDropdownProps> = ({
 }) => {
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+
+  useEffect(() => {
+    loadTags();
+  }, []);
+
+  const loadTags = async () => {
+    try {
+      setLoadingTags(true);
+      const tagNames = await tagService.getTagNames();
+      setAvailableTags(tagNames);
+    } catch (error) {
+      console.error('Failed to load tags:', error);
+      setAvailableTags([]);
+    } finally {
+      setLoadingTags(false);
+    }
+  };
 
   const styles = StyleSheet.create({
     container: {
@@ -406,13 +425,23 @@ export const ProductFiltersDropdown: React.FC<ProductFiltersDropdownProps> = ({
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Tags</Text>
               {renderOption('All Tags', filters.tagFilter === 'all', () => handleTagChange('all'), 'tag-all')}
-              {COLLECTION_TAGS.map((tag) =>
-                renderOption(
-                  TAG_LABELS[tag],
-                  filters.tagFilter === tag,
-                  () => handleTagChange(tag),
-                  `tag-${tag}`
+              {loadingTags ? (
+                <View style={styles.optionRow}>
+                  <Text style={[styles.optionText, { opacity: 0.5 }]}>Loading tags...</Text>
+                </View>
+              ) : availableTags.length > 0 ? (
+                availableTags.map((tag) =>
+                  renderOption(
+                    tag,
+                    filters.tagFilter === tag,
+                    () => handleTagChange(tag),
+                    `tag-${tag}`
+                  )
                 )
+              ) : (
+                <View style={styles.optionRow}>
+                  <Text style={[styles.optionText, { opacity: 0.5 }]}>No tags available</Text>
+                </View>
               )}
             </View>
 

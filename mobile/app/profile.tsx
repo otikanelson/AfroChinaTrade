@@ -8,7 +8,6 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -393,7 +392,7 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         {isAdminUser ? (
           <View style={styles.adminHeader}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -410,12 +409,12 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {isAdminUser ? (
         <View style={styles.adminHeader}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -430,16 +429,6 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
       )}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Admin Viewing Notice */}
-        {isAdminViewingCustomer && (
-          <View style={styles.adminNotice}>
-            <Ionicons name="eye" size={20} color={colors.warning} />
-            <Text style={styles.adminNoticeText}>
-              You are viewing as admin - profile editing is disabled
-            </Text>
-          </View>
-        )}
-
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <TouchableOpacity onPress={handleAvatarPress} style={styles.avatarContainer}>
@@ -586,6 +575,6 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
         {/* Toast Component */}
         <Toast {...toast} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

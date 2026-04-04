@@ -16,11 +16,20 @@ const PLACEMENT_OPTIONS = [
   { label: 'Home Page', value: 'home' as const },
   { label: 'Buy Now Page', value: 'buy-now' as const },
   { label: 'Product Detail Page', value: 'product-detail' as const },
+  { label: 'App Launch (Splash)', value: 'app' as const },
 ];
 
 const AD_TYPE_OPTIONS = [
   { label: 'Carousel', value: 'carousel' as const },
   { label: 'Tile', value: 'tile' as const },
+  { label: 'Splash Modal', value: 'splash' as const },
+];
+
+const SPLASH_FREQUENCY_OPTIONS = [
+  { label: 'Once Ever', value: 'once' as const },
+  { label: 'Daily', value: 'daily' as const },
+  { label: 'Per Session', value: 'session' as const },
+  { label: 'Always', value: 'always' as const },
 ];
 
 export default function AdFormScreen() {
@@ -49,7 +58,10 @@ export default function AdFormScreen() {
       home: 'carousel' as 'carousel' | 'tile',
       'buy-now': 'carousel' as 'carousel' | 'tile',
       'product-detail': 'carousel' as 'carousel' | 'tile',
+      app: 'splash' as 'splash',
     },
+    splashFrequency: 'daily' as 'once' | 'daily' | 'session' | 'always',
+    splashDuration: '3000',
   });
 
   useEffect(() => {
@@ -74,7 +86,10 @@ export default function AdFormScreen() {
               home: 'carousel',
               'buy-now': 'carousel',
               'product-detail': 'carousel',
+              app: 'splash',
             },
+            splashFrequency: ad.splashFrequency || 'daily',
+            splashDuration: String(ad.splashDuration || 3000),
           });
           if (ad.imageUrl) {
             setImageFiles([{ uri: ad.imageUrl, width: 800, height: 300, uploaded: true, uploadedUrl: ad.imageUrl }]);
@@ -97,21 +112,25 @@ export default function AdFormScreen() {
   const update = (field: string, value: string | boolean | Record<string, any>) =>
     setForm(prev => ({ ...prev, [field]: value }));
 
-  const togglePlacement = (page: 'home' | 'buy-now' | 'product-detail') => {
+  const togglePlacement = (page: 'home' | 'buy-now' | 'product-detail' | 'app') => {
     setForm(prev => {
       const newPlacement = { ...prev.placement };
       if (newPlacement[page]) {
         // Remove this page
         delete newPlacement[page];
       } else {
-        // Add this page with default carousel type
-        newPlacement[page] = 'carousel';
+        // Add this page with default type
+        if (page === 'app') {
+          newPlacement[page] = 'splash';
+        } else {
+          newPlacement[page] = 'carousel';
+        }
       }
       return { ...prev, placement: newPlacement };
     });
   };
 
-  const updatePlacementType = (page: 'home' | 'buy-now' | 'product-detail', type: 'carousel' | 'tile') => {
+  const updatePlacementType = (page: 'home' | 'buy-now' | 'product-detail' | 'app', type: 'carousel' | 'tile' | 'splash') => {
     setForm(prev => ({
       ...prev,
       placement: { ...prev.placement, [page]: type },
@@ -152,6 +171,20 @@ export default function AdFormScreen() {
       });
       return;
     }
+
+    // Validate splash ad settings
+    if (form.placement.app) {
+      const duration = parseInt(form.splashDuration) || 3000;
+      if (duration < 1000 || duration > 10000) {
+        setInfoModal({
+          visible: true,
+          title: 'Validation',
+          message: 'Splash ad duration must be between 1 and 10 seconds',
+          type: 'warning'
+        });
+        return;
+      }
+    }
     setSaving(true);
     try {
       const payload = {
@@ -162,6 +195,8 @@ export default function AdFormScreen() {
         displayOrder: parseInt(form.displayOrder) || 0,
         isActive: form.isActive,
         placement: form.placement,
+        splashFrequency: form.splashFrequency,
+        splashDuration: parseInt(form.splashDuration) || 3000,
       };
       const res = isEditing
         ? await adService.updateAd(id, payload)
@@ -293,6 +328,40 @@ export default function AdFormScreen() {
       borderRadius: borderRadius.md, gap: spacing.sm,
     },
     saveBtnText: { color: colors.textInverse, fontSize: fontSizes.base, fontWeight: fontWeights.bold },
+    frequencyContainer: {
+      gap: spacing.sm,
+    },
+    fieldLabel: {
+      fontSize: fontSizes.sm,
+      fontWeight: fontWeights.medium,
+      color: colors.text,
+      marginBottom: spacing.xs,
+    },
+    frequencyOptions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    frequencyOption: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    frequencyOptionActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    frequencyOptionText: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+      fontWeight: fontWeights.medium,
+    },
+    frequencyOptionTextActive: {
+      color: colors.textInverse,
+    },
   });
 
   if (loading) {
@@ -320,9 +389,13 @@ export default function AdFormScreen() {
               images={imageFiles}
               onImagesChange={handleImageChange}
               maxImages={1}
-              aspectRatio={[8, 3]}
+              aspectRatio={form.placement.app ? [9, 16] : [8, 3]}
               required
-              helperText="Recommended size: 800 × 300px (landscape). This is what users will see in the carousel."
+              helperText={
+                form.placement.app 
+                  ? "Recommended size: 720 × 1280px (portrait). For splash ads, use vertical images."
+                  : "Recommended size: 800 × 300px (landscape). This is what users will see in the carousel."
+              }
             />
           </View>
 
@@ -352,11 +425,11 @@ export default function AdFormScreen() {
               label="In-app route"
               value={form.linkPath}
               onChangeText={v => update('linkPath', v)}
-              placeholder="e.g., /product-listing or /verified-suppliers"
+              placeholder="e.g., /products or /verified-suppliers"
               autoCapitalize="none"
             />
             <Text style={styles.hint}>
-              Use app routes like /product-listing, /verified-suppliers, /buy-now. Leave empty for a non-tappable banner.
+              Use app routes like /products, /verified-suppliers, /buy-now. Leave empty for a non-tappable banner.
             </Text>
           </View>
 
@@ -390,7 +463,7 @@ export default function AdFormScreen() {
                   
                   {isSelected && (
                     <View style={styles.adTypeSelector}>
-                      {AD_TYPE_OPTIONS.map(typeOption => (
+                      {(option.value === 'app' ? [AD_TYPE_OPTIONS[2]] : AD_TYPE_OPTIONS.slice(0, 2)).map(typeOption => (
                         <TouchableOpacity
                           key={typeOption.value}
                           style={[
@@ -400,7 +473,11 @@ export default function AdFormScreen() {
                           onPress={() => updatePlacementType(option.value, typeOption.value)}
                         >
                           <Ionicons
-                            name={typeOption.value === 'carousel' ? 'images-outline' : 'grid-outline'}
+                            name={
+                              typeOption.value === 'carousel' ? 'images-outline' :
+                              typeOption.value === 'tile' ? 'grid-outline' :
+                              'phone-portrait-outline'
+                            }
                             size={18}
                             color={adType === typeOption.value ? colors.textInverse : colors.text}
                           />
@@ -436,6 +513,48 @@ export default function AdFormScreen() {
               />
             </View>
           </View>
+
+          {/* Splash Ad Settings */}
+          {form.placement.app && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Splash Ad Settings</Text>
+              <Text style={styles.hint}>
+                Configure how often and for how long the splash ad appears
+              </Text>
+              
+              <View style={styles.frequencyContainer}>
+                <Text style={styles.fieldLabel}>Show Frequency</Text>
+                <View style={styles.frequencyOptions}>
+                  {SPLASH_FREQUENCY_OPTIONS.map(option => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.frequencyOption,
+                        form.splashFrequency === option.value && styles.frequencyOptionActive
+                      ]}
+                      onPress={() => update('splashFrequency', option.value)}
+                    >
+                      <Text style={[
+                        styles.frequencyOptionText,
+                        form.splashFrequency === option.value && styles.frequencyOptionTextActive
+                      ]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <FormField
+                label="Display Duration (seconds)"
+                value={String(parseInt(form.splashDuration) / 1000)}
+                onChangeText={v => update('splashDuration', String((parseFloat(v) || 3) * 1000))}
+                placeholder="3"
+                keyboardType="numeric"
+                helperText="How long the splash ad stays visible (3-10 seconds recommended)"
+              />
+            </View>
+          )}
         </View>
       </ScrollView>
 

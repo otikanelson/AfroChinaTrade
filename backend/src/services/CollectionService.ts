@@ -37,10 +37,16 @@ export class CollectionService {
     displayOrder?: number
   ): Promise<CollectionResponse> {
     try {
+      // Sanitize filter values - trim strings
+      const sanitizedFilters = filters.map(filter => ({
+        ...filter,
+        value: typeof filter.value === 'string' ? filter.value.trim() : filter.value
+      }));
+
       const collection = new Collection({
         name,
         description,
-        filters,
+        filters: sanitizedFilters,
         createdBy,
         displayOrder: displayOrder || 0
       });
@@ -203,6 +209,14 @@ export class CollectionService {
     updates: Partial<ICollection>
   ): Promise<CollectionResponse> {
     try {
+      // Sanitize filter values if filters are being updated
+      if (updates.filters) {
+        updates.filters = updates.filters.map(filter => ({
+          ...filter,
+          value: typeof filter.value === 'string' ? filter.value.trim() : filter.value
+        }));
+      }
+
       const collection = await Collection.findByIdAndUpdate(
         collectionId,
         updates,

@@ -18,6 +18,7 @@ const PLACEMENT_OPTIONS = [
   { label: 'Home Page', value: 'home' },
   { label: 'Buy Now Page', value: 'buy-now' },
   { label: 'Product Detail Page', value: 'product-detail' },
+  { label: 'App Launch (Splash)', value: 'app' },
 ];
 
 export default function AdsManagement() {
@@ -183,6 +184,11 @@ export default function AdsManagement() {
           {Object.entries(item.placement || {})
             .map(([page, type]) => {
               const opt = PLACEMENT_OPTIONS.find(o => o.value === page);
+              if (page === 'app' && type === 'splash') {
+                const freq = item.splashFrequency || 'daily';
+                const duration = (item.splashDuration || 3000) / 1000;
+                return opt ? `${opt.label.replace(' Page', '')}: ${freq}, ${duration}s` : '';
+              }
               return opt ? `${opt.label.replace(' Page', '')}: ${type}` : '';
             })
             .filter(Boolean)

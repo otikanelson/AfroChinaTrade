@@ -12,7 +12,11 @@ export interface IAd extends Document {
     home?: 'carousel' | 'tile';
     'buy-now'?: 'carousel' | 'tile';
     'product-detail'?: 'carousel' | 'tile';
+    app?: 'splash';
   };
+  // Splash ad specific fields
+  splashFrequency?: 'once' | 'daily' | 'session' | 'always';
+  splashDuration?: number; // Duration in milliseconds
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,9 +32,15 @@ const AdSchema = new Schema<IAd>(
     displayOrder: { type: Number, default: 0 },
     placement: {
       type: Map,
-      of: { type: String, enum: ['carousel', 'tile'] },
+      of: { type: String, enum: ['carousel', 'tile', 'splash'] },
       default: {},
     },
+    splashFrequency: { 
+      type: String, 
+      enum: ['once', 'daily', 'session', 'always'], 
+      default: 'daily' 
+    },
+    splashDuration: { type: Number, default: 3000 }, // 3 seconds default
   },
   { timestamps: true }
 );

@@ -8,6 +8,7 @@ export { default as Refund, IRefund } from './Refund';
 export { default as Report, IReport } from './Report';
 export { default as Ticket, ITicket } from './Ticket';
 export { default as Category, ICategory } from './Category';
+export { default as Subcategory, ISubcategory } from './Subcategory';
 export { default as Supplier, ISupplier } from './Supplier';
 export { default as SupplierReview, ISupplierReview } from './SupplierReview';
 export { default as UserAuditLog, IUserAuditLog } from './UserAuditLog';

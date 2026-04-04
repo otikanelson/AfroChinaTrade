@@ -238,7 +238,7 @@ export default function NewMessageScreen() {
 
   const handleTagProduct = () => {
     router.push({
-      pathname: '/product-listing',
+      pathname: '/products',
       params: {
         source: NavigationSource.MESSAGE_TAGGING,
         collectionType: 'all',

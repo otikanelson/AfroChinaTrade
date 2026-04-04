@@ -146,7 +146,7 @@ export const getUserBrowsingHistory = async (req: Request, res: Response): Promi
     }
 
     // Execute query with optimizations
-    const [history, total] = await Promise.all([
+    const [historyRaw, total] = await Promise.all([
       BrowsingHistory.find(filter)
         .populate({
           path: 'productId',
@@ -166,6 +166,9 @@ export const getUserBrowsingHistory = async (req: Request, res: Response): Promi
       // Only count on first page to reduce overhead
       pageNum === 1 ? BrowsingHistory.countDocuments(filter) : Promise.resolve(0)
     ]);
+
+    // Filter out entries where the product has been deleted (productId is null after populate)
+    const history = historyRaw.filter(entry => entry.productId && entry.productId._id);
 
     const pages = pageNum === 1 ? Math.ceil(total / limitNum) : 0;
 

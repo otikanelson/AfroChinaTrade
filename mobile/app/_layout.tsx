@@ -3,7 +3,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
-import { Platform, UIManager, LogBox } from 'react-native';
+import { Platform, UIManager, LogBox, AppState } from 'react-native';
 import Constants from 'expo-constants';
 
 import { AuthProvider } from '../contexts/AuthContext';
@@ -20,6 +20,8 @@ import { SessionProvider } from '../contexts/SessionContext';
 import { ActivityTracker } from '../components/ActivityTracker';
 import { InAppToast } from '../components/InAppToast';
 import { handleNotificationDeepLink } from '../utils/notificationDeepLink';
+import { adService, Ad } from '../services/AdService';
+import { SplashAdModal } from '../components/SplashAdModal';
 
 // Ignore expo-notifications warnings in Expo Go
 LogBox.ignoreLogs([
@@ -66,17 +68,51 @@ function RootLayoutContent() {
   });
 
   const [toastState, setToastState] = useState<ToastState | null>(null);
+  const [splashAd, setSplashAd] = useState<Ad | null>(null);
+  const [showSplashAd, setShowSplashAd] = useState(false);
 
   // Monitor token expiry and handle user feedback
   useAuthTokenMonitor();
 
   useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-      // Start preloading essential data in background
-      preloadService.preloadEssentialData();
+    async function prepare() {
+      if (fontsLoaded) {
+        await SplashScreen.hideAsync();
+        
+        // Start preloading essential data in background
+        preloadService.preloadEssentialData();
+        
+        // Load splash ad
+        try {
+          const response = await adService.getSplashAd();
+          if (response.success && response.data) {
+            setSplashAd(response.data);
+            setShowSplashAd(true);
+            
+            // Mark as seen for analytics
+            adService.markSplashAdSeen(response.data._id);
+          }
+        } catch (e) {
+          console.warn('Error loading splash ad:', e);
+        }
+      }
     }
+    
+    prepare();
   }, [fontsLoaded]);
+
+  // Handle app state changes for session-based splash ads
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        // App came to foreground - reset session flag for splash ads
+        adService.resetSessionFlag();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, []);
 
   // Setup notification listeners (only if not in Expo Go)
   useEffect(() => {
@@ -145,6 +181,11 @@ function RootLayoutContent() {
     return null;
   }
 
+  const handleCloseSplashAd = () => {
+    setShowSplashAd(false);
+    setSplashAd(null);
+  };
+
   return (
     <>
       <Stack screenOptions={{ headerShown: false }}>
@@ -163,6 +204,11 @@ function RootLayoutContent() {
           data={toastState.data}
           onDismiss={() => setToastState(null)}
         />
+      )}
+      
+      {/* Splash Ad Modal */}
+      {showSplashAd && splashAd && (
+        <SplashAdModal ad={splashAd} onClose={handleCloseSplashAd} />
       )}
     </>
   );

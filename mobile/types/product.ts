@@ -15,6 +15,7 @@ export interface Product {
   tags?: string[];
   specifications?: Record<string, string>;
   discount?: number;
+  discountExpiresAt?: string;
   isNew?: boolean;
   isFeatured?: boolean;
   isActive?: boolean;

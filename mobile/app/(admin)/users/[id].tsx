@@ -9,14 +9,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { Order } from '../../../types/product';
 import { userService, UserProfile } from '../../../services/UserService';
 import { orderService } from '../../../services/OrderService';
-import { ticketService } from '../../../services/TicketService';
+import ticketService from '../../../services/TicketService';
 import { Card } from '../../../components/admin/Card';
 import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
 import { Button } from '../../../components/admin/Button';
 import { Header } from '../../../components/Header';
 import { mobileToastManager } from '../../../utils/toast';
-import { theme } from '../../../theme';
+import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { tokenManager } from '../../../services/api/tokenManager';
 
 
 
@@ -43,12 +44,41 @@ interface BlockModalProps {
 
 const BlockModal: React.FC<BlockModalProps> = ({ visible, onClose, onConfirm }) => {
   const [reason, setReason] = useState('');
+  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
 
   const handleConfirm = () => {
     if (!reason.trim()) { Alert.alert('Required', 'Please provide a reason.'); return; }
     onConfirm(reason.trim());
     setReason('');
   };
+
+  const styles = StyleSheet.create({
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    modalSheet: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: borderRadius.xl, borderTopRightRadius: borderRadius.xl,
+      padding: spacing.xl, gap: spacing.md,
+    },
+    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    modalTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold as any, color: colors.text },
+    fieldLabel: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium as any, color: colors.textSecondary },
+    input: {
+      borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.base,
+      padding: spacing.md, fontSize: fontSizes.base, color: colors.text,
+      backgroundColor: colors.surface, minHeight: 80,
+    },
+    modalActions: { flexDirection: 'row', gap: spacing.sm },
+    modalBtn: { flex: 1 },
+    warningText: {
+      fontSize: fontSizes.sm,
+      color: colors.error,
+      backgroundColor: colors.error + '20',
+      padding: spacing.sm,
+      borderRadius: borderRadius.sm,
+      marginBottom: spacing.md,
+      lineHeight: 18,
+    },
+  });
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -57,7 +87,7 @@ const BlockModal: React.FC<BlockModalProps> = ({ visible, onClose, onConfirm }) 
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Block Account</Text>
             <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
-              <Ionicons name="close" size={24} color={theme.colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
           <Text style={styles.warningText}>
@@ -69,7 +99,7 @@ const BlockModal: React.FC<BlockModalProps> = ({ visible, onClose, onConfirm }) 
             value={reason}
             onChangeText={setReason}
             placeholder="Reason for blocking…"
-            placeholderTextColor={theme.colors.textLight}
+            placeholderTextColor={colors.textLight}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
@@ -83,9 +113,11 @@ const BlockModal: React.FC<BlockModalProps> = ({ visible, onClose, onConfirm }) 
     </Modal>
   );
 };
+
 const SuspendModal: React.FC<SuspendModalProps> = ({ visible, onClose, onConfirm }) => {
   const [reason, setReason] = useState('');
   const [duration, setDuration] = useState('7');
+  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
 
   const handleConfirm = () => {
     if (!reason.trim()) { Alert.alert('Required', 'Please provide a reason.'); return; }
@@ -94,6 +126,32 @@ const SuspendModal: React.FC<SuspendModalProps> = ({ visible, onClose, onConfirm
     setDuration('7');
   };
 
+  const styles = StyleSheet.create({
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    modalSheet: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: borderRadius.xl, borderTopRightRadius: borderRadius.xl,
+      padding: spacing.xl, gap: spacing.md,
+    },
+    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    modalTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold as any, color: colors.text },
+    fieldLabel: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium as any, color: colors.textSecondary },
+    input: {
+      borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.base,
+      padding: spacing.md, fontSize: fontSizes.base, color: colors.text,
+      backgroundColor: colors.surface, minHeight: 80,
+    },
+    inputSingle: { minHeight: 0 },
+    modalActions: { flexDirection: 'row', gap: spacing.sm },
+    modalBtn: { flex: 1 },
+    infoText: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+      marginBottom: spacing.md,
+      lineHeight: 18,
+    },
+  });
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
@@ -101,7 +159,7 @@ const SuspendModal: React.FC<SuspendModalProps> = ({ visible, onClose, onConfirm
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Suspend Account</Text>
             <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
-              <Ionicons name="close" size={24} color={theme.colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
           <Text style={styles.infoText}>
@@ -113,7 +171,7 @@ const SuspendModal: React.FC<SuspendModalProps> = ({ visible, onClose, onConfirm
             value={reason}
             onChangeText={setReason}
             placeholder="Reason for suspension…"
-            placeholderTextColor={theme.colors.textLight}
+            placeholderTextColor={colors.textLight}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
@@ -125,7 +183,7 @@ const SuspendModal: React.FC<SuspendModalProps> = ({ visible, onClose, onConfirm
             onChangeText={setDuration}
             keyboardType="number-pad"
             placeholder="7"
-            placeholderTextColor={theme.colors.textLight}
+            placeholderTextColor={colors.textLight}
           />
           <View style={styles.modalActions}>
             <Button label="Cancel" variant="secondary" onPress={onClose} style={styles.modalBtn} />
@@ -150,6 +208,7 @@ export default function UserDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user: currentUser } = useAuth();
+  const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
 
   const [user, setUser] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -173,7 +232,8 @@ export default function UserDetailScreen() {
         // Load suspension appeals if user is suspended
         if (userResponse.data.status === 'suspended') {
           try {
-            const appealsResponse = await ticketService.getUserSuspensionAppeals(id);
+            const token = await tokenManager.getAccessToken();
+            const appealsResponse = await ticketService.getUserSuspensionAppeals(token || '', id);
             if (appealsResponse.success && appealsResponse.data) {
               setSuspensionAppeals(appealsResponse.data);
             }
@@ -297,6 +357,153 @@ export default function UserDetailScreen() {
     return canManageUser();
   }, [currentUser, user, canManageUser]);
 
+  // Styles with dynamic theme
+  const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.surface },
+    navHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: spacing.base, paddingVertical: spacing.md,
+      borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+      backgroundColor: colors.background,
+    },
+    navTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold as any, color: colors.text },
+    loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    loadingText: { fontSize: fontSizes.base, color: colors.textSecondary },
+    scrollContent: { padding: spacing.base, gap: spacing.sm, paddingBottom: spacing['4xl'] },
+    profileCard: { marginBottom: spacing.xs },
+    profileRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+    avatar: {
+      width: 56, height: 56, borderRadius: 28,
+      backgroundColor: colors.primary + '20',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    avatarText: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.bold as any, color: colors.primary },
+    profileInfo: { flex: 1, gap: 2 },
+    userName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold as any, color: colors.text },
+    userEmail: { fontSize: fontSizes.sm, color: colors.textSecondary },
+    userMeta: { fontSize: fontSizes.sm, color: colors.textLight },
+    divider: { height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.md },
+    metaRow: { flexDirection: 'row', justifyContent: 'space-around' },
+    metaItem: { alignItems: 'center', gap: 2 },
+    metaLabel: { fontSize: fontSizes.xs, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
+    metaValue: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold as any, color: colors.text },
+    sectionTitle: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold as any, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.md, marginBottom: spacing.xs },
+    actionsCard: {},
+    actionButtons: { flexDirection: 'row', gap: spacing.sm },
+    actionBtn: { flex: 1 },
+    emptyCard: {},
+    emptyText: { color: colors.textSecondary, textAlign: 'center' },
+    orderCard: { marginBottom: spacing.xs },
+    orderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    orderId: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold as any, color: colors.text },
+    orderMeta: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: 2 },
+    orderRight: { alignItems: 'flex-end', gap: spacing.xs },
+    orderAmount: { fontSize: fontSizes.base, fontWeight: fontWeights.bold as any, color: colors.text },
+    auditCard: { marginBottom: spacing.xs },
+    auditAction: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold as any, color: colors.text },
+    auditReason: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+    auditDate: { fontSize: fontSizes.xs, color: colors.textLight, marginTop: 4 },
+    restrictionNotice: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.warning + '20',
+      padding: spacing.md,
+      borderRadius: borderRadius.md,
+      gap: spacing.sm,
+    },
+    restrictionText: {
+      flex: 1,
+      fontSize: fontSizes.sm,
+      color: colors.warning,
+      lineHeight: 18,
+    },
+    disabledActionContainer: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    disabledActionText: {
+      fontSize: fontSizes.xs,
+      color: colors.textLight,
+      marginTop: spacing.xs,
+      textAlign: 'center',
+    },
+    appealCard: { marginBottom: spacing.xs },
+    appealHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+    },
+    appealTitle: {
+      flex: 1,
+      fontSize: fontSizes.base,
+      fontWeight: fontWeights.semibold as any,
+      color: colors.text,
+      marginRight: spacing.sm,
+    },
+    appealReason: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+      lineHeight: 18,
+      marginBottom: spacing.xs,
+    },
+    appealDate: {
+      fontSize: fontSizes.xs,
+      color: colors.textLight,
+      marginBottom: spacing.sm,
+    },
+    appealResponse: {
+      backgroundColor: colors.surface,
+      padding: spacing.sm,
+      borderRadius: borderRadius.sm,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
+    appealResponseLabel: {
+      fontSize: fontSizes.xs,
+      fontWeight: fontWeights.semibold as any,
+      color: colors.primary,
+      marginBottom: spacing.xs,
+    },
+    appealResponseText: {
+      fontSize: fontSizes.sm,
+      color: colors.text,
+      lineHeight: 18,
+    },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    modalSheet: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: borderRadius.xl, borderTopRightRadius: borderRadius.xl,
+      padding: spacing.xl, gap: spacing.md,
+    },
+    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    modalTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold as any, color: colors.text },
+    fieldLabel: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium as any, color: colors.textSecondary },
+    input: {
+      borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.base,
+      padding: spacing.md, fontSize: fontSizes.base, color: colors.text,
+      backgroundColor: colors.surface, minHeight: 80,
+    },
+    inputSingle: { minHeight: 0 },
+    modalActions: { flexDirection: 'row', gap: spacing.sm },
+    modalBtn: { flex: 1 },
+    infoText: {
+      fontSize: fontSizes.sm,
+      color: colors.textSecondary,
+      marginBottom: spacing.md,
+      lineHeight: 18,
+    },
+    warningText: {
+      fontSize: fontSizes.sm,
+      color: colors.error,
+      backgroundColor: colors.error + '20',
+      padding: spacing.sm,
+      borderRadius: borderRadius.sm,
+      marginBottom: spacing.md,
+      lineHeight: 18,
+    },
+  });
+
   if (loading) {
     return (
       <View style={styles.screen}>
@@ -373,7 +580,7 @@ export default function UserDetailScreen() {
         <Card style={styles.actionsCard}>
           {!canManageUser() ? (
             <View style={styles.restrictionNotice}>
-              <Ionicons name="information-circle-outline" size={20} color={theme.colors.warning} />
+              <Ionicons name="information-circle-outline" size={20} color={colors.warning} />
               <Text style={styles.restrictionText}>
                 {currentUser?.id === user._id 
                   ? "You cannot manage your own account" 
@@ -387,7 +594,7 @@ export default function UserDetailScreen() {
                 <Button label="Block" variant="destructive" onPress={handleBlockConfirm} style={styles.actionBtn} />
               ) : (
                 <View style={styles.disabledActionContainer}>
-                  <Button label="Block" variant="destructive" disabled style={styles.actionBtn} />
+                  <Button label="Block" variant="destructive" disabled onPress={() => {}} style={styles.actionBtn} />
                   <Text style={styles.disabledActionText}>Only super admins can block admin accounts</Text>
                 </View>
               )}
@@ -476,152 +683,3 @@ export default function UserDetailScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.surface },
-  navHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.base, paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1, borderBottomColor: theme.colors.borderLight,
-    backgroundColor: theme.colors.background,
-  },
-  navTitle: { fontSize: theme.fontSizes.lg, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.text },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { fontSize: theme.fontSizes.base, color: theme.colors.textSecondary },
-  scrollContent: { padding: theme.spacing.base, gap: theme.spacing.sm, paddingBottom: theme.spacing['4xl'] },
-  profileCard: { marginBottom: theme.spacing.xs },
-  profileRow: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.md },
-  avatar: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: theme.colors.primary + '20',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  avatarText: { fontSize: theme.fontSizes['2xl'], fontWeight: theme.fontWeights.bold as any, color: theme.colors.primary },
-  profileInfo: { flex: 1, gap: 2 },
-  userName: { fontSize: theme.fontSizes.lg, fontWeight: theme.fontWeights.bold as any, color: theme.colors.text },
-  userEmail: { fontSize: theme.fontSizes.sm, color: theme.colors.textSecondary },
-  userMeta: { fontSize: theme.fontSizes.sm, color: theme.colors.textLight },
-  divider: { height: 1, backgroundColor: theme.colors.borderLight, marginVertical: theme.spacing.md },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  metaItem: { alignItems: 'center', gap: 2 },
-  metaLabel: { fontSize: theme.fontSizes.xs, color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
-  metaValue: { fontSize: theme.fontSizes.base, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.text },
-  sectionTitle: { fontSize: theme.fontSizes.sm, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: theme.spacing.md, marginBottom: theme.spacing.xs },
-  actionsCard: {},
-  actionButtons: { flexDirection: 'row', gap: theme.spacing.sm },
-  actionBtn: { flex: 1 },
-  emptyCard: {},
-  emptyText: { color: theme.colors.textSecondary, textAlign: 'center' },
-  orderCard: { marginBottom: theme.spacing.xs },
-  orderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  orderId: { fontSize: theme.fontSizes.base, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.text },
-  orderMeta: { fontSize: theme.fontSizes.xs, color: theme.colors.textSecondary, marginTop: 2 },
-  orderRight: { alignItems: 'flex-end', gap: theme.spacing.xs },
-  orderAmount: { fontSize: theme.fontSizes.base, fontWeight: theme.fontWeights.bold as any, color: theme.colors.text },
-  auditCard: { marginBottom: theme.spacing.xs },
-  auditAction: { fontSize: theme.fontSizes.base, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.text },
-  auditReason: { fontSize: theme.fontSizes.sm, color: theme.colors.textSecondary, marginTop: 2 },
-  auditDate: { fontSize: theme.fontSizes.xs, color: theme.colors.textLight, marginTop: 4 },
-  // Restriction notice
-  restrictionNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.warning + '20',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    gap: theme.spacing.sm,
-  },
-  restrictionText: {
-    flex: 1,
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.warning,
-    lineHeight: 18,
-  },
-  disabledActionContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  disabledActionText: {
-    fontSize: theme.fontSizes.xs,
-    color: theme.colors.textLight,
-    marginTop: theme.spacing.xs,
-    textAlign: 'center',
-  },
-  // Appeal styles
-  appealCard: { marginBottom: theme.spacing.xs },
-  appealHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  appealTitle: {
-    flex: 1,
-    fontSize: theme.fontSizes.base,
-    fontWeight: theme.fontWeights.semibold as any,
-    color: theme.colors.text,
-    marginRight: theme.spacing.sm,
-  },
-  appealReason: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: theme.spacing.xs,
-  },
-  appealDate: {
-    fontSize: theme.fontSizes.xs,
-    color: theme.colors.textLight,
-    marginBottom: theme.spacing.sm,
-  },
-  appealResponse: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.sm,
-    borderLeftWidth: 3,
-    borderLeftColor: theme.colors.primary,
-  },
-  appealResponseLabel: {
-    fontSize: theme.fontSizes.xs,
-    fontWeight: theme.fontWeights.semibold as any,
-    color: theme.colors.primary,
-    marginBottom: theme.spacing.xs,
-  },
-  appealResponseText: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.text,
-    lineHeight: 18,
-  },
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: theme.colors.background,
-    borderTopLeftRadius: theme.borderRadius.xl, borderTopRightRadius: theme.borderRadius.xl,
-    padding: theme.spacing.xl, gap: theme.spacing.md,
-  },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  modalTitle: { fontSize: theme.fontSizes.lg, fontWeight: theme.fontWeights.semibold as any, color: theme.colors.text },
-  fieldLabel: { fontSize: theme.fontSizes.sm, fontWeight: theme.fontWeights.medium as any, color: theme.colors.textSecondary },
-  input: {
-    borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.borderRadius.base,
-    padding: theme.spacing.md, fontSize: theme.fontSizes.base, color: theme.colors.text,
-    backgroundColor: theme.colors.surface, minHeight: 80,
-  },
-  inputSingle: { minHeight: 0 },
-  modalActions: { flexDirection: 'row', gap: theme.spacing.sm },
-  modalBtn: { flex: 1 },
-  infoText: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.md,
-    lineHeight: 18,
-  },
-  warningText: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.error,
-    backgroundColor: theme.colors.error + '20',
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.sm,
-    marginBottom: theme.spacing.md,
-    lineHeight: 18,
-  },
-});

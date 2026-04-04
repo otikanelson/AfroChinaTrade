@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { tokenManager } from '../services/api/tokenManager';
@@ -16,6 +15,7 @@ import { API_BASE_URL } from '../constants/config';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../hooks/useToast';
 import { Toast } from '../components/ui/Toast';
+import { Header } from '../components/Header';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 
 interface PaymentMethod {
@@ -380,20 +380,19 @@ export default function PaymentMethodsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payment Methods</Text>
-        <TouchableOpacity 
-          onPress={() => router.push('/payment-methods/new')} 
-          style={styles.addButton}
-        >
-          <Ionicons name="add" size={24} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <Header 
+        title="Payment Methods" 
+        showBack={true}
+        rightAction={
+          <TouchableOpacity 
+            onPress={() => router.push('/payment-methods/new')} 
+            style={styles.addButton}
+          >
+            <Ionicons name="add" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        }
+      />
 
       {/* Content */}
       {loading ? (
@@ -493,6 +492,6 @@ export default function PaymentMethodsScreen() {
 
       {/* Toast Component */}
       <Toast {...toast} />
-    </SafeAreaView>
+    </View>
   );
 }

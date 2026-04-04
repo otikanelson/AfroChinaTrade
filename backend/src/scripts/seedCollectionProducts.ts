@@ -271,13 +271,41 @@ function generateCategoryProduct(category: string, index: number, base: any): an
 }
 
 function generateTagProduct(tag: string, index: number, base: any): any {
+  // Map tags to appropriate subcategories
+  const getSubcategoryForTag = (tag: string): string => {
+    const tagSubcategoryMap: { [key: string]: string } = {
+      'smartphone': 'Mobile Phones',
+      'mobile': 'Mobile Phones',
+      'phone': 'Mobile Phones',
+      'headphones': 'Audio',
+      'audio': 'Audio',
+      'speaker': 'Audio',
+      'gaming': 'Gaming',
+      'game': 'Gaming',
+      'console': 'Gaming',
+      'camera': 'Photography',
+      'photography': 'Photography',
+      'lens': 'Photography',
+      'laptop': 'Computers',
+      'computer': 'Computers',
+      'pc': 'Computers',
+      'watch': 'Wearables',
+      'smartwatch': 'Wearables',
+      'fitness': 'Wearables',
+      'appliance': 'Home Appliances',
+      'kitchen': 'Home Appliances'
+    };
+    
+    return tagSubcategoryMap[tag.toLowerCase()] || 'General';
+  };
+
   return {
     ...base,
     name: `${tag.charAt(0).toUpperCase() + tag.slice(1)} Product ${Date.now()}-${index}`,
     description: `Premium product featuring ${tag} technology and design`,
     price: 35000 + Math.floor(Math.random() * 50000),
     category: 'Electronics',
-    subcategory: 'General',
+    subcategory: getSubcategoryForTag(tag),
     tags: [tag, 'premium', 'new'],
     images: [
       'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
@@ -292,13 +320,22 @@ function generatePriceRangeProduct(priceRange: { min?: number; max?: number }, i
   const max = priceRange.max || 500000;
   const price = min + Math.floor(Math.random() * (max - min));
 
+  // Assign subcategory based on price range
+  const getSubcategoryForPriceRange = (price: number): string => {
+    if (price < 50000) return 'General';
+    if (price < 100000) return 'Audio';
+    if (price < 200000) return 'Mobile Phones';
+    if (price < 300000) return 'Computers';
+    return 'Photography';
+  };
+
   return {
     ...base,
     name: `Quality Product ${Date.now()}-${index}`,
     description: `Premium product in the ₦${min.toLocaleString()} - ₦${max.toLocaleString()} range`,
     price,
     category: 'Electronics',
-    subcategory: 'General',
+    subcategory: getSubcategoryForPriceRange(price),
     tags: ['premium', 'bestseller', 'sale'],
     images: [
       'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
@@ -309,13 +346,21 @@ function generatePriceRangeProduct(priceRange: { min?: number; max?: number }, i
 }
 
 function generateRatingProduct(minRating: number, index: number, base: any): any {
+  // Assign subcategory based on rating (higher rated products get premium subcategories)
+  const getSubcategoryForRating = (rating: number): string => {
+    if (rating >= 4.5) return 'Photography';
+    if (rating >= 4.0) return 'Audio';
+    if (rating >= 3.5) return 'Mobile Phones';
+    return 'General';
+  };
+
   return {
     ...base,
     name: `Top Rated Product ${Date.now()}-${index}`,
     description: 'Highly rated product with excellent customer reviews and satisfaction',
     price: 45000 + Math.floor(Math.random() * 80000),
     category: 'Electronics',
-    subcategory: 'General',
+    subcategory: getSubcategoryForRating(minRating),
     tags: ['bestseller', 'premium', 'trending'],
     rating: minRating + Math.random() * (5 - minRating),
     reviewCount: Math.floor(Math.random() * 500) + 100,
@@ -328,15 +373,25 @@ function generateRatingProduct(minRating: number, index: number, base: any): any
 }
 
 function generateDiscountProduct(minDiscount: number, index: number, base: any): any {
+  // Assign subcategory based on discount level
+  const getSubcategoryForDiscount = (discount: number): string => {
+    if (discount >= 30) return 'Gaming';
+    if (discount >= 20) return 'Audio';
+    if (discount >= 10) return 'Wearables';
+    return 'General';
+  };
+
+  const discount = minDiscount + Math.floor(Math.random() * (50 - minDiscount));
+
   return {
     ...base,
     name: `Hot Deal Product ${Date.now()}-${index}`,
     description: 'Amazing discount on quality product - limited time offer',
     price: 55000 + Math.floor(Math.random() * 70000),
     category: 'Electronics',
-    subcategory: 'General',
+    subcategory: getSubcategoryForDiscount(discount),
     tags: ['sale', 'limited', 'trending'],
-    discount: minDiscount + Math.floor(Math.random() * (50 - minDiscount)),
+    discount: discount,
     images: [
       'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
       'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=800&fit=crop'
@@ -345,13 +400,34 @@ function generateDiscountProduct(minDiscount: number, index: number, base: any):
 }
 
 function generateGenericProduct(collectionName: string, index: number, base: any): any {
+  // Assign subcategory based on collection name
+  const getSubcategoryForCollection = (collectionName: string): string => {
+    const collectionSubcategoryMap: { [key: string]: string } = {
+      'trending': 'Mobile Phones',
+      'featured': 'Photography',
+      'bestsellers': 'Audio',
+      'new arrivals': 'Wearables',
+      'sale': 'Gaming',
+      'electronics': 'Computers',
+      'premium': 'Photography'
+    };
+    
+    const lowerName = collectionName.toLowerCase();
+    for (const [key, subcategory] of Object.entries(collectionSubcategoryMap)) {
+      if (lowerName.includes(key)) {
+        return subcategory;
+      }
+    }
+    return 'General';
+  };
+
   return {
     ...base,
     name: `${collectionName} Product ${Date.now()}-${index}`,
     description: `Quality product for ${collectionName} collection`,
     price: 35000 + Math.floor(Math.random() * 60000),
     category: 'Electronics',
-    subcategory: 'General',
+    subcategory: getSubcategoryForCollection(collectionName),
     tags: ['premium', 'new'],
     images: [
       'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',

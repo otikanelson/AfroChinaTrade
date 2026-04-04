@@ -26,7 +26,7 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    const { page = 1, limit = 10, category, minPrice, maxPrice, minRating, inStock, sortBy, sortOrder, supplierId, isFeatured, isSellerFavorite, tag } = req.query;
+    const { page = 1, limit = 10, category, subcategory, minPrice, maxPrice, minRating, inStock, sortBy, sortOrder, supplierId, isFeatured, isSellerFavorite, tag, discount } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 10));
@@ -37,6 +37,10 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
 
     if (category) {
       filter.category = category;
+    }
+
+    if (subcategory) {
+      filter.subcategory = subcategory;
     }
 
     if (supplierId) {
@@ -67,6 +71,10 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
 
     if (tag) {
       filter.tags = { $in: [tag] };
+    }
+
+    if (discount === 'true') {
+      filter.discount = { $gt: 0 };
     }
 
     // Build sort object — supports both combined (price_asc) and split (sortBy=price&sortOrder=asc) formats
@@ -167,6 +175,8 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       description, 
       price, 
       category, 
+      categoryId,
+      subcategory,
       supplierId, 
       stock, 
       images, 
@@ -174,13 +184,14 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       isFeatured, 
       isActive, 
       discount, 
+      discountExpiresAt,
       specifications, 
       isSellerFavorite,
       policies 
     } = req.body;
 
     // Validate required fields
-    if (!name || !description || price === undefined || !category || !supplierId || stock === undefined) {
+    if (!name || !description || price === undefined || (!category && !categoryId) || !supplierId || stock === undefined) {
       res.status(400).json({
         status: 'error',
         message: 'Missing required fields',
@@ -189,7 +200,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
           name: !name ? 'Name is required' : undefined,
           description: !description ? 'Description is required' : undefined,
           price: price === undefined ? 'Price is required' : undefined,
-          category: !category ? 'Category is required' : undefined,
+          category: (!category && !categoryId) ? 'Category is required' : undefined,
           supplierId: !supplierId ? 'Supplier ID is required' : undefined,
           stock: stock === undefined ? 'Stock is required' : undefined,
         },
@@ -220,7 +231,8 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       name,
       description,
       price,
-      category,
+      category: category || categoryId,
+      subcategory,
       supplierId,
       stock,
       images: images || [],
@@ -228,6 +240,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       isFeatured: isFeatured || false,
       isActive: isActive !== undefined ? isActive : true,
       discount: discount || 0,
+      discountExpiresAt: discountExpiresAt || undefined,
       specifications: specifications || {},
       isSellerFavorite: isSellerFavorite || false,
       policies: policies || {},
@@ -259,7 +272,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, description, price, category, supplierId, stock, images, tags, isFeatured, isActive, discount, specifications, isSellerFavorite } = req.body;
+    const { name, description, price, category, categoryId, subcategory, supplierId, stock, images, tags, isFeatured, isActive, discount, discountExpiresAt, specifications, isSellerFavorite, policies } = req.body;
 
     // Validate price if provided
     if (price !== undefined && (typeof price !== 'number' || price < 0)) {
@@ -295,7 +308,8 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (price !== undefined) updateData.price = price;
-    if (category !== undefined) updateData.category = category;
+    if (category !== undefined || categoryId !== undefined) updateData.category = category || categoryId;
+    if (subcategory !== undefined) updateData.subcategory = subcategory;
     if (supplierId !== undefined) updateData.supplierId = supplierId;
     if (stock !== undefined) updateData.stock = stock;
     if (images !== undefined) updateData.images = images;
@@ -303,8 +317,10 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
     if (isFeatured !== undefined) updateData.isFeatured = isFeatured;
     if (isActive !== undefined) updateData.isActive = isActive;
     if (discount !== undefined) updateData.discount = discount;
+    if (discountExpiresAt !== undefined) updateData.discountExpiresAt = discountExpiresAt;
     if (specifications !== undefined) updateData.specifications = specifications;
     if (isSellerFavorite !== undefined) updateData.isSellerFavorite = isSellerFavorite;
+    if (policies !== undefined) updateData.policies = policies;
 
     const product = await Product.findByIdAndUpdate(
       id,
@@ -425,19 +441,27 @@ export const getFeaturedProducts = async (req: Request, res: Response): Promise<
 export const getProductsByCategory = async (req: Request, res: Response): Promise<void> => {
   try {
     const { categoryId } = req.params;
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, subcategory } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 10));
     const skip = (pageNum - 1) * limitNum;
 
-    const products = await Product.find({ category: categoryId, isActive: true })
+    // Build filter query
+    const filter: any = { category: categoryId, isActive: true };
+    
+    // Add subcategory filter if provided
+    if (subcategory && typeof subcategory === 'string') {
+      filter.subcategory = subcategory;
+    }
+
+    const products = await Product.find(filter)
       .skip(skip)
       .limit(limitNum)
       .sort({ createdAt: -1 })
       .populate('supplierId', 'name email verified rating location responseTime logo');
 
-    const total = await Product.countDocuments({ category: categoryId, isActive: true });
+    const total = await Product.countDocuments(filter);
 
     res.status(200).json({
       status: 'success',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { Header } from '../components/Header';
+import { DateDivider, createListWithDateDividers } from '../components/DateDivider';
 import { API_BASE_URL } from '../constants/config';
 import { tokenManager } from '../services/api/tokenManager';
 import { spacing } from '../theme/spacing';
@@ -264,59 +265,74 @@ export default function InquiriesScreen() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
   };
 
-  const renderItem = useCallback(({ item }: { item: MessageThread }) => (
-    <TouchableOpacity
-      style={styles.inquiryCard}
-      onPress={() => handleInquiryPress(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.inquiryHeader}>
-        <View style={styles.inquiryInfo}>
-          <Text style={styles.inquiryTitle}>
-            {item.productName ? `Inquiry about ${item.productName}` : 'General Inquiry'}
-          </Text>
+  const listItems = useMemo(() => {
+    return createListWithDateDividers(
+      inquiries,
+      (item) => item._id,
+      (item) => item.lastMessageAt
+    );
+  }, [inquiries]);
+
+  const renderItem = useCallback(({ item }: { item: any }) => {
+    if (item.type === 'divider') {
+      return <DateDivider date={item.label} />;
+    }
+
+    const inquiry = item.data;
+    return (
+      <TouchableOpacity
+        style={styles.inquiryCard}
+        onPress={() => handleInquiryPress(inquiry)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.inquiryHeader}>
+          <View style={styles.inquiryInfo}>
+            <Text style={styles.inquiryTitle}>
+              {inquiry.productName ? `Inquiry about ${inquiry.productName}` : 'General Inquiry'}
+            </Text>
+            
+            {inquiry.productName && (
+              <View style={styles.productInfo}>
+                {inquiry.productImage && (
+                  <Image
+                    source={{ uri: inquiry.productImage }}
+                    style={styles.productImage}
+                    resizeMode="cover"
+                  />
+                )}
+                <Text style={styles.productName} numberOfLines={1}>
+                  {inquiry.productName}
+                </Text>
+              </View>
+            )}
+          </View>
           
-          {item.productName && (
-            <View style={styles.productInfo}>
-              {item.productImage && (
-                <Image
-                  source={{ uri: item.productImage }}
-                  style={styles.productImage}
-                  resizeMode="cover"
-                />
-              )}
-              <Text style={styles.productName} numberOfLines={1}>
-                {item.productName}
+          <View style={styles.statusBadge}>
+            <Text style={styles.statusText}>
+              {inquiry.status === 'active' ? 'Active' : 'Archived'}
+            </Text>
+          </View>
+        </View>
+        
+        <Text style={styles.lastMessage} numberOfLines={2}>
+          {inquiry.lastMessage}
+        </Text>
+        
+        <View style={styles.inquiryFooter}>
+          <Text style={styles.date}>{formatDate(inquiry.lastMessageAt)}</Text>
+          {inquiry.unreadCount > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadText}>
+                {inquiry.unreadCount > 99 ? '99+' : inquiry.unreadCount}
               </Text>
             </View>
           )}
         </View>
-        
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>
-            {item.status === 'active' ? 'Active' : 'Archived'}
-          </Text>
-        </View>
-      </View>
-      
-      <Text style={styles.lastMessage} numberOfLines={2}>
-        {item.lastMessage}
-      </Text>
-      
-      <View style={styles.inquiryFooter}>
-        <Text style={styles.date}>{formatDate(item.lastMessageAt)}</Text>
-        {item.unreadCount > 0 && (
-          <View style={styles.unreadBadge}>
-            <Text style={styles.unreadText}>
-              {item.unreadCount > 99 ? '99+' : item.unreadCount}
-            </Text>
-          </View>
-        )}
-      </View>
-    </TouchableOpacity>
-  ), [styles, colors]);
+      </TouchableOpacity>
+    );
+  }, [styles, colors]);
 
-  const keyExtractor = useCallback((item: MessageThread) => item._id, []);
+  const keyExtractor = useCallback((item: any) => item.key, []);
 
   if (!isAuthenticated) {
     return null;
@@ -355,7 +371,7 @@ export default function InquiriesScreen() {
         </View>
       ) : (
         <FlatList
-          data={inquiries}
+          data={listItems}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.inquiriesList}

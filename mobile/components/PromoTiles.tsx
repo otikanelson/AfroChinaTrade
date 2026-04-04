@@ -26,7 +26,7 @@ export const PromoTiles: React.FC<PromoTilesProps> = ({ ads }) => {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ backgroundColor: colors.background, marginBottom: 20, paddingHorizontal: spacing.base, gap: spacing.sm, paddingTop: spacing.lg, paddingBottom: spacing.sm }}
+      contentContainerStyle={{ backgroundColor: colors.background, marginBottom: 20, gap: spacing.sm, paddingBottom: spacing.sm }}
     >
       {ads.map(ad => (
         <TouchableOpacity

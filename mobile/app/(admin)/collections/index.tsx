@@ -438,6 +438,51 @@ export default function CollectionsManagement() {
         tours={availableTours}
         onClose={() => setTourModalVisible(false)}
       />
+
+      <CustomModal
+        visible={deleteModalVisible}
+        onClose={() => setDeleteModalVisible(false)}
+        title="Delete Collection"
+        type="danger"
+      >
+        <Text style={{ fontSize: fontSizes.base, color: colors.text, marginBottom: spacing.lg }}>
+          Are you sure you want to delete "{selectedCollection?.name}"? This action cannot be undone.
+        </Text>
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: spacing.md,
+              paddingHorizontal: spacing.lg,
+              borderRadius: borderRadius.md,
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+              alignItems: 'center',
+            }}
+            onPress={() => setDeleteModalVisible(false)}
+          >
+            <Text style={{ fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.text }}>
+              Cancel
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: spacing.md,
+              paddingHorizontal: spacing.lg,
+              borderRadius: borderRadius.md,
+              backgroundColor: colors.error,
+              alignItems: 'center',
+            }}
+            onPress={confirmDelete}
+          >
+            <Text style={{ fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textInverse }}>
+              Delete
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </CustomModal>
     </View>
   );
 }
