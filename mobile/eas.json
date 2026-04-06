@@ -22,7 +22,32 @@
         "EXPO_PUBLIC_DEBUG": "false"
       }
     },
+    "preview-apk": {
+      "android": {
+        "buildType": "apk"
+      },
+      "developmentClient": false,
+      "distribution": "internal",
+      "env": {
+        "EAS_BUILD": "true",
+        "EXPO_PUBLIC_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://afro-china-trade.vercel.app/api",
+        "EXPO_PUBLIC_DEBUG": "false"
+      }
+    },
     "production": {
+      "autoIncrement": true,
+      "env": {
+        "EAS_BUILD": "true",
+        "EXPO_PUBLIC_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://afro-china-trade.vercel.app/api",
+        "EXPO_PUBLIC_DEBUG": "false"
+      }
+    },
+    "production-apk": {
+      "android": {
+        "buildType": "apk"
+      },
       "autoIncrement": true,
       "env": {
         "EAS_BUILD": "true",

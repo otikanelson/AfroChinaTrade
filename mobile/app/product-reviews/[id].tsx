@@ -60,7 +60,6 @@ export default function ProductReviewsScreen() {
       backgroundColor: colors.surface,
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
-      marginTop: 5,
     },
     title: {
       fontSize: fontSizes.lg,
