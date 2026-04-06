@@ -209,7 +209,7 @@ export default function RegisterScreen() {
       hasUppercase: /[A-Z]/.test(password),
       hasLowercase: /[a-z]/.test(password),
       hasNumber: /\d/.test(password),
-      hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+      hasSpecialChar: /[!@#$%^&*]/.test(password)
     };
     
     const isValid = Object.values(requirements).every(req => req);

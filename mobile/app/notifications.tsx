@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Switch,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +18,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { Header } from '../components/Header';
 import { DateDivider, createListWithDateDividers } from '../components/DateDivider';
 import { spacing } from '../theme/spacing';
-import { Notification, NotificationSettings } from '../services/NotificationService';
+import { Notification } from '../services/NotificationService';
 
 // Check if running in Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -189,33 +188,18 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const { colors, fontSizes, fontWeights, borderRadius } = useTheme();
   const { user, isAuthenticated } = useAuth();
-  
   const {
     notifications,
     unreadCount,
-    settings,
     loading,
     refreshing,
-    settingsLoading,
-    settingsSaving,
     error,
     hasMore,
     fetchNotifications,
     loadMore,
     markAsRead,
     markAllAsRead,
-    updateSettings,
   } = useNotifications();
-
-  const [showSettings, setShowSettings] = useState(false);
-  const [localSettings, setLocalSettings] = useState<NotificationSettings | null>(null);
-
-  // Update local settings when settings change
-  useEffect(() => {
-    if (settings) {
-      setLocalSettings(settings);
-    }
-  }, [settings]);
 
   const styles = StyleSheet.create({
     container: {
@@ -300,43 +284,6 @@ export default function NotificationsScreen() {
       paddingHorizontal: spacing.base,
       paddingVertical: spacing.sm,
       textTransform: 'uppercase',
-    },
-    settingItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    settingIcon: {
-      marginRight: spacing.sm,
-    },
-    settingInfo: {
-      flex: 1,
-    },
-    settingTitle: {
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.medium,
-      color: colors.text,
-      marginBottom: 2,
-    },
-    settingDescription: {
-      fontSize: fontSizes.sm,
-      color: colors.textSecondary,
-    },
-    saveButton: {
-      backgroundColor: colors.primary,
-      marginHorizontal: spacing.base,
-      marginVertical: spacing.base,
-      paddingVertical: spacing.md,
-      borderRadius: borderRadius.md,
-      alignItems: 'center',
-    },
-    saveButtonText: {
-      color: colors.textInverse,
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.semibold,
     },
     errorContainer: {
       backgroundColor: colors.error + '20',
@@ -431,22 +378,6 @@ export default function NotificationsScreen() {
     );
   };
 
-  const toggleSetting = (key: keyof NotificationSettings) => {
-    if (!localSettings) return;
-    setLocalSettings(prev => prev ? { ...prev, [key]: !prev[key] } : null);
-  };
-
-  const saveSettings = async () => {
-    if (!localSettings) return;
-
-    try {
-      await updateSettings(localSettings);
-      Alert.alert('Success', 'Notification preferences saved successfully');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to save notification preferences');
-    }
-  };
-
   const listItems = useMemo(() => {
     return createListWithDateDividers(
       notifications,
@@ -509,18 +440,12 @@ export default function NotificationsScreen() {
   return (
     <View style={styles.container}>
       <Header 
-        title={showSettings ? "Notification Settings" : "Notifications"} 
+        title="Notifications" 
         showBack={true}
         rightAction={
-          !showSettings ? (
-            <TouchableOpacity onPress={() => setShowSettings(true)}>
-              <Ionicons name="settings-outline" size={24} color={colors.text} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={() => setShowSettings(false)}>
-              <Ionicons name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
-          )
+          <TouchableOpacity onPress={() => router.push('/notification-settings')}>
+            <Ionicons name="settings-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
         }
       />
 
@@ -538,196 +463,37 @@ export default function NotificationsScreen() {
         </View>
       )}
 
-      {showSettings ? (
-        // Settings View
-        <>
-          {settingsLoading ? (
-            <View style={styles.centerContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Loading settings...</Text>
-            </View>
-          ) : (
-            <FlatList
-              style={styles.content}
-              ListHeaderComponent={
-                localSettings ? (
-                  <>
-                    <View style={styles.section}>
-                      <Text style={styles.sectionTitle}>Content Preferences</Text>
-                      
-                      <View style={styles.settingItem}>
-                        <Ionicons name="cube-outline" size={24} color={colors.primary} style={styles.settingIcon} />
-                        <View style={styles.settingInfo}>
-                          <Text style={styles.settingTitle}>Order Updates</Text>
-                          <Text style={styles.settingDescription}>Get notified about your order status</Text>
-                        </View>
-                        <Switch
-                          value={localSettings.orderUpdates}
-                          onValueChange={() => toggleSetting('orderUpdates')}
-                          trackColor={{ false: colors.border, true: colors.primary }}
-                        />
-                      </View>
-
-                      <View style={styles.settingItem}>
-                        <Ionicons name="pricetag-outline" size={24} color={colors.primary} style={styles.settingIcon} />
-                        <View style={styles.settingInfo}>
-                          <Text style={styles.settingTitle}>Promotions</Text>
-                          <Text style={styles.settingDescription}>Receive special offers and deals</Text>
-                        </View>
-                        <Switch
-                          value={localSettings.promotions}
-                          onValueChange={() => toggleSetting('promotions')}
-                          trackColor={{ false: colors.border, true: colors.primary }}
-                        />
-                      </View>
-
-                      <View style={styles.settingItem}>
-                        <Ionicons name="sparkles-outline" size={24} color={colors.primary} style={styles.settingIcon} />
-                        <View style={styles.settingInfo}>
-                          <Text style={styles.settingTitle}>New Products</Text>
-                          <Text style={styles.settingDescription}>Be first to know about new arrivals</Text>
-                        </View>
-                        <Switch
-                          value={localSettings.newProducts}
-                          onValueChange={() => toggleSetting('newProducts')}
-                          trackColor={{ false: colors.border, true: colors.primary }}
-                        />
-                      </View>
-
-                      <View style={styles.settingItem}>
-                        <Ionicons name="trending-down-outline" size={24} color={colors.primary} style={styles.settingIcon} />
-                        <View style={styles.settingInfo}>
-                          <Text style={styles.settingTitle}>Price Drops</Text>
-                          <Text style={styles.settingDescription}>Get alerts on price reductions</Text>
-                        </View>
-                        <Switch
-                          value={localSettings.priceDrops}
-                          onValueChange={() => toggleSetting('priceDrops')}
-                          trackColor={{ false: colors.border, true: colors.primary }}
-                        />
-                      </View>
-
-                      <View style={[styles.settingItem, { borderBottomWidth: 0 }]}>
-                        <Ionicons name="mail-outline" size={24} color={colors.primary} style={styles.settingIcon} />
-                        <View style={styles.settingInfo}>
-                          <Text style={styles.settingTitle}>Newsletter</Text>
-                          <Text style={styles.settingDescription}>Weekly updates and tips</Text>
-                        </View>
-                        <Switch
-                          value={localSettings.newsletter}
-                          onValueChange={() => toggleSetting('newsletter')}
-                          trackColor={{ false: colors.border, true: colors.primary }}
-                        />
-                      </View>
-                    </View>
-
-                    <View style={styles.section}>
-                      <Text style={styles.sectionTitle}>Delivery Methods</Text>
-                      
-                      <View style={styles.settingItem}>
-                        <Ionicons name="notifications-outline" size={24} color={colors.primary} style={styles.settingIcon} />
-                        <View style={styles.settingInfo}>
-                          <Text style={styles.settingTitle}>Push Notifications</Text>
-                          <Text style={styles.settingDescription}>
-                            {isExpoGo ? 'Limited in Expo Go - use development build' : 'Receive notifications on your device'}
-                          </Text>
-                        </View>
-                        <Switch
-                          value={localSettings.pushNotifications && !isExpoGo}
-                          onValueChange={(value) => {
-                            if (!isExpoGo) {
-                              toggleSetting('pushNotifications');
-                            }
-                          }}
-                          trackColor={{ false: colors.border, true: colors.primary }}
-                          disabled={isExpoGo}
-                        />
-                      </View>
-
-                      <View style={styles.settingItem}>
-                        <Ionicons name="mail-outline" size={24} color={colors.primary} style={styles.settingIcon} />
-                        <View style={styles.settingInfo}>
-                          <Text style={styles.settingTitle}>Email Notifications</Text>
-                          <Text style={styles.settingDescription}>Receive updates via email</Text>
-                        </View>
-                        <Switch
-                          value={localSettings.emailNotifications}
-                          onValueChange={() => toggleSetting('emailNotifications')}
-                          trackColor={{ false: colors.border, true: colors.primary }}
-                        />
-                      </View>
-
-                      <View style={[styles.settingItem, { borderBottomWidth: 0 }]}>
-                        <Ionicons name="chatbubble-outline" size={24} color={colors.primary} style={styles.settingIcon} />
-                        <View style={styles.settingInfo}>
-                          <Text style={styles.settingTitle}>SMS Notifications</Text>
-                          <Text style={styles.settingDescription}>Receive text messages</Text>
-                        </View>
-                        <Switch
-                          value={localSettings.smsNotifications}
-                          onValueChange={() => toggleSetting('smsNotifications')}
-                          trackColor={{ false: colors.border, true: colors.primary }}
-                        />
-                      </View>
-                    </View>
-                  </>
-                ) : null
-              }
-              data={[]}
-              renderItem={null}
-            />
-          )}
-
-          {localSettings && (
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={saveSettings}
-              disabled={settingsSaving}
-            >
-              {settingsSaving ? (
-                <ActivityIndicator size="small" color={colors.textInverse} />
-              ) : (
-                <Text style={styles.saveButtonText}>Save Preferences</Text>
-              )}
-            </TouchableOpacity>
-          )}
-        </>
-      ) : (
-        // Notifications List View
-        <>
-          {notifications.length > 0 && (
-            <View style={styles.headerActions}>
-              <TouchableOpacity
-                style={[styles.headerButton, { backgroundColor: colors.primary + '20' }]}
-                onPress={handleMarkAllAsRead}
-                disabled={unreadCount === 0}
-              >
-                <Ionicons name="checkmark-done" size={16} color={colors.primary} />
-                <Text style={[styles.headerButtonText, { color: colors.primary }]}>
-                  Mark All Read ({unreadCount})
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <FlatList
-            style={styles.content}
-            data={listItems}
-            renderItem={renderNotification}
-            keyExtractor={(item: any) => item.key}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => fetchNotifications(true)}
-                tintColor={colors.primary}
-              />
-            }
-            ListEmptyComponent={renderEmpty}
-            ListFooterComponent={renderLoadMore}
-            showsVerticalScrollIndicator={false}
-          />
-        </>
+      {notifications.length > 0 && (
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.headerButton, { backgroundColor: colors.primary + '20' }]}
+            onPress={handleMarkAllAsRead}
+            disabled={unreadCount === 0}
+          >
+            <Ionicons name="checkmark-done" size={16} color={colors.primary} />
+            <Text style={[styles.headerButtonText, { color: colors.primary }]}>
+              Mark All Read ({unreadCount})
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
+
+      <FlatList
+        style={styles.content}
+        data={listItems}
+        renderItem={renderNotification}
+        keyExtractor={(item: any) => item.key}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchNotifications(true)}
+            tintColor={colors.primary}
+          />
+        }
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderLoadMore}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
   );
 }

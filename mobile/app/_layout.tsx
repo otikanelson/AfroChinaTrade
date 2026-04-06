@@ -22,6 +22,7 @@ import { InAppToast } from '../components/InAppToast';
 import { handleNotificationDeepLink } from '../utils/notificationDeepLink';
 import { adService, Ad } from '../services/AdService';
 import { SplashAdModal } from '../components/SplashAdModal';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 // Ignore expo-notifications warnings in Expo Go
 LogBox.ignoreLogs([
@@ -216,27 +217,29 @@ function RootLayoutContent() {
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <SessionProvider>
-            <RedirectProvider>
-              <CartProvider>
-                <WishlistProvider>
-                  <MessagesProvider>
-                    <AlertProvider>
-                      <ActivityTracker>
-                        <RootLayoutContent />
-                        <CartSidebar />
-                      </ActivityTracker>
-                    </AlertProvider>
-                  </MessagesProvider>
-                </WishlistProvider>
-              </CartProvider>
-            </RedirectProvider>
-          </SessionProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <SessionProvider>
+              <RedirectProvider>
+                <CartProvider>
+                  <WishlistProvider>
+                    <MessagesProvider>
+                      <AlertProvider>
+                        <ActivityTracker>
+                          <RootLayoutContent />
+                          <CartSidebar />
+                        </ActivityTracker>
+                      </AlertProvider>
+                    </MessagesProvider>
+                  </WishlistProvider>
+                </CartProvider>
+              </RedirectProvider>
+            </SessionProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

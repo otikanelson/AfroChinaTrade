@@ -528,19 +528,18 @@ export default function AccountTab() {
         />
 
         <MenuItem
-          icon="notifications-outline"
-          title="Notifications"
-          subtitle="Manage notification preferences"
-          onPress={() => router.push('/notifications')}
-          badge={unreadCount > 0 ? { count: unreadCount } : undefined}
-          disabled={isAdminViewingCustomer}
-        />
-        
-        <MenuItem
           icon="language-outline"
           title="Language"
           subtitle="English"
           onPress={() => router.push('/language')}
+        />
+
+        {/* Notifications */}
+        <MenuItem
+          icon="notifications-outline"
+          title="Notifications"
+          subtitle="View your notifications"
+          onPress={() => router.push('/notifications')}
         />
 
         {/* Logout */}

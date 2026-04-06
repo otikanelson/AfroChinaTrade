@@ -498,11 +498,11 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
     }
 
     // Check password complexity
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]/;
     if (!passwordRegex.test(newPassword)) {
       return res.status(400).json({
         status: 'error',
-        message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+        message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (!@#$%^&*)',
         errorCode: 'WEAK_PASSWORD'
       });
     }
@@ -674,14 +674,13 @@ export const getNotificationSettings = async (req: AuthRequest, res: Response) =
     }
 
     res.json({
-      status: 'success',
+      success: true,
       data: user.notificationSettings
     });
   } catch (error: any) {
     res.status(500).json({
-      status: 'error',
-      message: error.message,
-      errorCode: 'NOTIFICATION_SETTINGS_FETCH_ERROR'
+      success: false,
+      message: error.message
     });
   }
 };
@@ -694,11 +693,20 @@ export const updateNotificationSettings = async (req: AuthRequest, res: Response
 
     // Validate settings structure
     const validKeys = [
-      'orderUpdates',
-      'promotions', 
+      // Product & Commerce
       'newProducts',
+      'discountedProducts', 
       'priceDrops',
+      'orderUpdates',
+      // Marketing & Promotions
+      'promotions',
+      'newAds',
+      // Communication
+      'chatMessages',
+      'helpAndSupport',
+      // General
       'newsletter',
+      // Delivery Methods
       'pushNotifications',
       'emailNotifications',
       'smsNotifications'
@@ -707,9 +715,8 @@ export const updateNotificationSettings = async (req: AuthRequest, res: Response
     const invalidKeys = Object.keys(settings).filter(key => !validKeys.includes(key));
     if (invalidKeys.length > 0) {
       return res.status(400).json({
-        status: 'error',
-        message: `Invalid settings keys: ${invalidKeys.join(', ')}`,
-        errorCode: 'INVALID_SETTINGS_KEYS'
+        success: false,
+        message: `Invalid settings keys: ${invalidKeys.join(', ')}`
       });
     }
 
@@ -717,9 +724,8 @@ export const updateNotificationSettings = async (req: AuthRequest, res: Response
     for (const [key, value] of Object.entries(settings)) {
       if (typeof value !== 'boolean') {
         return res.status(400).json({
-          status: 'error',
-          message: `Setting '${key}' must be a boolean value`,
-          errorCode: 'INVALID_SETTING_VALUE'
+          success: false,
+          message: `Setting '${key}' must be a boolean value`
         });
       }
     }
@@ -732,22 +738,20 @@ export const updateNotificationSettings = async (req: AuthRequest, res: Response
 
     if (!user) {
       return res.status(404).json({
-        status: 'error',
-        message: 'User not found',
-        errorCode: 'USER_NOT_FOUND'
+        success: false,
+        message: 'User not found'
       });
     }
 
     res.json({
-      status: 'success',
+      success: true,
       data: user.notificationSettings,
       message: 'Notification settings updated successfully'
     });
   } catch (error: any) {
     res.status(500).json({
-      status: 'error',
-      message: error.message,
-      errorCode: 'NOTIFICATION_SETTINGS_UPDATE_ERROR'
+      success: false,
+      message: error.message
     });
   }
 };

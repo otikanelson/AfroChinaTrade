@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import Notification from '../models/Notification';
+import Notification, { INotification } from '../models/Notification';
 import User from '../models/User';
 import PushDeliveryService from '../services/PushDeliveryService';
 
@@ -121,7 +121,7 @@ export const getUnreadCount = async (req: Request, res: Response) => {
 // Create notification (internal use)
 export const createNotification = async (
   userId: string,
-  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'price_drop' | 'new_product' | 'new_order' | 'new_refund_request',
+  type: INotification['type'],
   title: string,
   message: string,
   data?: Record<string, any>
@@ -145,7 +145,7 @@ export const createNotification = async (
 // Bulk create notifications for multiple users
 export const createBulkNotifications = async (
   userIds: string[],
-  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'price_drop' | 'new_product' | 'new_order' | 'new_refund_request',
+  type: INotification['type'],
   title: string,
   message: string,
   data?: Record<string, any>
@@ -244,7 +244,7 @@ export const notifyPriceDrop = async (
 
     return await createBulkNotifications(
       userIds,
-      'price_drop',
+      'promotion',
       `Price Drop Alert: ${productName}`,
       `Save ₦${savings.toLocaleString()} (${percentage}% off)! Now ₦${newPrice.toLocaleString()}`,
       {
@@ -285,6 +285,164 @@ export const notifyNewProduct = async (
     );
   } catch (error) {
     console.error('Error notifying new product:', error);
+    return false;
+  }
+};
+
+// Notify users about discounted products
+export const notifyDiscountedProduct = async (
+  userIds: string[],
+  productName: string,
+  productId: string,
+  originalPrice: number,
+  discountedPrice: number,
+  discountPercentage: number
+) => {
+  try {
+    return await createBulkNotifications(
+      userIds,
+      'discounted_product',
+      `Price Drop: ${productName}`,
+      `Save ${discountPercentage}%! Now ₦${discountedPrice.toLocaleString()} (was ₦${originalPrice.toLocaleString()})`,
+      {
+        productId,
+        productName,
+        originalPrice,
+        discountedPrice,
+        discountPercentage,
+      }
+    );
+  } catch (error) {
+    console.error('Error notifying discounted product:', error);
+    return false;
+  }
+};
+
+// Notify users about new ads created by admin
+export const notifyNewAd = async (
+  userIds: string[],
+  adTitle: string,
+  adId: string,
+  adType: string
+) => {
+  try {
+    const success = await createBulkNotifications(
+      userIds,
+      'new_ad',
+      `New Promotion: ${adTitle}`,
+      `Don't miss out on our latest ${adType} promotion!`,
+      {
+        adId,
+        adTitle,
+        adType,
+      }
+    );
+
+    // Send push notifications
+    if (success) {
+      const PushDeliveryService = require('../services/PushDeliveryService').default;
+      PushDeliveryService.send({
+        userIds,
+        title: `New Promotion: ${adTitle}`,
+        body: `Don't miss out on our latest ${adType} promotion!`,
+        data: {
+          adId,
+          adTitle,
+          adType,
+          type: 'new_ad'
+        },
+        settingKey: 'newAds',
+      }).catch((error: any) => {
+        console.error('Error sending new ad push notifications:', error);
+      });
+    }
+
+    return success;
+  } catch (error) {
+    console.error('Error notifying new ad:', error);
+    return false;
+  }
+};
+
+// Notify users about new chat messages
+export const notifyChatMessage = async (
+  userId: string,
+  senderName: string,
+  messagePreview: string,
+  threadId: string
+) => {
+  try {
+    return await createNotification(
+      userId,
+      'chat_message',
+      `New message from ${senderName}`,
+      messagePreview.length > 100 ? `${messagePreview.substring(0, 100)}...` : messagePreview,
+      {
+        threadId,
+        senderName,
+      }
+    );
+  } catch (error) {
+    console.error('Error notifying chat message:', error);
+    return false;
+  }
+};
+
+// Notify users about help and support updates
+export const notifyHelpSupport = async (
+  userId: string,
+  ticketId: string,
+  ticketTitle: string,
+  updateType: 'created' | 'updated' | 'resolved'
+) => {
+  try {
+    const titles = {
+      created: 'Support Ticket Created',
+      updated: 'Support Ticket Updated',
+      resolved: 'Support Ticket Resolved'
+    };
+    
+    const messages = {
+      created: `Your support ticket "${ticketTitle}" has been created and assigned to our team.`,
+      updated: `Your support ticket "${ticketTitle}" has been updated with new information.`,
+      resolved: `Your support ticket "${ticketTitle}" has been resolved. Check the details for more information.`
+    };
+
+    return await createNotification(
+      userId,
+      'help_support',
+      titles[updateType],
+      messages[updateType],
+      {
+        ticketId,
+        ticketTitle,
+        updateType,
+      }
+    );
+  } catch (error) {
+    console.error('Error notifying help support:', error);
+    return false;
+  }
+};
+
+// Notify users about newsletter
+export const notifyNewsletter = async (
+  userIds: string[],
+  subject: string,
+  preview: string
+) => {
+  try {
+    return await createBulkNotifications(
+      userIds,
+      'newsletter',
+      `Newsletter: ${subject}`,
+      preview,
+      {
+        subject,
+      }
+    );
+  } catch (error) {
+    console.error('Error notifying newsletter:', error);
     return false;
   }
 };
@@ -345,7 +503,7 @@ export const notifyAdminsOfRefundRequest = async (
 
 // Generic function to notify all admins
 export const notifyAdmins = async (
-  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'price_drop' | 'new_product' | 'new_order' | 'new_refund_request',
+  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'new_product' | 'new_order' | 'new_refund_request',
   title: string,
   message: string,
   data?: any

@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import Ad from '../models/Ad';
+import { notifyNewAd } from './notificationController';
+import User from '../models/User';
 
 // GET /api/ads — public, returns active ads ordered by displayOrder
 // Optional query: ?placement=home|buy-now|product-detail&adType=carousel|tile
@@ -51,6 +53,30 @@ export const createAd = async (req: Request, res: Response): Promise<void> => {
       splashFrequency: splashFrequency || 'daily',
       splashDuration: splashDuration || 3000
     });
+
+    // Send notification to users who opted in for new ad notifications
+    if (ad.isActive) {
+      try {
+        // Get users who want new ad notifications
+        const users = await User.find({
+          'notificationSettings.newAds': true,
+          status: 'active'
+        }).select('_id');
+        
+        const userIds = users.map(user => user._id.toString());
+        
+        if (userIds.length > 0) {
+          await notifyNewAd(
+            userIds,
+            ad.title,
+            ad._id.toString(),
+            'promotional'
+          );
+        }
+      } catch (error) {
+        console.error('Failed to send new ad notification:', error);
+      }
+    }
     
     res.status(201).json({ success: true, data: ad });
   } catch (error) {

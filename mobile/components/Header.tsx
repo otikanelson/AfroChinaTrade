@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { Sidebar } from './Sidebar';
+import Constants from 'expo-constants';
 
 interface HeaderProps {
   title?: string;
@@ -25,6 +26,7 @@ interface HeaderProps {
     count: number;
     color?: string;
   };
+  debugMode?: boolean; // Add debug mode prop
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -42,7 +44,8 @@ export const Header: React.FC<HeaderProps> = ({
   onFilterPress,
   onBackPress,
   rightAction,
-  badge
+  badge,
+  debugMode = false // Default to false
 }) => {
   const router = useRouter();
   const segments = useSegments();
@@ -51,14 +54,48 @@ export const Header: React.FC<HeaderProps> = ({
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const insets = useSafeAreaInsets();
 
+  // Enhanced platform and environment detection
+  const isExpoGo = Constants.appOwnership === 'expo';
+  const isAndroid = Platform.OS === 'android';
+  const isIOS = Platform.OS === 'ios';
+  
+  // Determine the appropriate top padding
+  const getTopPadding = () => {
+    if (isIOS) {
+      // iOS always needs safe area padding
+      return insets.top;
+    } else if (isAndroid) {
+      // Android behavior depends on build type and SDK version
+      if (isExpoGo) {
+        // In Expo Go, Android usually doesn't need extra padding
+        return 0;
+      } else {
+        // In production builds, check if we have insets
+        return insets.top > 0 ? insets.top : 0;
+      }
+    }
+    return 0;
+  };
+
+  const topPadding = getTopPadding();
+
   const styles = StyleSheet.create({
     container: {
       backgroundColor: colors.background,
-      paddingTop: insets.top,
+      paddingTop: topPadding,
     },
-    safeArea: {
-      backgroundColor: colors.background,
-    },    header: {
+    debugInfo: {
+      backgroundColor: 'rgba(255, 0, 0, 0.1)',
+      padding: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: 'red',
+    },
+    debugText: {
+      fontSize: 10,
+      color: 'red',
+      fontFamily: 'monospace',
+    },
+    header: {
       height: 60,
       paddingHorizontal: 16,
       flexDirection: 'row',
@@ -201,10 +238,28 @@ export const Header: React.FC<HeaderProps> = ({
       <StatusBar 
         barStyle="dark-content" 
         backgroundColor={colors.background} 
-        translucent={false}
+        translucent={Platform.OS === 'android' ? false : true}
       />
-      <View style={styles.safeArea}>
-        <View style={styles.header}>
+      
+      {/* Debug Information - only show when debugMode is true */}
+      {debugMode && (
+        <View style={styles.debugInfo}>
+          <Text style={styles.debugText}>
+            Platform: {Platform.OS} | Expo Go: {isExpoGo ? 'Yes' : 'No'}
+          </Text>
+          <Text style={styles.debugText}>
+            Safe Area Insets - Top: {insets.top}, Bottom: {insets.bottom}
+          </Text>
+          <Text style={styles.debugText}>
+            Applied Padding: {topPadding}px
+          </Text>
+          <Text style={styles.debugText}>
+            App Ownership: {Constants.appOwnership}
+          </Text>
+        </View>
+      )}
+      
+      <View style={styles.header}>
           {/* Left Section */}
           <View style={styles.leftSection}>
             {showBack ? (
@@ -281,7 +336,6 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </View>
         </View>
-      </View>
       
       <Sidebar 
         visible={sidebarVisible} 

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import Product from '../models/Product';
+import User from '../models/User';
 import { getDatabaseStatus } from '../config/database';
+import NotificationService from '../services/NotificationService';
 
 // Get all products with pagination, filtering, and sorting
 export const getProducts = async (req: Request, res: Response): Promise<void> => {
@@ -246,6 +248,18 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       policies: policies || {},
     });
 
+    // Send notification to users who opted in for new product notifications
+    if (product.isActive) {
+      NotificationService.sendNewProductNotification(
+        product.name,
+        product._id.toString(),
+        category || 'Product',
+        product.price
+      ).catch(error => {
+        console.error('Failed to send new product notification:', error);
+      });
+    }
+
     res.status(201).json({
       status: 'success',
       message: 'Product created successfully',
@@ -335,6 +349,40 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
         errorCode: 'PRODUCT_NOT_FOUND',
       });
       return;
+    }
+
+    // Check if discount was added or increased
+    if (discount !== undefined && product.isActive) {
+      const originalProduct = await Product.findById(id);
+      const oldDiscount = originalProduct?.discount || 0;
+      
+      if (discount > oldDiscount && discount > 0) {
+        // Send discount notification
+        try {
+          const users = await User.find({
+            'notificationSettings.discountedProducts': true,
+            status: 'active'
+          }).select('_id');
+          
+          const userIds = users.map(user => user._id.toString());
+          
+          if (userIds.length > 0) {
+            const originalPrice = product.price;
+            const discountedPrice = originalPrice * (1 - discount / 100);
+            
+            await NotificationService.sendDiscountedProductNotification(
+              userIds,
+              product.name,
+              product._id.toString(),
+              originalPrice,
+              discountedPrice,
+              discount
+            );
+          }
+        } catch (error) {
+          console.error('Failed to send discount notification:', error);
+        }
+      }
     }
 
     res.status(200).json({

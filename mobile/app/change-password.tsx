@@ -152,11 +152,11 @@ export default function ChangePasswordScreen({ isAdmin = false }: ChangePassword
       return false;
     }
 
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])/;
     if (!passwordRegex.test(newPassword)) {
       Alert.alert(
         'Weak Password',
-        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (!@#$%^&*)'
       );
       return false;
     }

@@ -13,6 +13,9 @@ import { StatusBadge, StatusType } from '../../../components/admin/StatusBadge';
 import { SearchBar } from '../../../components/admin/SearchBar';
 import { Header } from '../../../components/Header';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useAsyncCleanup } from '../../../hooks/useAsyncCleanup';
+import { useBackHandler } from '../../../hooks/useBackHandler';
+import { NavigationUtils } from '../../../utils/navigationUtils';
 
 type StatusFilter = 'all' | 'active' | 'suspended' | 'blocked';
 
@@ -37,6 +40,11 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
 export default function UserListScreen() {
   const router = useRouter();
   const { colors, spacing, borderRadius, fontSizes, fontWeights } = useTheme();
+  const { isMounted, createAbortController } = useAsyncCleanup();
+  
+  // Handle Android back button safely
+  useBackHandler();
+  
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -71,12 +79,19 @@ export default function UserListScreen() {
   });
 
   const load = useCallback(async (isRefresh = false) => {
+    if (!isMounted()) return;
+    
     if (isRefresh) setRefreshing(true); else setLoading(true);
+    
+    const abortController = createAbortController();
+    
     try {
       const response = await userService.getUsers({
         page: 1,
         limit: 100, // Get all users for now
       });
+      
+      if (!isMounted() || abortController.signal.aborted) return;
       
       if (response.success && response.data) {
         setUsers(response.data.users || []);
@@ -84,14 +99,18 @@ export default function UserListScreen() {
         throw new Error(response.error?.message || 'Failed to load users');
       }
     } catch (error) {
+      if (!isMounted() || abortController.signal.aborted) return;
+      
       console.error('Error fetching users:', error);
       // For now, just set empty array on error
       setUsers([]);
     } finally { 
-      setLoading(false); 
-      setRefreshing(false); 
+      if (isMounted()) {
+        setLoading(false); 
+        setRefreshing(false); 
+      }
     }
-  }, []);
+  }, [isMounted, createAbortController]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -132,7 +151,7 @@ export default function UserListScreen() {
       <DataList<UserProfile>
         data={filtered}
         renderItem={({ item }) => (
-          <Card onPress={() => router.push(`/(admin)/users/${item._id}` as any)} style={styles.card}>
+          <Card onPress={() => NavigationUtils.safeNavigate(`/(admin)/users/${item._id}`)} style={styles.card}>
             <View style={styles.cardRow}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>

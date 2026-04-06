@@ -23,11 +23,24 @@ export interface IPushTokenRecord {
 
 // Notification settings interface
 export interface INotificationSettings {
-  orderUpdates: boolean;
-  promotions: boolean;
+  // Product & Commerce
   newProducts: boolean;
+  discountedProducts: boolean;
   priceDrops: boolean;
+  orderUpdates: boolean;
+  
+  // Marketing & Promotions
+  promotions: boolean;
+  newAds: boolean;
+  
+  // Communication
+  chatMessages: boolean;
+  helpAndSupport: boolean;
+  
+  // General
   newsletter: boolean;
+  
+  // Delivery Methods
   pushNotifications: boolean;
   emailNotifications: boolean;
   smsNotifications: boolean;
@@ -111,26 +124,51 @@ const PushTokenRecordSchema = new Schema<IPushTokenRecord>({
 
 // Notification settings schema
 const NotificationSettingsSchema = new Schema<INotificationSettings>({
-  orderUpdates: {
-    type: Boolean,
-    default: true,
-  },
-  promotions: {
-    type: Boolean,
-    default: true,
-  },
+  // Product & Commerce
   newProducts: {
     type: Boolean,
-    default: false,
+    default: true,
+  },
+  discountedProducts: {
+    type: Boolean,
+    default: true,
   },
   priceDrops: {
     type: Boolean,
     default: true,
   },
+  orderUpdates: {
+    type: Boolean,
+    default: true,
+  },
+  
+  // Marketing & Promotions
+  promotions: {
+    type: Boolean,
+    default: true,
+  },
+  newAds: {
+    type: Boolean,
+    default: true,
+  },
+  
+  // Communication
+  chatMessages: {
+    type: Boolean,
+    default: true,
+  },
+  helpAndSupport: {
+    type: Boolean,
+    default: true,
+  },
+  
+  // General
   newsletter: {
     type: Boolean,
     default: false,
   },
+  
+  // Delivery Methods
   pushNotifications: {
     type: Boolean,
     default: true,
@@ -173,7 +211,7 @@ const UserSchema = new Schema<IUser>(
       validate: {
         validator: function(password: string) {
           // Password must contain at least one uppercase, one lowercase, one number, and one special character
-          return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(password);
+          return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/.test(password);
         },
         message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
       },

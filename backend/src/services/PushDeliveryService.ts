@@ -6,7 +6,7 @@ interface PushPayload {
   title: string;
   body: string;
   data?: Record<string, any>;
-  settingKey?: 'orderUpdates' | 'promotions';
+  settingKey?: 'orderUpdates' | 'promotions' | 'newProducts' | 'discountedProducts' | 'newAds' | 'priceDrops';
 }
 
 interface TokenWithUser {
@@ -95,7 +95,7 @@ class PushDeliveryService {
    */
   private filterBySettings(
     tokens: TokenWithUser[],
-    settingKey?: 'orderUpdates' | 'promotions'
+    settingKey?: 'orderUpdates' | 'promotions' | 'newProducts' | 'discountedProducts' | 'newAds' | 'priceDrops'
   ): TokenWithUser[] {
     return tokens.filter(t => {
       // Always check global pushNotifications setting

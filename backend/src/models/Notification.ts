@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 // Notification document interface
 export interface INotification extends Document {
   userId: mongoose.Types.ObjectId;
-  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'price_drop' | 'new_product' | 'new_order' | 'new_refund_request';
+  type: 'refund_request' | 'order_update' | 'system' | 'general' | 'promotion' | 'new_product' | 'discounted_product' | 'new_ad' | 'chat_message' | 'help_support' | 'newsletter' | 'new_order' | 'new_refund_request';
   title: string;
   message: string;
   data?: Record<string, any>;
@@ -23,7 +23,7 @@ const NotificationSchema = new Schema<INotification>(
     type: {
       type: String,
       enum: {
-        values: ['refund_request', 'order_update', 'system', 'general', 'promotion', 'price_drop', 'new_product', 'new_order', 'new_refund_request'],
+        values: ['refund_request', 'order_update', 'system', 'general', 'promotion', 'new_product', 'discounted_product', 'new_ad', 'chat_message', 'help_support', 'newsletter', 'new_order', 'new_refund_request'],
         message: '{VALUE} is not a valid notification type',
       },
       required: [true, 'Notification type is required'],

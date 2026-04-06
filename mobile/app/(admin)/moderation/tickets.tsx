@@ -13,6 +13,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useAsyncCleanup } from '../../../hooks/useAsyncCleanup';
+import { useBackHandler } from '../../../hooks/useBackHandler';
+import { NavigationUtils } from '../../../utils/navigationUtils';
 
 import { tokenManager } from '../../../services/api/tokenManager';
 import { Header } from '../../../components/Header';
@@ -56,6 +59,11 @@ const FILTER_OPTIONS = {
 export default function AdminHelpSupportScreen() {
   const router = useRouter();
   const { colors, fontSizes, fontWeights, borderRadius } = useTheme();
+  const { isMounted, createAbortController } = useAsyncCleanup();
+  
+  // Handle Android back button safely
+  useBackHandler();
+  
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -289,23 +297,29 @@ export default function AdminHelpSupportScreen() {
   const priorityRef = useRef<View>(null);
 
   const fetchTickets = async (showRefreshing = false) => {
+    if (!isMounted()) return;
+    
     if (showRefreshing) {
       setRefreshing(true);
     } else {
       setLoading(true);
     }
 
+    const abortController = createAbortController();
+
     try {
       const token = await tokenManager.getAccessToken();
-      if (!token) {
+      if (!token || !isMounted()) {
         // Don't show error for missing token, just set empty state
-        setTickets([]);
-        setPagination({
-          page: 1,
-          limit: 20,
-          total: 0,
-          pages: 0,
-        });
+        if (isMounted()) {
+          setTickets([]);
+          setPagination({
+            page: 1,
+            limit: 20,
+            total: 0,
+            pages: 0,
+          });
+        }
         return;
       }
       
@@ -314,6 +328,8 @@ export default function AdminHelpSupportScreen() {
         limit: pagination.limit,
         ...filters,
       });
+
+      if (!isMounted()) return;
 
       // Handle successful response
       if (data && data.data) {
@@ -335,6 +351,8 @@ export default function AdminHelpSupportScreen() {
         });
       }
     } catch (error: any) {
+      if (!isMounted() || abortController.signal.aborted) return;
+      
       // Silently handle all errors and just set empty state
       // This prevents showing "failed to fetch" errors when there are simply no tickets
       // or when there are authentication/network issues
@@ -346,8 +364,10 @@ export default function AdminHelpSupportScreen() {
         pages: 0,
       });
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isMounted()) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
@@ -430,7 +450,7 @@ export default function AdminHelpSupportScreen() {
   };
 
   const handleTicketPress = (ticket: Ticket) => {
-    router.push(`/(admin)/ticket/${ticket._id}`);
+    NavigationUtils.safeNavigate(`/(admin)/ticket/${ticket._id}`);
   };
 
   const getTicketStats = () => {

@@ -16,6 +16,8 @@ import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ThemeModal } from './ThemeModal';
+import { NavigationUtils } from '../utils/navigationUtils';
+import { useAsyncCleanup } from '../hooks/useAsyncCleanup';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(320, width * 0.78);
@@ -71,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage 
   const segments = useSegments();
   const { colors, fontSizes, fontWeights } = useTheme();
   const { isAuthenticated, isGuestMode, isAdmin, user, logout } = useAuth();
+  const { safeSetTimeout } = useAsyncCleanup();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [modalMounted, setModalMounted] = useState(false);
 
@@ -133,7 +136,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage 
   const handleItemPress = (item: MenuItem) => {
     if (item.requiresAuth && !isAuthenticated) {
       onClose();
-      router.push('/auth/login');
+      // Use safe navigation with delay to prevent state corruption
+      safeSetTimeout(() => {
+        NavigationUtils.safeNavigate('/auth/login');
+      }, 100);
       return;
     }
     
@@ -141,7 +147,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage 
       item.action();
     } else if (item.route) {
       onClose();
-      router.push(item.route as any);
+      // Use safe navigation with delay to allow sidebar to close
+      safeSetTimeout(() => {
+        NavigationUtils.safeNavigate(item.route!);
+      }, 100);
     }
   };
 
@@ -149,7 +158,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage 
     try {
       await logout();
       onClose();
-      router.push('/(tabs)/home');
+      // Use safe navigation with delay
+      safeSetTimeout(() => {
+        NavigationUtils.safeNavigate('/(tabs)/home', { replace: true });
+      }, 100);
     } catch (error) {
       console.error('Sign out error:', error);
     }

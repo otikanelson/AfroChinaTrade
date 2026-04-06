@@ -15,6 +15,7 @@ export interface NotificationSettings {
   promotions: boolean;
   newProducts: boolean;
   priceDrops: boolean;
+  newAds: boolean;
   newsletter: boolean;
   pushNotifications: boolean;
   emailNotifications: boolean;
