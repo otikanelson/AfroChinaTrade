@@ -371,7 +371,6 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
             const discountedPrice = originalPrice * (1 - discount / 100);
             
             await NotificationService.sendDiscountedProductNotification(
-              userIds,
               product.name,
               product._id.toString(),
               originalPrice,
