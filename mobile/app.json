@@ -4,7 +4,7 @@
     "slug": "afrochinatrade",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/images/adaptive_icon.png",
+    "icon": "./assets/images/adaptiveIcon.png",
     "backgroundColor": "#000000",
     "userInterfaceStyle": "automatic",
     "splash": {
@@ -48,7 +48,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "19b6a312-d523-44f8-846f-83a97c6aa6ff"
+        "projectId": "c4cb8903-dedb-42dd-a589-604c4c7588bf"
       }
     }
   }

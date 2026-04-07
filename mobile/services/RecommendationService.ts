@@ -74,8 +74,8 @@ class RecommendationService {
 
       const response = await apiClient.get<RecommendationResponse>(url);
 
-      if (response.success && response.data?.data?.recommendations) {
-        const recommendations = response.data.data.recommendations;
+      if (response.success && response.data?.recommendations) {
+        const recommendations = response.data.recommendations;
         
         // Cache the recommendations
         await this.cacheRecommendations(userId, recommendations);

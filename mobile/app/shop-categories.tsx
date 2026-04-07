@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  ActivityIndicator, Image, Dimensions,
+  ActivityIndicator, Image, Dimensions, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,8 @@ export default function CategoriesScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingSubcategories, setLoadingSubcategories] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [subcategoryError, setSubcategoryError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,22 +44,65 @@ export default function CategoriesScreen() {
     finally { setLoading(false); }
   }, []);
 
-  const loadSubcategories = useCallback(async (categoryName: string) => {
+  const loadSubcategories = useCallback(async (categoryName: string, isRetry: boolean = false) => {
     setLoadingSubcategories(true);
+    setSubcategoryError(null);
+    
     try {
-      const response = await subcategoryService.getSubcategoriesByCategory(categoryName);
+      console.log('🔍 Loading subcategories for category:', categoryName);
+      
+      // Try the primary method first
+      let response = await subcategoryService.getSubcategoriesByCategory(categoryName);
+      
+      // If primary method fails, try alternative approach
+      if (!response.success && !isRetry) {
+        console.log('🔄 Primary method failed, trying alternative approach...');
+        response = await subcategoryService.getSubcategories(undefined, categoryName);
+      }
+      
+      console.log('📦 Subcategories response:', {
+        success: response.success,
+        dataLength: response.data?.length || 0,
+        error: response.error
+      });
+      
       if (response.success && response.data) {
         setSubcategories(response.data);
+        setRetryCount(0);
+        console.log('✅ Subcategories loaded successfully:', response.data.length);
       } else {
+        console.warn('⚠️ No subcategories found or request failed:', response.error);
         setSubcategories([]);
+        setSubcategoryError(response.error || 'Failed to load subcategories');
+        
+        // Auto-retry once if this is the first failure
+        if (!isRetry && retryCount < 2) {
+          console.log('🔄 Auto-retrying subcategory fetch...');
+          setRetryCount(prev => prev + 1);
+          setTimeout(() => loadSubcategories(categoryName, true), 2000);
+          return;
+        }
       }
     } catch (error) {
-      console.error('Failed to load subcategories:', error);
+      console.error('❌ Failed to load subcategories:', {
+        categoryName,
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       setSubcategories([]);
+      setSubcategoryError(error instanceof Error ? error.message : 'Network error');
+      
+      // Auto-retry once if this is the first failure
+      if (!isRetry && retryCount < 2) {
+        console.log('🔄 Auto-retrying subcategory fetch after error...');
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => loadSubcategories(categoryName, true), 2000);
+        return;
+      }
     } finally {
       setLoadingSubcategories(false);
     }
-  }, []);
+  }, [retryCount]);
 
   useEffect(() => { load(); }, []);
 
@@ -108,9 +153,35 @@ export default function CategoriesScreen() {
 
   const handleCategoryPress = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
+    setRetryCount(0);
     const category = categories.find(c => ((c as any)._id || c.id) === categoryId);
     if (category) {
       loadSubcategories(category.name);
+    }
+  };
+
+  const handleDebugTest = async () => {
+    if (!selectedCategory) return;
+    
+    Alert.alert(
+      'Debug Test',
+      'Testing subcategory endpoint...',
+      [{ text: 'OK' }]
+    );
+    
+    try {
+      const result = await subcategoryService.testSubcategoryEndpoint(selectedCategory.name);
+      Alert.alert(
+        'Debug Result',
+        `Success: ${result.success}\nError: ${result.error || 'None'}`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      Alert.alert(
+        'Debug Error',
+        error instanceof Error ? error.message : 'Unknown error',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -202,6 +273,83 @@ export default function CategoriesScreen() {
                   }}>
                     Loading subcategories...
                   </Text>
+                  {retryCount > 0 && (
+                    <Text style={{ 
+                      fontSize: 12, 
+                      color: colors.textSecondary,
+                      marginTop: 4,
+                    }}>
+                      Retry attempt {retryCount}
+                    </Text>
+                  )}
+                </View>
+              ) : subcategoryError ? (
+                <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                  <Ionicons name="warning-outline" size={48} color={colors.error} />
+                  <Text style={{ 
+                    fontSize: 14, 
+                    color: colors.error,
+                    marginTop: 12,
+                    textAlign: 'center',
+                    paddingHorizontal: 20,
+                  }}>
+                    Failed to load subcategories
+                  </Text>
+                  <Text style={{ 
+                    fontSize: 12, 
+                    color: colors.textSecondary,
+                    marginTop: 4,
+                    textAlign: 'center',
+                    paddingHorizontal: 20,
+                  }}>
+                    {subcategoryError}
+                  </Text>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: colors.primary,
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                      marginTop: 16,
+                    }}
+                    onPress={() => {
+                      if (selectedCategory) {
+                        setRetryCount(0);
+                        loadSubcategories(selectedCategory.name);
+                      }
+                    }}
+                  >
+                    <Text style={{ color: colors.surface, fontWeight: '600' }}>
+                      Retry
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: colors.background,
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                      marginTop: 8,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                    }}
+                    onPress={() => {
+                      if (selectedCategory) {
+                        // Navigate directly to category without subcategory
+                        router.push({ 
+                          pathname: '/products', 
+                          params: {
+                            category: selectedCategory.name,
+                            title: selectedCategory.name
+                          }
+                        });
+                      }
+                    }}
+                  >
+                    <Text style={{ color: colors.text, fontWeight: '600' }}>
+                      Browse All {selectedCategory?.name}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
                 <View style={{ 

@@ -449,6 +449,12 @@ class SimpleApiClient {
     console.log('🔍 Testing connection to:', this.client.defaults.baseURL);
     return this.makeRequest(() => this.client.get('/health'));
   }
+
+  // Test specific endpoint (useful for debugging APK issues)
+  async testEndpoint(endpoint: string): Promise<ApiResponse<any>> {
+    console.log('🔍 Testing endpoint:', endpoint, 'on:', this.client.defaults.baseURL);
+    return this.makeRequest(() => this.client.get(endpoint));
+  }
 }
 
 export const apiClient = new SimpleApiClient();

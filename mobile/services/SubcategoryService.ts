@@ -45,7 +45,7 @@ class SubcategoryService {
       const response = await apiClient.get(url);
       return {
         success: true,
-        data: response.data.data as Subcategory[],
+        data: response.data as Subcategory[],
       };
     } catch (error: any) {
       console.error('Error fetching subcategories:', error);
@@ -59,18 +59,68 @@ class SubcategoryService {
   // Get subcategories by category name
   async getSubcategoriesByCategory(categoryName: string) {
     try {
-      const url = `/subcategories/category/${encodeURIComponent(categoryName)}`;
+      const encodedCategoryName = encodeURIComponent(categoryName);
+      const url = `/subcategories/category/${encodedCategoryName}`;
+      
+      console.log('🌐 Making subcategory API request:', {
+        categoryName,
+        encodedCategoryName,
+        url,
+        baseURL: 'Will be resolved by apiClient'
+      });
+      
       const response = await apiClient.get(url);
+      
+      console.log('📡 Subcategory API response:', {
+        success: response.success,
+        dataType: typeof response.data,
+        dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
+        hasError: !!response.error
+      });
       
       return {
         success: true,
         data: response.data as Subcategory[],
       };
     } catch (error: any) {
-      console.error('Error fetching subcategories by category:', error);
+      console.error('❌ Error fetching subcategories by category:', {
+        categoryName,
+        error: error.message || error,
+        code: error.code,
+        status: error.status,
+        details: error.details
+      });
+      
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch subcategories',
+        error: error.response?.data?.error || error.message || 'Failed to fetch subcategories',
+      };
+    }
+  }
+
+  // Diagnostic function to test subcategory endpoint
+  async testSubcategoryEndpoint(categoryName: string) {
+    try {
+      const encodedCategoryName = encodeURIComponent(categoryName);
+      const url = `/subcategories/category/${encodedCategoryName}`;
+      
+      console.log('🧪 Testing subcategory endpoint:', {
+        categoryName,
+        encodedCategoryName,
+        url
+      });
+      
+      // Test the endpoint directly
+      const result = await apiClient.testEndpoint(url);
+      
+      console.log('🧪 Endpoint test result:', result);
+      
+      return result;
+    } catch (error: any) {
+      console.error('🧪 Endpoint test failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Endpoint test failed'
       };
     }
   }
@@ -81,7 +131,7 @@ class SubcategoryService {
       const response = await apiClient.get(`/subcategories/${id}`);
       return {
         success: true,
-        data: response.data.data as Subcategory,
+        data: response.data as Subcategory,
       };
     } catch (error: any) {
       console.error('Error fetching subcategory:', error);
@@ -98,7 +148,7 @@ class SubcategoryService {
       const response = await apiClient.post('/subcategories', data);
       return {
         success: true,
-        data: response.data.data as Subcategory,
+        data: response.data as Subcategory,
       };
     } catch (error: any) {
       console.error('Error creating subcategory:', error);
@@ -115,7 +165,7 @@ class SubcategoryService {
       const response = await apiClient.put(`/subcategories/${id}`, data);
       return {
         success: true,
-        data: response.data.data as Subcategory,
+        data: response.data as Subcategory,
       };
     } catch (error: any) {
       console.error('Error updating subcategory:', error);
