@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "AfroChinaTrade",
-    "slug": "afrochinatrade",
+    "slug": "act_mobile",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/adaptiveIcon.png",
@@ -48,8 +48,10 @@
     },
     "extra": {
       "eas": {
-        "projectId": "c4cb8903-dedb-42dd-a589-604c4c7588bf"
-      }
-    }
+        "projectId": "03db8ec7-54ef-445b-9e48-8ac4c4529552"
+      },
+      "router": {}
+    },
+    "owner": "afrochinatrade_mobile"
   }
 }

@@ -4,6 +4,13 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "config": {
+        "npmrc": {
+          "legacy-peer-deps": true
+        }
+      }
+    },
     "development": {
       "developmentClient": true,
       "distribution": "internal",
@@ -32,8 +39,7 @@
         "EAS_BUILD": "true",
         "EXPO_PUBLIC_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://afro-china-trade.vercel.app/api",
-        "EXPO_PUBLIC_DEBUG": "false",
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+        "EXPO_PUBLIC_DEBUG": "false"
       }
     },
     "production": {
@@ -42,8 +48,7 @@
         "EAS_BUILD": "true",
         "EXPO_PUBLIC_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://afro-china-trade.vercel.app/api",
-        "EXPO_PUBLIC_DEBUG": "false",
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+        "EXPO_PUBLIC_DEBUG": "false"
       }
     },
     "production-apk": {
@@ -55,8 +60,7 @@
         "EAS_BUILD": "true",
         "EXPO_PUBLIC_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://afro-china-trade.vercel.app/api",
-        "EXPO_PUBLIC_DEBUG": "false",
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+        "EXPO_PUBLIC_DEBUG": "false"
       }
     }
   },
