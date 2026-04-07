@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,7 +29,7 @@ interface HeaderProps {
   debugMode?: boolean; // Add debug mode prop
 }
 
-export const Header: React.FC<HeaderProps> = ({ 
+const HeaderComponent: React.FC<HeaderProps> = ({ 
   title, 
   subtitle,
   showLogo = false,
@@ -345,3 +345,26 @@ export const Header: React.FC<HeaderProps> = ({
     </View>
   );
 };
+
+// Memoize the Header component to prevent unnecessary re-renders
+export const Header = memo(HeaderComponent, (prevProps, nextProps) => {
+  // Custom comparison function to prevent re-renders when props haven't changed
+  return (
+    prevProps.title === nextProps.title &&
+    prevProps.subtitle === nextProps.subtitle &&
+    prevProps.showLogo === nextProps.showLogo &&
+    prevProps.showBack === nextProps.showBack &&
+    prevProps.showCart === nextProps.showCart &&
+    prevProps.showRefresh === nextProps.showRefresh &&
+    prevProps.showFilter === nextProps.showFilter &&
+    prevProps.showMenu === nextProps.showMenu &&
+    prevProps.cartCount === nextProps.cartCount &&
+    prevProps.onCartPress === nextProps.onCartPress &&
+    prevProps.onRefreshPress === nextProps.onRefreshPress &&
+    prevProps.onFilterPress === nextProps.onFilterPress &&
+    prevProps.onBackPress === nextProps.onBackPress &&
+    prevProps.rightAction === nextProps.rightAction &&
+    JSON.stringify(prevProps.badge) === JSON.stringify(nextProps.badge) &&
+    prevProps.debugMode === nextProps.debugMode
+  );
+});

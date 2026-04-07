@@ -148,20 +148,25 @@ export default function MessageThreadScreen() {
       alignItems: 'flex-end',
       paddingHorizontal: spacing.sm, 
       paddingTop: spacing.sm,
-      paddingBottom: Math.max(spacing.sm, insets.bottom),
+      paddingBottom: Math.max(spacing.md, insets.bottom + spacing.xs),
       backgroundColor: colors.background,
       borderTopWidth: StyleSheet.hairlineWidth, 
       borderTopColor: colors.border,
       gap: spacing.xs,
       minHeight: 56,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 8,
     },
     input: {
       flex: 1, 
       minHeight: 40, 
       maxHeight: 120,
-      backgroundColor: colors.surface,
-      borderWidth: 1, 
-      borderColor: colors.border,
+      backgroundColor: colors.background,
+      borderWidth: 1.5, 
+      borderColor: colors.primary,
       borderRadius: 20,
       paddingHorizontal: spacing.md, 
       paddingVertical: Platform.OS === 'ios' ? 10 : 8,
@@ -169,6 +174,11 @@ export default function MessageThreadScreen() {
       color: colors.text,
       textAlignVertical: Platform.OS === 'android' ? 'top' : 'center',
       includeFontPadding: false,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
     },
     sendBtn: {
       width: 40, height: 40, borderRadius: 20,
@@ -191,8 +201,7 @@ export default function MessageThreadScreen() {
   return (
     <KeyboardAvoidingView
       style={s.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Header title={title} showBack />
 

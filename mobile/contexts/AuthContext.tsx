@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser, AuthContextType, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
 import { authService } from '../services/AuthService';
@@ -297,8 +297,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loadCurrentUser();
   };
 
-  const updateProfile = async (data: Partial<AuthUser>): Promise<void> => {
+  const updateProfile = useCallback(async (data: Partial<AuthUser>): Promise<void> => {
     try {
+      console.log('🔄 updateProfile called with:', data);
+      
       const updateData = {
         name: data.name,
         phone: data.phone,
@@ -306,6 +308,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       
       const updatedProfile = await authService.updateProfile(updateData);
+      console.log('✅ Profile updated from API:', updatedProfile);
       
       const authUser: AuthUser = {
         id: updatedProfile._id,
@@ -322,7 +325,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Only update state if the data has actually changed
       setUser(prevUser => {
-        if (!prevUser) return authUser;
+        if (!prevUser) {
+          console.log('🆕 No previous user, setting new user');
+          return authUser;
+        }
         
         // Check if any relevant fields have changed
         const hasChanged = 
@@ -334,32 +340,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           prevUser.status !== authUser.status;
         
         if (!hasChanged) {
+          console.log('🔄 No changes detected, keeping same user reference');
           return prevUser; // Return same reference to prevent re-renders
         }
+        
+        console.log('🔄 Changes detected, updating user:', {
+          nameChanged: prevUser.name !== authUser.name,
+          phoneChanged: prevUser.phone !== authUser.phone,
+          avatarChanged: prevUser.avatar !== authUser.avatar,
+          emailChanged: prevUser.email !== authUser.email,
+          roleChanged: prevUser.role !== authUser.role,
+          statusChanged: prevUser.status !== authUser.status,
+        });
         
         return authUser;
       });
       
       await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+      console.log('💾 User saved to AsyncStorage');
     } catch (error: any) {
+      console.error('❌ updateProfile error:', error);
       throw new Error(error.message || 'Failed to update profile');
     }
-  };
+  }, []);
 
-  const clearError = () => {
+  const clearError = useCallback(() => {
     setAuthError(null);
-  };
+  }, []);
 
-  const closeUserStatusModal = () => {
+  const closeUserStatusModal = useCallback(() => {
     setUserStatusModal(prev => ({ ...prev, visible: false }));
-  };
+  }, []);
 
-  const handleAppealSubmitted = () => {
+  const handleAppealSubmitted = useCallback(() => {
     closeUserStatusModal();
     // Optionally show a success message or navigate somewhere
-  };
+  }, [closeUserStatusModal]);
 
-  const contextValue: AuthContextType = {
+  const contextValue: AuthContextType = useMemo(() => ({
     user,
     isAuthenticated: !!user && tokenManager.isAuthenticated(),
     isAdmin: user?.role === 'admin' || user?.role === 'super_admin',
@@ -375,7 +393,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearError,
     enableGuestMode,
     requireAuth,
-  };
+  }), [
+    user,
+    isLoading,
+    authError,
+    isGuestMode,
+    login,
+    register,
+    logout,
+    forceLogout,
+    getCurrentUser,
+    updateProfile,
+    clearError,
+    enableGuestMode,
+    requireAuth,
+  ]);
 
   return (
     <AuthContext.Provider value={contextValue}>

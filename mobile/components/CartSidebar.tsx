@@ -25,6 +25,7 @@ export const CartSidebar: React.FC = () => {
     '/(tabs)/home',
     '/(tabs)/buy-now', 
     '/product-detail',
+    '/products',
     '/checkout',
     '/wishlist',
     '/search'

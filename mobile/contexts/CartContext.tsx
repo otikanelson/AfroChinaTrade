@@ -204,7 +204,8 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const addToCart = async (
     productId: string, 
     quantity: number = 1, 
-    selectedVariant?: any
+    selectedVariant?: any,
+    productData?: { name: string; price: number; images: string[] }
   ): Promise<boolean> => {
     try {
       // Handle guest mode - store in local state only
@@ -224,9 +225,8 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
             quantity: updatedGuestCart.items[existingItemIndex].quantity + quantity
           };
         } else {
-          // Fetch actual product details for guest cart
-          const productDetails = await fetchProductDetails(productId);
-          const productInfo = productDetails || {
+          // Use provided product data or fetch from API
+          const productInfo = productData || await fetchProductDetails(productId) || {
             _id: productId,
             name: 'Product',
             price: 0,
@@ -236,7 +236,12 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
           // Add new item with actual product data
           updatedGuestCart.items.push({
             _id: `guest-${Date.now()}`,
-            productId: productInfo,
+            productId: {
+              _id: productId,
+              name: productInfo.name,
+              price: productInfo.price,
+              images: productInfo.images
+            },
             quantity,
             price: productInfo.price,
             selectedVariant
@@ -272,17 +277,23 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
             quantity: updatedCart.items[existingItemIndex].quantity + quantity
           };
         } else {
-          // Add new item (we'll get full details from server)
+          // Add new item with actual product data if available
+          const productInfo = productData || {
+            name: 'Loading...',
+            price: 0,
+            images: []
+          };
+          
           updatedCart.items.push({
             _id: `temp-${Date.now()}`,
             productId: {
               _id: productId,
-              name: 'Loading...',
-              price: 0,
-              images: []
+              name: productInfo.name,
+              price: productInfo.price,
+              images: productInfo.images
             },
             quantity,
-            price: 0,
+            price: productInfo.price,
             selectedVariant
           });
         }

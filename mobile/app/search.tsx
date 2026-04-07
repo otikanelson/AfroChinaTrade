@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { FloatingCartButton } from '../components/FloatingCartButton';
 
 // Redirect component for old search route
 export default function SearchRedirect() {
@@ -18,6 +17,6 @@ export default function SearchRedirect() {
     });
   }, []);
 
-  // Show floating cart button even during redirect
-  return <FloatingCartButton />;
+  // Return null since this is just a redirect
+  return null;
 }

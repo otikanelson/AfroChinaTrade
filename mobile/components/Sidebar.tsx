@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import {
   View,
   Text,
@@ -67,7 +67,7 @@ const settingsItems: MenuItem[] = [
   { id: 'about', title: 'About', icon: 'information-circle-outline', route: '/settings/about' },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage }) => {
+const SidebarComponent: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage }) => {
   const router = useRouter();
   const segments = useSegments();
   const { colors, fontSizes, fontWeights } = useTheme();
@@ -568,3 +568,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ visible, onClose, isAdminPage 
     </Modal>
   );
 };
+
+// Memoize the Sidebar component to prevent unnecessary re-renders
+export const Sidebar = memo(SidebarComponent, (prevProps, nextProps) => {
+  // Custom comparison function to prevent re-renders when props haven't changed
+  return (
+    prevProps.visible === nextProps.visible &&
+    prevProps.onClose === nextProps.onClose &&
+    prevProps.isAdminPage === nextProps.isAdminPage
+  );
+});

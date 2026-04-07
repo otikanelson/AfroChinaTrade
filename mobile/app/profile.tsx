@@ -270,23 +270,15 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
 
     try {
       setSaving(true);
-      const response = await userService.updateProfile({
+      
+      // Only call updateAuthProfile since it already calls the API
+      await updateAuthProfile({
         name: name.trim(),
         phone: phone && phone !== '+234' ? phone : undefined,
         avatar,
       });
-
-      if (response.success && response.data) {
-        setProfile(response.data);
-        await updateAuthProfile({
-          name: response.data.name,
-          phone: response.data.phone,
-          avatar: response.data.avatar,
-        });
-        toast.success('Profile updated successfully');
-      } else {
-        throw new Error(response.error?.message || 'Failed to update profile');
-      }
+      
+      toast.success('Profile updated successfully');
     } catch (error: any) {
       console.error('Error updating profile:', error);
       toast.error(error.message || 'Failed to update profile');

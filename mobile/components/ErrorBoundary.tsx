@@ -2,6 +2,7 @@ import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NavigationUtils } from '../utils/navigationUtils';
+import { colors } from '../theme/colors';
 
 interface Props {
   children: ReactNode;
@@ -47,7 +48,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <View style={styles.container}>
           <View style={styles.content}>
-            <Ionicons name="warning-outline" size={64} color="#ff6b6b" />
+            <Ionicons name="warning-outline" size={64} color= {colors.primary} />
             <Text style={styles.title}>Something went wrong</Text>
             <Text style={styles.message}>
               The app encountered an unexpected error. Don't worry, your data is safe.
@@ -79,20 +80,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.secondary,
     marginTop: 16,
     marginBottom: 8,
     textAlign: 'center',
   },
   message: {
     fontSize: 16,
-    color: '#666',
+    color: colors.text,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 24,
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.accent,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
