@@ -750,8 +750,17 @@ export default function ProductDetailScreen() {
       // Show immediate feedback
       setAddingToCart(true);
       
-      // Call add to cart - it will handle guest mode internally
-      const success = await addToCart(product.id, quantity);
+      // Pass product data for instant optimistic update
+      const productData = {
+        name: product.name,
+        price: product.discount && product.discount > 0 
+          ? Math.round(product.price * (1 - product.discount / 100))
+          : product.price,
+        images: product.images || []
+      };
+      
+      // Call add to cart with product data for instant UI update
+      const success = await addToCart(product.id, quantity, undefined, productData);
       
       if (success) {
         toast.success(`${product.name} has been added to your cart`);

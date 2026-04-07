@@ -121,7 +121,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       return;
     }
 
-    const success = await addToCart(productId, 1);
+    // Pass product data for instant optimistic update
+    const productData = {
+      name: productName,
+      price: discountedPrice || price,
+      images: images || []
+    };
+
+    const success = await addToCart(productId, 1, undefined, productData);
     
     if (success) {
       alert.showSuccess('Added to Cart', `${productName} has been added to your cart`);

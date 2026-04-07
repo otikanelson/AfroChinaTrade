@@ -33,7 +33,7 @@ interface CartContextType {
   cart: Cart | null;
   cartCount: number;
   loading: boolean;
-  addToCart: (productId: string, quantity?: number, selectedVariant?: any) => Promise<boolean>;
+  addToCart: (productId: string, quantity?: number, selectedVariant?: any, productData?: { name: string; price: number; images: string[] }) => Promise<boolean>;
   removeFromCart: (productId: string, selectedVariant?: any) => Promise<boolean>;
   updateQuantity: (productId: string, quantity: number, selectedVariant?: any) => Promise<boolean>;
   clearCart: () => Promise<boolean>;
