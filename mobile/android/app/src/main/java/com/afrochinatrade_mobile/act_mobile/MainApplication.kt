@@ -1,4 +1,4 @@
-package com.afrochinatrade.app
+package com.afrochinatrade_mobile.act_mobile
 
 import android.app.Application
 import android.content.res.Configuration

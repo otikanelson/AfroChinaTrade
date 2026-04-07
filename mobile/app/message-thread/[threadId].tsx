@@ -201,7 +201,8 @@ export default function MessageThreadScreen() {
   return (
     <KeyboardAvoidingView
       style={s.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
     >
       <Header title={title} showBack />
 

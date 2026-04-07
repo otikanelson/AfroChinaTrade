@@ -41,17 +41,32 @@ class SubcategoryService {
       
       const queryString = params.toString();
       const url = queryString ? `/subcategories?${queryString}` : '/subcategories';
-      
+      console.log('📂 Fetching subcategories (fallback):', url);
       const response = await apiClient.get(url);
+      console.log('📂 Fallback raw response success:', response.success, 'isArray:', Array.isArray(response.data));
+      
+      if (response.success) {
+        let data: any[] = [];
+        if (Array.isArray(response.data)) {
+          data = response.data;
+        } else if (response.data && Array.isArray((response.data as any).data)) {
+          data = (response.data as any).data;
+        }
+        return {
+          success: true,
+          data: data as Subcategory[],
+        };
+      }
+      
       return {
-        success: true,
-        data: response.data as Subcategory[],
+        success: false,
+        error: response.error?.message || 'Failed to fetch subcategories',
       };
     } catch (error: any) {
       console.error('Error fetching subcategories:', error);
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch subcategories',
+        error: error.message || 'Failed to fetch subcategories',
       };
     }
   }
@@ -61,39 +76,41 @@ class SubcategoryService {
     try {
       const encodedCategoryName = encodeURIComponent(categoryName);
       const url = `/subcategories/category/${encodedCategoryName}`;
-      
-      console.log('🌐 Making subcategory API request:', {
-        categoryName,
-        encodedCategoryName,
-        url,
-        baseURL: 'Will be resolved by apiClient'
-      });
-      
+      console.log('📂 Fetching subcategories:', url);
       const response = await apiClient.get(url);
+      console.log('📂 Subcategory raw response success:', response.success, 'data type:', typeof response.data, 'isArray:', Array.isArray(response.data));
       
-      console.log('📡 Subcategory API response:', {
-        success: response.success,
-        dataType: typeof response.data,
-        dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
-        hasError: !!response.error
-      });
+      if (response.success) {
+        // Handle both array and wrapped responses defensively
+        let data: any[] = [];
+        if (Array.isArray(response.data)) {
+          data = response.data;
+        } else if (response.data && Array.isArray((response.data as any).data)) {
+          data = (response.data as any).data;
+        } else if (response.data && typeof response.data === 'object') {
+          // Last resort: try to extract any array from the response
+          const values = Object.values(response.data as object);
+          const arr = values.find(v => Array.isArray(v));
+          if (arr) data = arr as any[];
+        }
+        
+        console.log('📂 Subcategories extracted:', data.length, 'items');
+        return {
+          success: true,
+          data: data as Subcategory[],
+        };
+      }
       
-      return {
-        success: true,
-        data: response.data as Subcategory[],
-      };
-    } catch (error: any) {
-      console.error('❌ Error fetching subcategories by category:', {
-        categoryName,
-        error: error.message || error,
-        code: error.code,
-        status: error.status,
-        details: error.details
-      });
-      
+      console.warn('📂 Subcategory fetch not successful:', response.error);
       return {
         success: false,
-        error: error.response?.data?.error || error.message || 'Failed to fetch subcategories',
+        error: response.error?.message || 'Failed to fetch subcategories',
+      };
+    } catch (error: any) {
+      console.error('📂 Subcategory fetch exception:', error?.message || error);
+      return {
+        success: false,
+        error: error.message || 'Failed to fetch subcategories',
       };
     }
   }

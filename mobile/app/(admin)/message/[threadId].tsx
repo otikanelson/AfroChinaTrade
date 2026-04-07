@@ -164,7 +164,7 @@ export default function AdminMessageThreadScreen() {
   return (
     <KeyboardAvoidingView
       style={s.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <Header title={thread?.customerName || 'Customer'} showBack />
 

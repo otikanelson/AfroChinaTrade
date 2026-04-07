@@ -333,7 +333,7 @@ export default function HomeTab() {
     } finally {
       setIsInitialLoading(false);
     }
-  }, [loadCollectionProducts, loadSectionProgressively]);
+  }, [loadCollectionProducts, loadSectionProgressively, loadEnabledProductSectionsProgressively]);
 
   const loadProductSectionsProgressively = async () => {
     const sections = [
@@ -394,7 +394,10 @@ export default function HomeTab() {
     });
   };
 
-  const loadEnabledProductSectionsProgressively = async (blocks: LayoutBlock[]) => {
+  // Use a ref so useFocusEffect can call this without it being a dependency
+  const loadEnabledRef = useRef<(blocks: LayoutBlock[]) => void>(() => {});
+
+  const loadEnabledProductSectionsProgressively = useCallback(async (blocks: LayoutBlock[]) => {
     // Only load sections that are enabled in the layout
     const enabledSections = blocks.filter(block => block.enabled);
     const sectionsToLoad: string[] = [];
@@ -417,7 +420,6 @@ export default function HomeTab() {
           sectionsToLoad.push('new_arrivals');
           break;
         case 'collection':
-          // Handle custom collections
           if (block.config?.collectionId) {
             loadCollectionProducts([{ id: block.config.collectionId } as any]);
           }
@@ -425,24 +427,12 @@ export default function HomeTab() {
       }
     }
 
-    // Clear data for sections that are NOT enabled immediately
-    if (!sectionsToLoad.includes('featured')) {
-      setFeaturedProducts([]);
-    }
-    if (!sectionsToLoad.includes('trending')) {
-      setTrendingProducts([]);
-    }
-    if (!sectionsToLoad.includes('seller_favorites')) {
-      setSellerFavorites([]);
-    }
-    if (!sectionsToLoad.includes('discounted')) {
-      setDiscountedProducts([]);
-    }
-    if (!sectionsToLoad.includes('new_arrivals')) {
-      setNewArrivals([]);
-    }
+    if (!sectionsToLoad.includes('featured')) setFeaturedProducts([]);
+    if (!sectionsToLoad.includes('trending')) setTrendingProducts([]);
+    if (!sectionsToLoad.includes('seller_favorites')) setSellerFavorites([]);
+    if (!sectionsToLoad.includes('discounted')) setDiscountedProducts([]);
+    if (!sectionsToLoad.includes('new_arrivals')) setNewArrivals([]);
 
-    // Load only the enabled sections progressively
     const sections = [
       {
         key: 'featured',
@@ -488,7 +478,6 @@ export default function HomeTab() {
       }
     ].filter(section => sectionsToLoad.includes(section.key));
 
-    // Load sections progressively with delays
     let delayIndex = 0;
     sections.forEach(section => {
       loadSectionProgressively(
@@ -496,13 +485,12 @@ export default function HomeTab() {
         section.loader,
         section.setter,
         section.cacher,
-        section.transformer,
+        (section as any).transformer,
         delayIndex * SECTION_LOAD_DELAY
       );
       delayIndex++;
     });
 
-    // Set loading states to false for disabled sections immediately
     setLoadingStates(prev => ({
       ...prev,
       ...(sectionsToLoad.includes('featured') ? {} : { featured: false }),
@@ -511,7 +499,12 @@ export default function HomeTab() {
       ...(sectionsToLoad.includes('discounted') ? {} : { discounted: false }),
       ...(sectionsToLoad.includes('new_arrivals') ? {} : { new_arrivals: false }),
     }));
-  };
+  }, [loadCollectionProducts, loadSectionProgressively]);
+
+  // Keep the ref in sync with the latest version of the function
+  useEffect(() => {
+    loadEnabledRef.current = loadEnabledProductSectionsProgressively;
+  }, [loadEnabledProductSectionsProgressively]);
 
   useEffect(() => {
     loadInitialData();
@@ -525,23 +518,22 @@ export default function HomeTab() {
   useFocusEffect(
     useCallback(() => {
       refreshRecommendations();
-      // Check for layout changes and reload immediately if changed
+      // Check for layout changes using ref to avoid re-render loop
       pageLayoutService.getLayout('home').then(res => {
         if (res.success && res.data) {
           const newLayoutVersion = res.data.updatedAt;
-          if (layoutVersion && newLayoutVersion !== layoutVersion) {
-            // Layout has changed, reload immediately
-            setLayoutVersion(newLayoutVersion);
-            setPageLayout(res.data.blocks);
-            loadEnabledProductSectionsProgressively(res.data.blocks);
-          } else if (!layoutVersion) {
-            // First time setting layout version
-            setLayoutVersion(newLayoutVersion);
-            setPageLayout(res.data.blocks);
-          }
+          setLayoutVersion(prev => {
+            if (prev && newLayoutVersion !== prev) {
+              setPageLayout(res.data!.blocks);
+              loadEnabledRef.current(res.data!.blocks);
+            } else if (!prev) {
+              setPageLayout(res.data!.blocks);
+            }
+            return newLayoutVersion;
+          });
         }
       }).catch(() => {});
-    }, [refreshRecommendations, layoutVersion, loadEnabledProductSectionsProgressively])
+    }, [refreshRecommendations])
   );
 
   // ─── Lazy-load more collections when user nears the bottom ─────────────────

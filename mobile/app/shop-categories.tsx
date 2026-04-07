@@ -30,18 +30,47 @@ export default function CategoriesScreen() {
     try {
       const catRes = await categoryService.getCategories();
       
-      if (catRes.success && catRes.data) {
-        setCategories(catRes.data);
-        const first = catRes.data[0];
+      // Handle both array response and wrapped response
+      const categoryData = Array.isArray(catRes.data) 
+        ? catRes.data 
+        : Array.isArray((catRes as any).data?.data) 
+          ? (catRes as any).data.data 
+          : null;
+
+      if (catRes.success && categoryData && categoryData.length > 0) {
+        setCategories(categoryData);
+        const first = categoryData[0];
         if (first) {
           const categoryId = (first as any)._id || first.id;
           setSelectedCategoryId(categoryId);
-          // Load subcategories for the first category
-          loadSubcategories(first.name);
+          setLoadingSubcategories(true);
+          setSubcategoryError(null);
+          try {
+            const subRes = await subcategoryService.getSubcategoriesByCategory(first.name);
+            console.log('Subcategory response for', first.name, ':', JSON.stringify(subRes));
+            if (subRes.success && subRes.data && subRes.data.length > 0) {
+              setSubcategories(subRes.data);
+            } else {
+              const fallback = await subcategoryService.getSubcategories(undefined, first.name);
+              console.log('Fallback subcategory response:', JSON.stringify(fallback));
+              setSubcategories(fallback.success && fallback.data ? fallback.data : []);
+              if (!fallback.success) setSubcategoryError(fallback.error || 'Failed to load subcategories');
+            }
+          } catch (subErr) {
+            console.error('Subcategory fetch error:', subErr);
+            setSubcategoryError('Failed to load subcategories');
+          } finally {
+            setLoadingSubcategories(false);
+          }
         }
+      } else {
+        console.error('Categories load failed:', JSON.stringify(catRes));
       }
-    } catch {}
-    finally { setLoading(false); }
+    } catch (err) {
+      console.error('Categories fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const loadSubcategories = useCallback(async (categoryName: string, isRetry: boolean = false) => {
@@ -49,52 +78,32 @@ export default function CategoriesScreen() {
     setSubcategoryError(null);
     
     try {
-      console.log('🔍 Loading subcategories for category:', categoryName);
+      const response = await subcategoryService.getSubcategoriesByCategory(categoryName);
+      console.log('loadSubcategories response for', categoryName, ':', JSON.stringify(response));
       
-      // Try the primary method first
-      let response = await subcategoryService.getSubcategoriesByCategory(categoryName);
-      
-      // If primary method fails, try alternative approach
-      if (!response.success && !isRetry) {
-        console.log('🔄 Primary method failed, trying alternative approach...');
-        response = await subcategoryService.getSubcategories(undefined, categoryName);
-      }
-      
-      console.log('📦 Subcategories response:', {
-        success: response.success,
-        dataLength: response.data?.length || 0,
-        error: response.error
-      });
-      
-      if (response.success && response.data) {
+      if (response.success && response.data && response.data.length > 0) {
         setSubcategories(response.data);
         setRetryCount(0);
-        console.log('✅ Subcategories loaded successfully:', response.data.length);
       } else {
-        console.warn('⚠️ No subcategories found or request failed:', response.error);
-        setSubcategories([]);
-        setSubcategoryError(response.error || 'Failed to load subcategories');
-        
-        // Auto-retry once if this is the first failure
-        if (!isRetry && retryCount < 2) {
-          console.log('🔄 Auto-retrying subcategory fetch...');
-          setRetryCount(prev => prev + 1);
-          setTimeout(() => loadSubcategories(categoryName, true), 2000);
-          return;
+        // Fallback to query param approach
+        const fallback = await subcategoryService.getSubcategories(undefined, categoryName);
+        if (fallback.success && fallback.data && fallback.data.length > 0) {
+          setSubcategories(fallback.data);
+          setRetryCount(0);
+        } else {
+          setSubcategories([]);
+          if (!isRetry && retryCount < 2) {
+            setRetryCount(prev => prev + 1);
+            setTimeout(() => loadSubcategories(categoryName, true), 2000);
+            return;
+          }
+          setSubcategoryError('No subcategories found');
         }
       }
     } catch (error) {
-      console.error('❌ Failed to load subcategories:', {
-        categoryName,
-        error: error instanceof Error ? error.message : error,
-        stack: error instanceof Error ? error.stack : undefined
-      });
       setSubcategories([]);
       setSubcategoryError(error instanceof Error ? error.message : 'Network error');
-      
-      // Auto-retry once if this is the first failure
       if (!isRetry && retryCount < 2) {
-        console.log('🔄 Auto-retrying subcategory fetch after error...');
         setRetryCount(prev => prev + 1);
         setTimeout(() => loadSubcategories(categoryName, true), 2000);
         return;
@@ -197,6 +206,25 @@ export default function CategoriesScreen() {
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : categories.length === 0 ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Ionicons name="grid-outline" size={48} color={colors.textSecondary} />
+          <Text style={{ fontSize: 16, color: colors.textSecondary, marginTop: 12, textAlign: 'center' }}>
+            Failed to load categories
+          </Text>
+          <TouchableOpacity
+            onPress={load}
+            style={{
+              marginTop: 16,
+              backgroundColor: colors.primary,
+              paddingHorizontal: 24,
+              paddingVertical: 10,
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: colors.textInverse, fontWeight: '600' }}>Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <View style={{ flex: 1, flexDirection: 'row' }}>

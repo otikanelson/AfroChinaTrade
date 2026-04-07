@@ -1,14 +1,13 @@
 {
   "expo": {
     "name": "AfroChinaTrade",
-    "slug": "act_mobile",
+    "slug": "afrochinatradeapp",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/images/adaptiveIcon.png",
-    "backgroundColor": "#000000",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/images/splash_icon.png",
+      "image": "./assets/images/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#8f231d"
     },
@@ -20,38 +19,39 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive_icon.png",
-        "backgroundColor": "#000000"
-      }
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#8f231d"
+      },
+      "package": "com.afrochinatrade_mobile.act_mobile"
     },
     "web": {
-      "favicon": "./assets/images/logo.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash_icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#8f231d",
+          "image": "./assets/images/splash.png",
           "dark": {
+            "image": "./assets/images/Logo_light.png",
             "backgroundColor": "#000000"
-          }
+          },
+          "imageWidth": 120
         }
       ]
     ],
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.0.2",
     "updates": {
       "url": "https://u.expo.dev/19b6a312-d523-44f8-846f-83a97c6aa6ff"
     },
     "extra": {
       "eas": {
-        "projectId": "03db8ec7-54ef-445b-9e48-8ac4c4529552"
+        "projectId": "b80bd5e9-4e08-4438-b2c2-bb3270f6bb21"
       },
       "router": {}
     },
-    "owner": "afrochinatrade_mobile"
+    "owner": "claudesonnets-organization"
   }
 }

@@ -15,7 +15,7 @@ export const getSubcategories = async (req: Request, res: Response) => {
     }
     
     if (categoryName) {
-      filter.categoryName = categoryName;
+      filter.categoryName = { $regex: new RegExp(`^${categoryName}$`, 'i') };
     }
     
     const subcategories = await Subcategory.find(filter)
