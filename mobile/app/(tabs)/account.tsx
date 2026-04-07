@@ -8,6 +8,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { Header } from '../../components/Header';
 import { ThemeModal } from '../../components/ThemeModal';
 import { PromoTiles } from '../../components/PromoTiles';
+import { BottomSections } from '../../components/BottomSections';
 import { spacing } from '../../theme/spacing';
 import { getDisplayPhone } from '../../utils/phoneUtils';
 import { fontWeights } from '../../theme';
@@ -173,6 +174,7 @@ export default function AccountTab() {
       justifyContent: 'center',
       alignItems: 'center',
       overflow: 'hidden',
+      position: 'relative',
     },
     avatarImage: {
       width: 56,
@@ -367,7 +369,11 @@ export default function AccountTab() {
 
         {/* User Profile Card */}
         <View style={styles.userCard}>
-          <View style={styles.avatar}>
+          <TouchableOpacity 
+            style={styles.avatar}
+            onPress={() => router.push('/profile')}
+            activeOpacity={0.7}
+          >
             {user?.avatar ? (
               <Image 
                 source={{ uri: user.avatar }} 
@@ -377,7 +383,7 @@ export default function AccountTab() {
             ) : (
               <Ionicons name="person" size={28} color={colors.textInverse} />
             )}
-          </View>
+          </TouchableOpacity>
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{user?.name || 'User'}</Text>
             <Text style={styles.userEmail}>{user?.email}</Text>
@@ -567,6 +573,9 @@ export default function AccountTab() {
             <Ionicons name="arrow-forward" size={16} color={colors.primary} />
           </TouchableOpacity>
         )}
+
+        {/* Bottom Sections - Ads, Recommendations, Recently Viewed */}
+        <BottomSections context="account" />
 
       </ScrollView>
     </View>

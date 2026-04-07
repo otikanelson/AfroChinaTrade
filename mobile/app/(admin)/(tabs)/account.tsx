@@ -132,6 +132,7 @@ export default function AdminAccountTab() {
       justifyContent: 'center',
       alignItems: 'center',
       overflow: 'hidden',
+      position: 'relative',
     },
     avatarImage: {
       width: 56,
@@ -264,7 +265,11 @@ export default function AdminAccountTab() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Admin Profile Card */}
         <View style={styles.userCard}>
-          <View style={styles.avatar}>
+          <TouchableOpacity 
+            style={styles.avatar}
+            onPress={() => router.push('/profile')}
+            activeOpacity={0.7}
+          >
             {user?.avatar ? (
               <Image 
                 source={{ uri: user.avatar }} 
@@ -274,7 +279,7 @@ export default function AdminAccountTab() {
             ) : (
               <Ionicons name="shield" size={28} color={colors.textInverse} />
             )}
-          </View>
+          </TouchableOpacity>
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{user?.name || 'Admin User'}</Text>
             <Text style={styles.userEmail}>{user?.email}</Text>

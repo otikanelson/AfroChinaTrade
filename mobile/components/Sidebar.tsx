@@ -53,7 +53,6 @@ const menuItems: MenuItem[] = [
   { id: 'admin-users', title: 'Users', icon: 'people-outline', route: '/(admin)/users', requiresAuth: true, adminOnly: true },
   { id: 'admin-collections', title: 'Collections', icon: 'albums-outline', route: '/(admin)/collections', requiresAuth: true, adminOnly: true },
   { id: 'admin-categories', title: 'Categories', icon: 'grid-outline', route: '/(admin)/categories', requiresAuth: true, adminOnly: true },
-  { id: 'admin-reviews', title: 'Reviews', icon: 'star-outline', route: '/(admin)/reviews', requiresAuth: true, adminOnly: true },
   { id: 'admin-messages', title: 'Messages', icon: 'chatbubbles-outline', route: '/(admin)/(tabs)/messages', requiresAuth: true, adminOnly: true },
 ];
 

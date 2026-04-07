@@ -10,6 +10,7 @@ import { SearchBar } from '../../components/SearchBar';
 import { CameraSearchModal } from '../../components/CameraSearchModal';
 import { AdCarousel } from '../../components/AdCarousel';
 import { PromoTiles } from '../../components/PromoTiles';
+import { PullToRefresh } from '../../components/PullToRefresh';
 import { adService, Ad } from '../../services/AdService';
 import { collectionService } from '../../services/CollectionService';
 import { pageLayoutService, LayoutBlock } from '../../services/PageLayoutService';
@@ -259,7 +260,7 @@ export default function BuyNowTab() {
     });
   };
 
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     // Clear timeouts and cache
     Object.values(sectionLoadTimeouts.current).forEach(timeout => clearTimeout(timeout));
     sectionLoadTimeouts.current = {};
@@ -273,7 +274,7 @@ export default function BuyNowTab() {
       discounted: true,
       all: true
     });
-    loadAllSectionsOptimized();
+    await loadAllSectionsOptimized();
   }, []);
 
   const styles = StyleSheet.create({
@@ -708,36 +709,42 @@ export default function BuyNowTab() {
       <Header
         title="Buy Now"
         subtitle="Get fast items for you"
-        showRefresh={true}
-        onRefreshPress={handleRefresh}
+        showRefresh={false}
         showCart={true}
         onCartPress={() => router.push('/cart')}
       />
-      <FlatList
-        data={listData}
-        keyExtractor={(item, index) => {
-          if (item.type === 'section' || item.type === 'skeleton') return item.key;
-          if (item.type === 'collection') return `collection_${item.collectionId}`;
-          return `${item.type}_${index}`;
-        }}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          Object.values(loadingStates).some(Boolean) ? (
-            <View style={styles.loadingMoreFooter}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.loadingMoreText}>Loading sections...</Text>
-            </View>
-          ) : (
-            <View style={styles.endOfFeedFooter}>
-              <View style={styles.endOfFeedLine} />
-              <Text style={styles.endOfFeedText}>You're all caught up!</Text>
-              <View style={styles.endOfFeedLine} />
-            </View>
-          )
-        }
-      />
+      <PullToRefresh
+        onRefresh={handleRefresh}
+        refreshThreshold={80}
+        autoRefreshInterval={30000}
+        enableAutoRefresh={true}
+      >
+        <FlatList
+          data={listData}
+          keyExtractor={(item, index) => {
+            if (item.type === 'section' || item.type === 'skeleton') return item.key;
+            if (item.type === 'collection') return `collection_${item.collectionId}`;
+            return `${item.type}_${index}`;
+          }}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            Object.values(loadingStates).some(Boolean) ? (
+              <View style={styles.loadingMoreFooter}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.loadingMoreText}>Loading sections...</Text>
+              </View>
+            ) : (
+              <View style={styles.endOfFeedFooter}>
+                <View style={styles.endOfFeedLine} />
+                <Text style={styles.endOfFeedText}>You're all caught up!</Text>
+                <View style={styles.endOfFeedLine} />
+              </View>
+            )
+          }
+        />
+      </PullToRefresh>
       <CameraSearchModal
         visible={showCameraModal}
         onClose={() => setShowCameraModal(false)}

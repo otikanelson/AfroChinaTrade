@@ -3,7 +3,6 @@ import {
   Alert, Image, Modal, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Review, reviewService } from '../../../services/ReviewService';
@@ -141,7 +140,7 @@ export default function ReviewsScreen({ embedded }: Props) {
     mobileToastManager.info(next.has(reviewId) ? 'Review flagged' : 'Flag removed', 'Moderation');
   }, [flagged]);
 
-  const Wrapper = embedded ? View : SafeAreaView;
+  const Wrapper = embedded ? View : View;
 
   return (
     <Wrapper style={{ flex: 1, backgroundColor: colors.surface }}>

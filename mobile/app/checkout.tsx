@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { Header } from '../components/Header';
+import { BottomSections } from '../components/BottomSections';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useRedirect } from '../contexts/RedirectContext';
@@ -578,6 +579,9 @@ export default function CheckoutScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Bottom Sections - Ads, Recommendations, Recently Viewed */}
+        <BottomSections context="checkout" />
       </ScrollView>
     </View>
   );

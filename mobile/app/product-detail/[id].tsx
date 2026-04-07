@@ -1363,8 +1363,6 @@ export default function ProductDetailScreen() {
               </ScrollView>
             </View>
           )}
-
-          <View style={{ height: themeSpacing.xl }} />
         </View>
       </ScrollView>
 

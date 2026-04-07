@@ -19,6 +19,7 @@ import { ProductFilterModal } from '../components/ProductFilterModal';
 import { ProductSectionSkeleton } from '../components/ProductSectionSkeleton';
 import { SectionHeader } from '../components/SectionHeader';
 import { BrowseAllCard } from '../components/BrowseAllCard';
+import { FloatingCartButton } from '../components/FloatingCartButton';
 import { productService } from '../services/ProductService';
 import { collectionService } from '../services/CollectionService';
 import { categoryService } from '../services/CategoryService';
@@ -1132,6 +1133,9 @@ export default function ProductsPage() {
           collectionType={collection || category || 'all'}
         />
       )}
+
+      {/* Floating Cart Button */}
+      <FloatingCartButton />
     </View>
   );
 }

@@ -97,7 +97,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatedAt: userProfile.updatedAt,
       };
 
-      setUser(authUser);
+      // Only update state if the data has actually changed
+      setUser(prevUser => {
+        if (!prevUser) return authUser;
+        
+        // Check if any relevant fields have changed
+        const hasChanged = 
+          prevUser.id !== authUser.id ||
+          prevUser.name !== authUser.name ||
+          prevUser.email !== authUser.email ||
+          prevUser.phone !== authUser.phone ||
+          prevUser.avatar !== authUser.avatar ||
+          prevUser.role !== authUser.role ||
+          prevUser.status !== authUser.status;
+        
+        if (!hasChanged) {
+          return prevUser; // Return same reference to prevent re-renders
+        }
+        
+        return authUser;
+      });
+      
       await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
       console.log('✅ User profile loaded:', authUser.name);
 
@@ -300,7 +320,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatedAt: updatedProfile.updatedAt,
       };
 
-      setUser(authUser);
+      // Only update state if the data has actually changed
+      setUser(prevUser => {
+        if (!prevUser) return authUser;
+        
+        // Check if any relevant fields have changed
+        const hasChanged = 
+          prevUser.name !== authUser.name ||
+          prevUser.phone !== authUser.phone ||
+          prevUser.avatar !== authUser.avatar ||
+          prevUser.email !== authUser.email ||
+          prevUser.role !== authUser.role ||
+          prevUser.status !== authUser.status;
+        
+        if (!hasChanged) {
+          return prevUser; // Return same reference to prevent re-renders
+        }
+        
+        return authUser;
+      });
+      
       await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
     } catch (error: any) {
       throw new Error(error.message || 'Failed to update profile');

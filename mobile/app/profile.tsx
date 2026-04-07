@@ -21,6 +21,7 @@ import { PhoneInput } from '../components/PhoneInput';
 import { Button } from '../components/admin/Button';
 import { Header } from '../components/Header';
 import { Toast } from '../components/ui/Toast';
+import { ImagePickerModal } from '../components/ImagePickerModal';
 import { formatNigerianPhone, validateNigerianPhone } from '../utils/phoneUtils';
 
 interface ProfileScreenProps {
@@ -38,6 +39,7 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false);
   
   // Form state
   const [name, setName] = useState('');
@@ -51,23 +53,6 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
-    },
-    // Admin-specific header styles
-    adminHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-    },
-    backButton: {
-      marginRight: spacing.md,
-    },
-    adminHeaderTitle: {
-      fontSize: fontSizes.xl,
-      fontWeight: '600',
-      color: colors.text,
     },
     content: {
       flex: 1,
@@ -311,10 +296,7 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
   };
 
   const handleAvatarPress = () => {
-    toast.info('Choose an option', 2000);
-    // Show action sheet or menu for camera/library/remove
-    // For now, we'll use a simple approach with separate buttons
-    // This would typically be handled by an action sheet library
+    setShowImagePicker(true);
   };
 
   const pickImage = async (source: 'camera' | 'library') => {
@@ -393,18 +375,13 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
   if (loading) {
     return (
       <View style={styles.container}>
-        {isAdminUser ? (
-          <View style={styles.adminHeader}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <Text style={styles.adminHeaderTitle}>
-              {profile?.role === 'super_admin' ? 'Super Admin Profile' : 'Admin Profile'}
-            </Text>
-          </View>
-        ) : (
-          <Header title="Profile" showBack={true} />
-        )}
+        <Header 
+          title={isAdminUser 
+            ? (profile?.role === 'super_admin' ? 'Super Admin Profile' : 'Admin Profile')
+            : 'Profile'
+          } 
+          showBack={true} 
+        />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading profile...</Text>
@@ -415,18 +392,13 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
 
   return (
     <View style={styles.container}>
-      {isAdminUser ? (
-        <View style={styles.adminHeader}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.adminHeaderTitle}>
-            {profile?.role === 'super_admin' ? 'Super Admin Profile' : 'Admin Profile'}
-          </Text>
-        </View>
-      ) : (
-        <Header title="Profile" showBack={true} />
-      )}
+      <Header 
+        title={isAdminUser 
+          ? (profile?.role === 'super_admin' ? 'Super Admin Profile' : 'Admin Profile')
+          : 'Profile'
+        } 
+        showBack={true} 
+      />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Avatar Section */}
@@ -574,6 +546,16 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
 
         {/* Toast Component */}
         <Toast {...toast} />
+
+        {/* Image Picker Modal */}
+        <ImagePickerModal
+          visible={showImagePicker}
+          onClose={() => setShowImagePicker(false)}
+          onCamera={() => pickImage('camera')}
+          onGallery={() => pickImage('library')}
+          onRemove={avatar ? removeAvatar : undefined}
+          hasImage={!!avatar}
+        />
       </ScrollView>
     </View>
   );

@@ -144,21 +144,31 @@ export default function MessageThreadScreen() {
     productText: { flex: 1, fontWeight: fontWeights.medium as any },
     bubble: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
     inputRow: {
-      flexDirection: 'row', alignItems: 'flex-end',
-      paddingHorizontal: spacing.sm, paddingVertical: spacing.sm,
-      paddingBottom: spacing.sm + insets.bottom,
+      flexDirection: 'row', 
+      alignItems: 'flex-end',
+      paddingHorizontal: spacing.sm, 
+      paddingTop: spacing.sm,
+      paddingBottom: Math.max(spacing.sm, insets.bottom),
       backgroundColor: colors.background,
-      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border,
+      borderTopWidth: StyleSheet.hairlineWidth, 
+      borderTopColor: colors.border,
       gap: spacing.xs,
+      minHeight: 56,
     },
     input: {
-      flex: 1, minHeight: 40, maxHeight: 120,
+      flex: 1, 
+      minHeight: 40, 
+      maxHeight: 120,
       backgroundColor: colors.surface,
-      borderWidth: 1, borderColor: colors.border,
+      borderWidth: 1, 
+      borderColor: colors.border,
       borderRadius: 20,
-      paddingHorizontal: spacing.md, paddingVertical: 8,
-      fontSize: fontSizes.base, color: colors.text,
-      textAlignVertical: 'center',
+      paddingHorizontal: spacing.md, 
+      paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+      fontSize: fontSizes.base, 
+      color: colors.text,
+      textAlignVertical: Platform.OS === 'android' ? 'top' : 'center',
+      includeFontPadding: false,
     },
     sendBtn: {
       width: 40, height: 40, borderRadius: 20,
@@ -181,8 +191,8 @@ export default function MessageThreadScreen() {
   return (
     <KeyboardAvoidingView
       style={s.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
       <Header title={title} showBack />
 
