@@ -84,7 +84,7 @@ export default function Sidebar() {
         )}
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-hidden py-4">
+        <nav className="flex-1 overflow-y-auto py-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <ul className="space-y-1 px-3">
             {menuItems.map((item) => {
               const Icon = item.icon
