@@ -3,12 +3,12 @@ import {
   View, 
   StyleSheet, 
   Text, 
-  Alert, 
   RefreshControl,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator
 } from 'react-native';
+import * as alertUtils from '../utils/alertUtils';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
@@ -169,7 +169,7 @@ export default function ProductsPage() {
       }
     } catch (error) {
       console.error('Error loading categories:', error);
-      Alert.alert('Error', 'Failed to load categories');
+      // silently fail on network errors
     } finally {
       setLoading(false);
     }
@@ -433,12 +433,12 @@ export default function ProductsPage() {
           : typeof response?.error === 'string' 
             ? response.error 
             : 'Failed to load products';
-        Alert.alert('Error', errorMessage);
+        // silently fail — don't show native dialog for network/DB errors
       }
 
     } catch (error) {
       console.error('Error loading products:', error);
-      Alert.alert('Error', 'Failed to load products. Please check your connection and try again.');
+      // silently fail on network errors
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -508,11 +508,11 @@ export default function ProductsPage() {
       // Request camera permissions
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Camera permission is required for image search');
+        alertUtils.alert('Permission needed', 'Camera permission is required for image search');
         return;
       }
 
-      Alert.alert(
+      alertUtils.alert(
         'Image Search',
         'Choose how to search with an image',
         [
@@ -528,7 +528,7 @@ export default function ProductsPage() {
 
               if (!result.canceled && result.assets[0]) {
                 // TODO: Implement image search API call
-                Alert.alert('Coming Soon', 'Image search functionality will be available soon!');
+                alertUtils.alert('Coming Soon', 'Image search functionality will be available soon!');
               }
             }
           },
@@ -544,7 +544,7 @@ export default function ProductsPage() {
 
               if (!result.canceled && result.assets[0]) {
                 // TODO: Implement image search API call
-                Alert.alert('Coming Soon', 'Image search functionality will be available soon!');
+                alertUtils.alert('Coming Soon', 'Image search functionality will be available soon!');
               }
             }
           },
@@ -556,7 +556,7 @@ export default function ProductsPage() {
       );
     } catch (error) {
       console.error('Image search error:', error);
-      Alert.alert('Error', 'Failed to open image picker');
+      alertUtils.alert('Error', 'Failed to open image picker');
     }
   };
 

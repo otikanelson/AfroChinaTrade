@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRedirect } from '../../contexts/RedirectContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ShakeField } from '../../components/animations/ShakeField';
 
 export default function LoginScreen() {
   const { colors, fonts, fontSizes, spacing, borderRadius } = useTheme();
@@ -308,61 +309,65 @@ export default function LoginScreen() {
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedField === 'email' && styles.inputFocused,
-                  errors.email && styles.inputError
-                ]}
-                placeholder="Enter your email"
-                placeholderTextColor={colors.textLight}
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  if (errors.email) setErrors(prev => ({ ...prev, email: undefined }));
-                }}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <ShakeField hasError={!!errors.email}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    focusedField === 'email' && styles.inputFocused,
+                    errors.email && styles.inputError
+                  ]}
+                  placeholder="Enter your email"
+                  placeholderTextColor={colors.textLight}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (errors.email) setErrors(prev => ({ ...prev, email: undefined }));
+                  }}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </ShakeField>
               {errors.email && <Text style={styles.fieldErrorText}>{errors.email}</Text>}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
-              <View style={styles.passwordInputContainer}>
-                <TextInput
-                  style={[
-                    styles.input,
-                    focusedField === 'password' && styles.inputFocused,
-                    errors.password && styles.inputError,
-                    { paddingRight: 50 }
-                  ]}
-                  placeholder="Enter your password"
-                  placeholderTextColor={colors.textLight}
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    if (errors.password) setErrors(prev => ({ ...prev, password: undefined }));
-                  }}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity
-                  style={styles.passwordToggle}
-                  onPress={() => setShowPassword(!showPassword)}
-                >
-                  <Ionicons
-                    name={showPassword ? 'eye-off' : 'eye'}
-                    size={20}
-                    color={colors.textSecondary}
+              <ShakeField hasError={!!errors.password}>
+                <View style={styles.passwordInputContainer}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      focusedField === 'password' && styles.inputFocused,
+                      errors.password && styles.inputError,
+                      { paddingRight: 50 }
+                    ]}
+                    placeholder="Enter your password"
+                    placeholderTextColor={colors.textLight}
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text);
+                      if (errors.password) setErrors(prev => ({ ...prev, password: undefined }));
+                    }}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField(null)}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
                   />
-                </TouchableOpacity>
-              </View>
+                  <TouchableOpacity
+                    style={styles.passwordToggle}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off' : 'eye'}
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </ShakeField>
               {errors.password && <Text style={styles.fieldErrorText}>{errors.password}</Text>}
             </View>
 

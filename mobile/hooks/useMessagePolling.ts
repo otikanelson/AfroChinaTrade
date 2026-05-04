@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { messageService } from '../services/MessageService';
 import { MessageThread } from '../types/message';
 
-const POLL_INTERVAL_MS = 10_000;
+const POLL_INTERVAL_MS = 30_000; // 30s — was 10s, reduces battery drain and network traffic
 
 /**
  * Request notification permissions. Returns true if granted.

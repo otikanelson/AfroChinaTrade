@@ -5,10 +5,10 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Alert,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import * as alertUtils from '../../utils/alertUtils';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -183,12 +183,12 @@ export default function RefundRequestScreen() {
         setOrder(response.data);
         setAmount(response.data.totalAmount.toString());
       } else {
-        Alert.alert('Error', 'Order not found');
+        alertUtils.error('Error', 'Order not found');
         router.back();
       }
     } catch (error) {
       console.error('Error fetching order:', error);
-      Alert.alert('Error', 'Failed to load order details');
+      alertUtils.error('Error', 'Failed to load order details');
       router.back();
     } finally {
       setLoading(false);
@@ -199,18 +199,18 @@ export default function RefundRequestScreen() {
     if (!order) return;
 
     if (!reason.trim()) {
-      Alert.alert('Error', 'Please provide a reason for the refund');
+      alertUtils.error('Error', 'Please provide a reason for the refund');
       return;
     }
 
     if (refundType === 'partial') {
       const refundAmount = parseFloat(amount);
       if (isNaN(refundAmount) || refundAmount <= 0) {
-        Alert.alert('Error', 'Please enter a valid refund amount');
+        alertUtils.error('Error', 'Please enter a valid refund amount');
         return;
       }
       if (refundAmount > order.totalAmount) {
-        Alert.alert('Error', 'Refund amount cannot exceed order total');
+        alertUtils.error('Error', 'Refund amount cannot exceed order total');
         return;
       }
     }
@@ -229,11 +229,11 @@ export default function RefundRequestScreen() {
         mobileToastManager.success('Refund request submitted successfully');
         router.push('/my-refunds');
       } else {
-        Alert.alert('Error', response.error?.message || 'Failed to submit refund request');
+        alertUtils.error('Error', response.error?.message || 'Failed to submit refund request');
       }
     } catch (error) {
       console.error('Error submitting refund request:', error);
-      Alert.alert('Error', 'Failed to submit refund request');
+      alertUtils.error('Error', 'Failed to submit refund request');
     } finally {
       setSubmitting(false);
     }

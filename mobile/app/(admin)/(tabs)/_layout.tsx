@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useRefundNotifications } from '../../../hooks/useRefundNotifications';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -9,6 +10,7 @@ export default function AdminTabLayout() {
   const { colors, fontSizes, fontWeights } = useTheme();
   const { user } = useAuth();
   const { pendingRefunds } = useRefundNotifications();
+  const insets = useSafeAreaInsets();
 
   // Only show notifications for admin users
   const isAdmin = user?.role === 'admin';
@@ -22,11 +24,15 @@ export default function AdminTabLayout() {
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopWidth: 1,
-          paddingBottom: Platform.OS === 'ios' ? 0 : 5,
           borderTopColor: colors.border,
-          marginBottom: Platform.OS === 'ios' ? 10 : 0,
-          paddingTop: 3,
-          height: 70,
+          paddingBottom: insets.bottom,
+          paddingTop: 8,
+          height: 70 + insets.bottom,
+          elevation: 8,
+          shadowColor: colors.shadow,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
         },
         tabBarLabelStyle: {
           fontSize: fontSizes.xs,

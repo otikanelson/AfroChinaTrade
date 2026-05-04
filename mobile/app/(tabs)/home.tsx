@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   FlatList,
@@ -33,6 +33,7 @@ import { AdCarousel } from '../../components/AdCarousel';
 import { PromoTiles } from '../../components/PromoTiles';
 import { adService, Ad } from '../../services/AdService';
 import { pageLayoutService, LayoutBlock } from '../../services/PageLayoutService';
+import { StaggeredItem } from '../../components/animations/StaggeredItem';
 
 // Maps collection name keywords to an icon and accent color
 const COLLECTION_ICON_MAP: { keywords: string[]; icon: string; color: string }[] = [
@@ -115,7 +116,7 @@ export default function HomeTab() {
   const { recommendations, hasRecommendations, refreshRecommendations } = useRecommendations();
 
   // ─── Styles ────────────────────────────────────────────────────────────────
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.surface },
     stickySection: {
       backgroundColor: colors.surface,
@@ -183,7 +184,7 @@ export default function HomeTab() {
       fontFamily: fonts.regular,
       color: colors.textLight,
     },
-  });
+  }), [colors, fontSizes, fonts, spacing]);
 
   // ─── Data loading ──────────────────────────────────────────────────────────
 
@@ -333,7 +334,7 @@ export default function HomeTab() {
     } finally {
       setIsInitialLoading(false);
     }
-  }, [loadCollectionProducts, loadSectionProgressively, loadEnabledProductSectionsProgressively]);
+  }, [loadCollectionProducts, loadSectionProgressively]);
 
   const loadProductSectionsProgressively = async () => {
     const sections = [
@@ -754,15 +755,21 @@ export default function HomeTab() {
             horizontal
             showsHorizontalScrollIndicator={false}
             keyExtractor={p => (p as any)._id || p.id}
-            renderItem={({ item: product }) => (
-              <View style={styles.featuredCardWrapper}>
-                <ProductCard
-                  product={product}
-                  onPress={() => handleProductPress(product)}
-                  badge={item.badge}
-                  showViewCount={true}
-                />
-              </View>
+            removeClippedSubviews={true}
+            initialNumToRender={4}
+            maxToRenderPerBatch={4}
+            windowSize={5}
+            renderItem={({ item: product, index }) => (
+              <StaggeredItem index={index} delay={50}>
+                <View style={styles.featuredCardWrapper}>
+                  <ProductCard
+                    product={product}
+                    onPress={() => handleProductPress(product)}
+                    badge={item.badge}
+                    showViewCount={true}
+                  />
+                </View>
+              </StaggeredItem>
             )}
           />
         </View>
@@ -794,14 +801,20 @@ export default function HomeTab() {
             horizontal
             showsHorizontalScrollIndicator={false}
             keyExtractor={p => (p as any)._id || p.id}
-            renderItem={({ item: product }) => (
-              <View style={styles.featuredCardWrapper}>
-                <ProductCard
-                  product={product}
-                  onPress={() => handleProductPress(product)}
-                  showViewCount={true}
-                />
-              </View>
+            removeClippedSubviews={true}
+            initialNumToRender={4}
+            maxToRenderPerBatch={4}
+            windowSize={5}
+            renderItem={({ item: product, index }) => (
+              <StaggeredItem index={index} delay={50}>
+                <View style={styles.featuredCardWrapper}>
+                  <ProductCard
+                    product={product}
+                    onPress={() => handleProductPress(product)}
+                    showViewCount={true}
+                  />
+                </View>
+              </StaggeredItem>
             )}
           />
         </View>
@@ -825,14 +838,20 @@ export default function HomeTab() {
             horizontal
             showsHorizontalScrollIndicator={false}
             keyExtractor={p => (p as any)._id || p.id}
-            renderItem={({ item: product }) => (
-              <View style={styles.featuredCardWrapper}>
-                <ProductCard
-                  product={product}
-                  onPress={() => handleProductPress(product)}
-                  showViewCount={true}
-                />
-              </View>
+            removeClippedSubviews={true}
+            initialNumToRender={4}
+            maxToRenderPerBatch={4}
+            windowSize={5}
+            renderItem={({ item: product, index }) => (
+              <StaggeredItem index={index} delay={50}>
+                <View style={styles.featuredCardWrapper}>
+                  <ProductCard
+                    product={product}
+                    onPress={() => handleProductPress(product)}
+                    showViewCount={true}
+                  />
+                </View>
+              </StaggeredItem>
             )}
           />
         </View>
@@ -899,19 +918,6 @@ export default function HomeTab() {
         onCartPress={() => router.push('/cart')}
       />
 
-      <View style={styles.stickySection}>
-        <View style={styles.searchContainer}>
-          <SearchBar
-            value=""
-            onChangeText={() => {}}
-            placeholder="Search products, suppliers..."
-            onCameraPress={() => setShowCameraModal(true)}
-            onPress={() => router.push('/products')}
-            editable={false}
-          />
-        </View>
-      </View>
-
       <FlatList
         data={sections}
         keyExtractor={(item, index) => {
@@ -922,6 +928,10 @@ export default function HomeTab() {
         }}
         renderItem={renderSection}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={7}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
         refreshControl={
@@ -931,6 +941,20 @@ export default function HomeTab() {
             colors={[colors.primary]}
             tintColor={colors.primary}
           />
+        }
+        ListHeaderComponent={
+          <View style={styles.stickySection}>
+            <View style={styles.searchContainer}>
+              <SearchBar
+                value=""
+                onChangeText={() => {}}
+                placeholder="Search products, suppliers..."
+                onCameraPress={() => setShowCameraModal(true)}
+                onPress={() => router.push('/products')}
+                editable={false}
+              />
+            </View>
+          </View>
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>

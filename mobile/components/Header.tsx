@@ -1,4 +1,4 @@
-import React, { useState, memo } from 'react';
+import React, { useState, memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +6,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { Sidebar } from './Sidebar';
 import Constants from 'expo-constants';
+import { AnimatedCartBadge } from './animations/AnimatedCartBadge';
 
 interface HeaderProps {
   title?: string;
@@ -79,7 +80,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
   const topPadding = getTopPadding();
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     container: {
       backgroundColor: colors.background,
       paddingTop: topPadding,
@@ -210,7 +211,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       fontSize: 10,
       fontWeight: '600',
     },
-  });
+  }), [colors, fontSizes, fontWeights, topPadding]);
 
   const renderLogo = () => (
     <View style={styles.logoContainer}>
@@ -238,7 +239,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       <StatusBar 
         barStyle="dark-content" 
         backgroundColor={colors.background} 
-        translucent={Platform.OS === 'android' ? false : true}
+        translucent={false}
       />
       
       {/* Debug Information - only show when debugMode is true */}
@@ -312,18 +313,16 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             
             {showCart && (
               <TouchableOpacity 
-                style={styles.cartButton}
+                style={[styles.cartButton, { overflow: 'visible' }]}
                 onPress={onCartPress}
                 activeOpacity={0.7}
               >
                 <Ionicons name="cart-outline" size={22} color={colors.primary} />
-                {cartCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {cartCount > 99 ? '99+' : cartCount}
-                    </Text>
-                  </View>
-                )}
+                <AnimatedCartBadge
+                  count={cartCount}
+                  color={colors.primary}
+                  textColor={colors.textInverse}
+                />
               </TouchableOpacity>
             )}
 

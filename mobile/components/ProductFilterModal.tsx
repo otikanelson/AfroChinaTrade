@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,16 @@ import {
   StyleSheet,
   TextInput,
   Modal,
+  Dimensions,
+  Animated,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { ProductFilters } from '../types/navigation';
 import { tagService } from '../services/TagService';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 interface ProductFilterModalProps {
   visible: boolean;
@@ -74,10 +79,31 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
     }
   };
 
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(translateY, { toValue: 0, speed: 20, bounciness: 4, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const closeSheet = () => {
+    Animated.parallel([
+      Animated.timing(backdropOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: SCREEN_HEIGHT, speed: 20, bounciness: 4, useNativeDriver: true }),
+    ]).start(() => onClose());
+  };
+
+  const sheetStyle = { transform: [{ translateY }] };
+  const backdropStyle = { opacity: backdropOpacity };
+
   const updateFilter = (key: keyof ProductFilters, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
-
   const handleApply = () => {
     const min = minPrice ? parseFloat(minPrice) : undefined;
     const max = maxPrice ? parseFloat(maxPrice) : undefined;
@@ -87,7 +113,7 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
     }
     setPriceError('');
     onApplyFilters({ ...filters, minPrice: min, maxPrice: max });
-    onClose();
+    closeSheet();
   };
 
   const handleClear = () => {
@@ -96,7 +122,7 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
     setMaxPrice('');
     setPriceError('');
     onApplyFilters({});
-    onClose();
+    closeSheet();
   };
 
   const s = StyleSheet.create({
@@ -111,6 +137,7 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
       padding: 5,
       borderRadius: 20,
       maxHeight: '85%',
+      overflow: 'hidden',
     },
     handle: {
       width: 40,
@@ -267,19 +294,21 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="none"
       statusBarTranslucent
-      onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'overFullScreen'}
+      onRequestClose={closeSheet}
     >
-      <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-          <View style={s.sheet}>
+      <Animated.View style={[{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', padding: 20 }, backdropStyle]}>
+        <TouchableOpacity style={{ position: 'absolute', inset: 0 } as any} activeOpacity={1} onPress={closeSheet} />
+        <Animated.View style={[s.sheet, sheetStyle]}>
+          <TouchableOpacity activeOpacity={1}>
             <View style={s.handle} />
 
             {/* Header */}
             <View style={s.header}>
               <Text style={s.headerTitle}>Filter & Sort</Text>
-              <TouchableOpacity style={s.closeBtn} onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity style={s.closeBtn} onPress={closeSheet} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -415,9 +444,9 @@ export const ProductFilterModal: React.FC<ProductFilterModalProps> = ({
                 <Text style={s.applyBtnText}>Apply Filters</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 };

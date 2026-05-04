@@ -44,9 +44,9 @@ export const Toast: React.FC<ToastProps> = ({
   onClose,
 }) => {
   const { colors } = useTheme();
-  const slideAnim = useRef(new Animated.Value(-100)).current;
+  const scaleAnim = useRef(new Animated.Value(0.7)).current;
   const swipeAnim = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -109,30 +109,42 @@ export const Toast: React.FC<ToastProps> = ({
     if (visible) {
       // Reset swipe position when showing
       swipeAnim.setValue(0);
-      opacityAnim.setValue(1);
-      
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      scaleAnim.setValue(0.7);
+      opacityAnim.setValue(0);
+
+      // Popup: fade in + scale up
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 120,
+          friction: 8,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
       // Always auto-close, use provided duration or default
       const duration = autoClose && autoClose > 0 ? autoClose : 3000;
       const timer = setTimeout(() => {
         handleClose();
       }, duration);
-      
+
       return () => clearTimeout(timer);
     } else {
-      slideAnim.setValue(-100);
+      scaleAnim.setValue(0.7);
+      opacityAnim.setValue(0);
     }
   }, [visible, autoClose]);
 
   const handleClose = () => {
-    Animated.timing(slideAnim, {
-      toValue: -100,
-      duration: 300,
+    // Fade out
+    Animated.timing(opacityAnim, {
+      toValue: 0,
+      duration: 250,
       useNativeDriver: true,
     }).start(() => {
       onClose?.();
@@ -140,17 +152,11 @@ export const Toast: React.FC<ToastProps> = ({
   };
 
   const getTypeColor = (): string => {
-    switch (type) {
-      case 'success':
-        return colors.success || '#10B981';
-      case 'error':
-        return colors.error || '#EF4444';
-      case 'warning':
-        return colors.warning || '#F59E0B';
-      case 'info':
-      default:
-        return colors.primary || '#3B82F6';
+    if (type === 'error') {
+      return colors.primary;
     }
+    // Randomly pick secondary or accent for all other alert types
+    return Math.random() < 0.5 ? colors.secondary : colors.accent;
   };
 
   const typeColor = getTypeColor();
@@ -207,17 +213,17 @@ export const Toast: React.FC<ToastProps> = ({
       style={[
         styles.container,
         {
-          transform: [{ translateY: slideAnim }],
+          opacity: opacityAnim,
+          transform: [{ scale: scaleAnim }],
         },
       ]}
       {...panResponder.panHandlers}
     >
-      <Animated.View 
+      <Animated.View
         style={[
           styles.toast,
           {
             transform: [{ translateX: swipeAnim }],
-            opacity: opacityAnim,
           },
         ]}
       >

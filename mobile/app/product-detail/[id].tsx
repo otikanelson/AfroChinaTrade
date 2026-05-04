@@ -8,10 +8,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
-  Alert,
   Share,
   Clipboard,
 } from 'react-native';
+import * as alertUtils from '../../utils/alertUtils';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -164,10 +164,11 @@ export default function ProductDetailScreen() {
       color: themeColors.primary,
     },
     originalPrice: {
-      fontSize: fontSizes.lg,
+      fontSize: fontSizes.sm,
       color: themeColors.textSecondary,
       textDecorationLine: 'line-through',
       marginRight: themeSpacing.sm,
+      marginTop: themeSpacing.md,
     },
     discountBadge: {
       backgroundColor: themeColors.error,
@@ -720,12 +721,12 @@ export default function ProductDetailScreen() {
         setProduct(response.data);
       } else {
         console.error('Product not found or API error:', response.error);
-        Alert.alert('Error', 'Product not found');
+        // silently navigate back on network/DB errors
         router.back();
       }
     } catch (error) {
       console.error('Error loading product:', error);
-      Alert.alert('Error', 'Failed to load product details');
+      // silently navigate back on network/DB errors
       router.back();
     } finally {
       setLoading(false);
@@ -1105,14 +1106,12 @@ export default function ProductDetailScreen() {
             return (
               <View style={styles.discountExpirySection}>
                 <View style={styles.discountExpirySectionTitle}>
-                  <Ionicons name="flash" size={18} color="#FF4444" />
                   <Text style={styles.discountExpirySectionTitle}>
                     {expiryInfo.isUrgent ? 'Limited Time Offer!' : 'Special Discount'}
                   </Text>
                 </View>
                 <Text style={styles.discountExpiryDetails}>
-                  Save ₦{savings.toLocaleString()} ({product.discount}% off) • {expiryInfo.text.charAt(0).toUpperCase() + expiryInfo.text.slice(1)} on {formattedDate}
-                  {expiryInfo.isUrgent && ' ⚡ Hurry up!'}
+                  Save ₦{savings.toLocaleString()} ({product.discount}% off) • Ends on {formattedDate}{expiryInfo.isUrgent && ' Hurry up!'}
                 </Text>
               </View>
             );

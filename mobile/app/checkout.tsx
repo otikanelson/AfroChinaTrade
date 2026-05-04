@@ -18,6 +18,7 @@ import { useRedirect } from '../contexts/RedirectContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { tokenManager } from '../services/api/tokenManager';
 import { API_BASE_URL } from '../constants/config';
+import { SuccessOverlay } from '../components/animations/SuccessOverlay';
 
 interface PaymentMethod {
   _id: string;
@@ -61,6 +62,7 @@ export default function CheckoutScreen() {
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     // Always load checkout data, but only fetch payment/address data if authenticated
@@ -171,16 +173,7 @@ export default function CheckoutScreen() {
       const data = await response.json();
       if (data.success) {
         await clearCart();
-        Alert.alert(
-          'Order Placed!',
-          'Your order has been placed successfully. You will receive a confirmation email shortly.',
-          [
-            {
-              text: 'View Orders',
-              onPress: () => router.replace('/my-orders'),
-            },
-          ]
-        );
+        setShowSuccess(true);
       } else {
         Alert.alert('Error', data.message || 'Failed to place order');
       }
@@ -422,6 +415,14 @@ export default function CheckoutScreen() {
 
   return (
     <View style={styles.container}>
+      <SuccessOverlay
+        visible={showSuccess}
+        title="Order Placed!"
+        message="Your order has been placed successfully. You will receive a confirmation shortly."
+        buttonText="View My Orders"
+        onPress={() => { setShowSuccess(false); router.replace('/my-orders'); }}
+        primaryColor={colors.primary}
+      />
       <Header
         title="Checkout"
         showBack={true}

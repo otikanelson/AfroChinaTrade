@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Text, ActivityIndicator, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { View, ScrollView, StyleSheet, Text, ActivityIndicator, TouchableOpacity, Modal, TextInput } from 'react-native';
+import * as alertUtils from '../utils/alertUtils';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
@@ -245,7 +246,7 @@ export default function SuppliersScreen() {
       }
     } catch (error) {
       console.error('Failed to load suppliers:', error);
-      Alert.alert('Error', 'Failed to load suppliers. Please try again.');
+      // silently fail on network errors
       setSuppliers([]);
     } finally {
       setIsLoading(false);
@@ -265,7 +266,7 @@ export default function SuppliersScreen() {
 
   const handleRateSupplier = (supplier: Supplier) => {
     if (!isAuthenticated) {
-      Alert.alert('Login Required', 'Please login to rate suppliers');
+      alertUtils.alert('Login Required', 'Please login to rate suppliers');
       return;
     }
     setSelectedSupplier(supplier);
@@ -276,7 +277,7 @@ export default function SuppliersScreen() {
 
   const submitRating = async () => {
     if (!selectedSupplier || rating === 0) {
-      Alert.alert('Invalid Rating', 'Please select a rating from 1 to 5 stars');
+      alertUtils.alert('Invalid Rating', 'Please select a rating from 1 to 5 stars');
       return;
     }
 
@@ -285,7 +286,7 @@ export default function SuppliersScreen() {
       const supplierId = selectedSupplier._id || selectedSupplier.id;
       
       if (!supplierId) {
-        Alert.alert('Error', 'Supplier ID not found');
+        alertUtils.alert('Error', 'Supplier ID not found');
         return;
       }
       
@@ -295,16 +296,15 @@ export default function SuppliersScreen() {
       });
 
       if (response.success) {
-        Alert.alert('Success', 'Thank you for rating this supplier!');
+        alertUtils.success('Success', 'Thank you for rating this supplier!');
         setRatingModalVisible(false);
-        // Refresh suppliers to get updated ratings
         loadSuppliers();
       } else {
-        Alert.alert('Error', response.error?.message || 'Failed to submit rating');
+        alertUtils.error('Error', response.error?.message || 'Failed to submit rating');
       }
     } catch (error) {
       console.error('Failed to submit rating:', error);
-      Alert.alert('Error', 'Failed to submit rating. Please try again.');
+      alertUtils.error('Error', 'Failed to submit rating. Please try again.');
     } finally {
       setSubmittingRating(false);
     }

@@ -268,9 +268,23 @@ export const WishlistProvider: React.FC<WishlistProviderProps> = ({ children }) 
       return true;
     }
 
-    // Authenticated user logic
+    // Authenticated user logic — optimistic update first
     const token = await tokenManager.getAccessToken();
     if (!token) return false;
+
+    // Optimistically add a placeholder so UI updates instantly
+    const optimisticItem: WishlistItem = {
+      _id: `optimistic-${productId}`,
+      productId: {
+        _id: productId,
+        name: '',
+        price: 0,
+        images: [],
+        stock: 0,
+      } as any,
+      addedAt: new Date().toISOString(),
+    };
+    setWishlist(prev => [...prev, optimisticItem]);
 
     try {
       const response = await fetch(`${API_BASE_URL}/wishlist`, {
@@ -284,14 +298,18 @@ export const WishlistProvider: React.FC<WishlistProviderProps> = ({ children }) 
 
       const data = await response.json();
       if (data.success) {
-        setWishlist(prev => [...prev, data.data]);
+        // Replace optimistic item with real data
+        setWishlist(prev => prev.map(item =>
+          item._id === `optimistic-${productId}` ? data.data : item
+        ));
         return true;
       } else {
-        console.error('Add to wishlist error:', data.message);
+        // Rollback
+        setWishlist(prev => prev.filter(item => item._id !== `optimistic-${productId}`));
         return false;
       }
     } catch (error) {
-      console.error('Error adding to wishlist:', error);
+      setWishlist(prev => prev.filter(item => item._id !== `optimistic-${productId}`));
       return false;
     }
   };
@@ -309,7 +327,9 @@ export const WishlistProvider: React.FC<WishlistProviderProps> = ({ children }) 
       return true;
     }
 
-    // Authenticated user logic
+    // Authenticated user logic — optimistic update first
+    setWishlist(prev => prev.filter(item => item.productId._id !== productId));
+
     const token = await tokenManager.getAccessToken();
     if (!token) return false;
 
@@ -324,14 +344,14 @@ export const WishlistProvider: React.FC<WishlistProviderProps> = ({ children }) 
 
       const data = await response.json();
       if (data.success) {
-        setWishlist(prev => prev.filter(item => item.productId._id !== productId));
         return true;
       } else {
-        console.error('Remove from wishlist error:', data.message);
+        // Rollback — re-fetch to restore
+        refreshWishlist();
         return false;
       }
     } catch (error) {
-      console.error('Error removing from wishlist:', error);
+      refreshWishlist();
       return false;
     }
   };

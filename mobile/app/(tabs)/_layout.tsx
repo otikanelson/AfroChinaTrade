@@ -4,10 +4,13 @@ import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMessages } from '../../contexts/MessagesContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { SpringTabIcon } from '../../components/animations/SpringTabIcon';
 
 function MessagesTabIcon({ color, focused }: { color: string; focused: boolean }) {
   return (
-    <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={22} color={color} />
+    <SpringTabIcon focused={focused}>
+      <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={22} color={color} />
+    </SpringTabIcon>
   );
 }
 
@@ -16,8 +19,8 @@ export default function TabLayout() {
   const { colors, fontSizes, fontWeights } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Calculate proper tab bar height accounting for system navigation bar
-  const tabBarHeight = Platform.OS === 'android' ? 70 + (insets.bottom || 0) : 70;
+  // Calculate proper tab bar height accounting for system navigation bar and home indicator
+  const tabBarHeight = 70 + (insets.bottom || 0);
 
   return (
     <Tabs
@@ -43,9 +46,6 @@ export default function TabLayout() {
           fontWeight: fontWeights.medium,
           marginBottom: Platform.OS === 'android' ? 4 : 0,
         },
-        sceneStyle: {
-          paddingBottom: Platform.OS === 'android' ? insets.bottom : 0,
-        },
       }}
     >
       <Tabs.Screen
@@ -53,7 +53,9 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+            <SpringTabIcon focused={focused}>
+              <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+            </SpringTabIcon>
           ),
         }}
       />
@@ -62,7 +64,9 @@ export default function TabLayout() {
         options={{
           title: 'Buy Now',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'cart' : 'cart-outline'} size={22} color={color} />
+            <SpringTabIcon focused={focused}>
+              <Ionicons name={focused ? 'cart' : 'cart-outline'} size={22} color={color} />
+            </SpringTabIcon>
           ),
         }}
       />
@@ -72,7 +76,7 @@ export default function TabLayout() {
           title: 'Messages',
           tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount.toString()) : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: colors.error, // Using error color for badge
+            backgroundColor: colors.error,
             color: colors.textInverse,
             fontSize: 10,
             fontWeight: fontWeights.bold,
@@ -85,7 +89,9 @@ export default function TabLayout() {
         options={{
           title: 'Account',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
+            <SpringTabIcon focused={focused}>
+              <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
+            </SpringTabIcon>
           ),
         }}
       />

@@ -10,6 +10,7 @@ import {
   Animated,
   ScrollView,
   ViewStyle,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -60,7 +61,7 @@ export const CustomModal: React.FC<CustomModalProps> = ({
   headerStyle,
   contentStyle,
 }) => {
-  const { colors, fonts, fontSizes, fontWeights, borderRadius, spacing: themeSpacing } = useTheme();
+  const { colors, fontSizes, borderRadius, spacing: themeSpacing } = useTheme();
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(screenHeight)).current;
 
@@ -185,6 +186,7 @@ export const CustomModal: React.FC<CustomModalProps> = ({
       transparent
       animationType="fade"
       statusBarTranslucent
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'overFullScreen'}
       onRequestClose={handleClose}
     >
       <TouchableWithoutFeedback onPress={handleClose}>

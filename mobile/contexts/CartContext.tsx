@@ -307,7 +307,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       addPendingOperation(productId);
 
       // Send request in background
-      await tokenManager.initialize();
       const token = await tokenManager.getAccessToken();
       
       if (!token) {
@@ -391,7 +390,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       addPendingOperation(productId);
 
       // Send request in background
-      await tokenManager.initialize();
       const token = await tokenManager.getAccessToken();
       
       if (!token) {
@@ -488,7 +486,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       addPendingOperation(productId);
 
       // Send request in background
-      await tokenManager.initialize();
       const token = await tokenManager.getAccessToken();
       
       if (!token || quantity < 1) {
@@ -549,7 +546,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       setCart({ ...cart!, items: [], totalItems: 0, totalAmount: 0 });
 
       // Send request in background
-      await tokenManager.initialize();
       const token = await tokenManager.getAccessToken();
       
       if (!token) {
@@ -601,3 +597,4 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     </CartContext.Provider>
   );
 };
+

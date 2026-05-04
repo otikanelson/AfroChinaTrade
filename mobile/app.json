@@ -2,7 +2,7 @@
   "expo": {
     "name": "AfroChinaTrade",
     "slug": "afrochinatradeapp",
-    "version": "1.0.1",
+    "version": "2.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
@@ -35,23 +35,19 @@
           "backgroundColor": "#8f231d",
           "image": "./assets/images/splash.png",
           "dark": {
-            "image": "./assets/images/Logo_light.png",
-            "backgroundColor": "#000000"
+            "image": "./assets/images/splash-dark.png",
+            "backgroundColor": "#070707"
           },
           "imageWidth": 120
         }
       ]
     ],
     "runtimeVersion": "1.0.2",
-    "updates": {
-      "url": "https://u.expo.dev/19b6a312-d523-44f8-846f-83a97c6aa6ff"
-    },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "b80bd5e9-4e08-4438-b2c2-bb3270f6bb21"
-      },
-      "router": {}
-    },
-    "owner": "claudesonnets-organization"
+        "projectId": "168085f4-ee7d-4e1e-8ad9-2fbdfc95ced1"
+      }
+    }
   }
 }

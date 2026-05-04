@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #C41E3A;
+  --color-primary-light: #E63946;
+  --color-primary-dark: #8B0000;
+  --color-secondary: #2D5F3F;
+  --color-secondary-light: #3A7D4F;
+  --color-accent: #D4AF37;
+  --color-accent-dark: #B8941E;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #F8F9FA;
+  color: #1A1A1A;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+}
+
+/* Focus ring using brand red */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F3F5;
+}
+::-webkit-scrollbar-thumb {
+  background: #DEE2E6;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ADB5BD;
+}
+
+/* Brand utility classes */
+.brand-red    { color: var(--color-primary); }
+.brand-green  { color: var(--color-secondary); }
+.brand-gold   { color: var(--color-accent-dark); }
+
+.bg-brand-red   { background-color: var(--color-primary); }
+.bg-brand-green { background-color: var(--color-secondary); }
+.bg-brand-gold  { background-color: var(--color-accent); }
+
+/* Status badge base */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}

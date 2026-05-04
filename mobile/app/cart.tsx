@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
   RefreshControl,
+  Dimensions,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -17,6 +19,75 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../hooks/useToast';
 import { Toast } from '../components/ui/Toast';
 import { Header } from '../components/Header';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
+// Swipeable cart item — swipe left to fling off and delete
+const SwipeableCartItem: React.FC<{
+  children: React.ReactNode;
+  onDelete: () => void;
+}> = ({ children, onDelete }) => {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const height = useRef(new Animated.Value(1)).current; // scale trick for collapse
+
+  const flingOut = (callback: () => void) => {
+    Animated.timing(translateX, {
+      toValue: -SCREEN_WIDTH,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(callback);
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderMove: (_, g) => {
+        if (g.dx < 0) translateX.setValue(g.dx);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -SCREEN_WIDTH * 0.35 || g.vx < -0.5) {
+          flingOut(onDelete);
+        } else {
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 6 }).start();
+        }
+      },
+    })
+  ).current;
+
+  return (
+    <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX }] }}>
+      {children}
+    </Animated.View>
+  );
+};
+
+// Animated quantity button
+const QtyButton: React.FC<{
+  onPress: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+  style?: any;
+}> = ({ onPress, disabled, children, style }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const pressIn = () => Animated.timing(scale, { toValue: 0.85, duration: 80, useNativeDriver: true }).start();
+  const pressOut = () => Animated.timing(scale, { toValue: 1, duration: 80, useNativeDriver: true }).start();
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={pressIn}
+        onPressOut={pressOut}
+        disabled={disabled}
+        style={style}
+        activeOpacity={1}
+      >
+        {children}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 export default function CartScreen() {
   const router = useRouter();
@@ -40,19 +111,14 @@ export default function CartScreen() {
       handleRemoveItem(productId, selectedVariant);
       return;
     }
-    
-    console.log('Cart - Attempting to update quantity:', { productId, newQuantity, selectedVariant });
     const success = await updateQuantity(productId, newQuantity, selectedVariant);
-    console.log('Cart - Update quantity result:', success);
     if (!success) {
       toast.error('Failed to update quantity. Please check your connection and try again.');
     }
   };
 
   const handleRemoveItem = async (productId: string, selectedVariant?: any) => {
-    console.log('Cart - Attempting to remove item:', { productId, selectedVariant });
     const success = await removeFromCart(productId, selectedVariant);
-    console.log('Cart - Remove result:', success);
     if (!success) {
       toast.error('Failed to remove item. Please check your connection and try again.');
     }
@@ -67,196 +133,52 @@ export default function CartScreen() {
   };
 
   const handleClearCart = async () => {
-    console.log('Attempting to clear cart');
     const success = await clearCart();
     if (!success) {
       toast.error('Failed to clear cart. Please check your connection and try again.');
     }
   };
 
-  const formatPrice = (price: number) => {
-    return `₦${price.toLocaleString()}`;
-  };
+  const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
 
   const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: themeColors.background,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    emptyContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: themeSpacing.xl,
-    },
-    emptyIcon: {
-      marginBottom: themeSpacing.lg,
-    },
-    emptyTitle: {
-      fontSize: fontSizes.xl,
-      fontWeight: fontWeights.bold,
-      color: themeColors.text,
-      marginBottom: themeSpacing.sm,
-      textAlign: 'center',
-    },
-    emptyText: {
-      fontSize: fontSizes.base,
-      color: themeColors.textSecondary,
-      textAlign: 'center',
-      marginBottom: themeSpacing.xl,
-    },
-    shopButton: {
-      backgroundColor: themeColors.primary,
-      paddingHorizontal: themeSpacing.xl,
-      paddingVertical: themeSpacing.md,
-      borderRadius: borderRadius.md,
-    },
-    shopButtonText: {
-      color: themeColors.textInverse,
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.semibold,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    cartItem: {
-      flexDirection: 'column',
-      padding: themeSpacing.base,
-      backgroundColor: themeColors.surface,
-      marginHorizontal: themeSpacing.base,
-      marginVertical: themeSpacing.xs,
-      borderRadius: borderRadius.md,
-      ...shadows.sm,
-    },
-    itemHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: themeSpacing.sm,
-    },
-    itemImageAndDetails: {
-      flexDirection: 'row',
-      flex: 1,
-    },
-    itemImage: {
-      width: 80,
-      height: 80,
-      borderRadius: borderRadius.sm,
-      backgroundColor: themeColors.background,
-      marginRight: themeSpacing.sm,
-    },
-    itemDetails: {
-      flex: 1,
-    },
-    itemName: {
-      fontSize: fontSizes.lg,
-      fontWeight: fontWeights.medium,
-      color: themeColors.text,
-      marginBottom: themeSpacing.xs,
-    },
-    itemPrice: {
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.bold,
-      color: themeColors.primary,
-      marginBottom: themeSpacing.xs,
-    },
-    itemVariant: {
-      fontSize: fontSizes.sm,
-      color: themeColors.textSecondary,
-      marginBottom: themeSpacing.sm,
-    },
-    quantityContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: themeSpacing.sm,
-    },
-    quantityButton: {
-      width: 32,
-      height: 32,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: themeColors.background,
-      borderRadius: borderRadius.sm,
-      borderWidth: 1,
-      borderColor: themeColors.border,
-    },
-    quantityText: {
-      fontSize: fontSizes.base,
-      color: themeColors.text,
-      marginHorizontal: themeSpacing.sm,
-      minWidth: 30,
-      textAlign: 'center',
-    },
-    removeButton: {
-      padding: themeSpacing.xs,
-    },
-    summaryContainer: {
-      backgroundColor: themeColors.surface,
-      padding: themeSpacing.base,
-      borderTopWidth: 1,
-      borderTopColor: themeColors.border,
-    },
-    summaryRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: themeSpacing.sm,
-    },
-    summaryLabel: {
-      fontSize: fontSizes.base,
-      color: themeColors.textSecondary,
-    },
-    summaryValue: {
-      fontSize: fontSizes.base,
-      color: themeColors.text,
-      fontWeight: fontWeights.medium,
-    },
-    totalRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      paddingTop: themeSpacing.sm,
-      borderTopWidth: 1,
-      borderTopColor: themeColors.border,
-      marginBottom: themeSpacing.lg,
-    },
-    totalLabel: {
-      fontSize: fontSizes.lg,
-      fontWeight: fontWeights.bold,
-      color: themeColors.text,
-    },
-    totalValue: {
-      fontSize: fontSizes.lg,
-      fontWeight: fontWeights.bold,
-      color: themeColors.primary,
-    },
-    checkoutButton: {
-      backgroundColor: themeColors.primary,
-      paddingVertical: themeSpacing.md,
-      borderRadius: borderRadius.md,
-      alignItems: 'center',
-    },
-    checkoutButtonText: {
-      color: themeColors.textInverse,
-      fontSize: fontSizes.base,
-      fontWeight: fontWeights.semibold,
-    },
-    placeholderImage: {
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
+    container: { flex: 1, backgroundColor: themeColors.background },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: themeSpacing.xl },
+    emptyIcon: { marginBottom: themeSpacing.lg },
+    emptyTitle: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: themeColors.text, marginBottom: themeSpacing.sm, textAlign: 'center' },
+    emptyText: { fontSize: fontSizes.base, color: themeColors.textSecondary, textAlign: 'center', marginBottom: themeSpacing.xl },
+    shopButton: { backgroundColor: themeColors.primary, paddingHorizontal: themeSpacing.xl, paddingVertical: themeSpacing.md, borderRadius: borderRadius.md },
+    shopButtonText: { color: themeColors.textInverse, fontSize: fontSizes.base, fontWeight: fontWeights.semibold },
+    scrollView: { flex: 1 },
+    cartItem: { flexDirection: 'column', padding: themeSpacing.base, backgroundColor: themeColors.surface, marginHorizontal: themeSpacing.base, marginVertical: themeSpacing.xs, borderRadius: borderRadius.md, ...shadows.sm },
+    itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: themeSpacing.sm },
+    itemImageAndDetails: { flexDirection: 'row', flex: 1 },
+    itemImage: { width: 80, height: 80, borderRadius: borderRadius.sm, backgroundColor: themeColors.background, marginRight: themeSpacing.sm },
+    itemDetails: { flex: 1 },
+    itemName: { fontSize: fontSizes.lg, fontWeight: fontWeights.medium, color: themeColors.text, marginBottom: themeSpacing.xs },
+    itemPrice: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: themeColors.primary, marginBottom: themeSpacing.xs },
+    itemVariant: { fontSize: fontSizes.sm, color: themeColors.textSecondary, marginBottom: themeSpacing.sm },
+    quantityContainer: { flexDirection: 'row', alignItems: 'center', marginTop: themeSpacing.sm },
+    quantityButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.background, borderRadius: borderRadius.sm, borderWidth: 1, borderColor: themeColors.border },
+    quantityText: { fontSize: fontSizes.base, color: themeColors.text, marginHorizontal: themeSpacing.sm, minWidth: 30, textAlign: 'center' },
+    removeButton: { padding: themeSpacing.xs },
+    summaryContainer: { backgroundColor: themeColors.surface, padding: themeSpacing.base, borderTopWidth: 1, borderTopColor: themeColors.border },
+    summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: themeSpacing.sm },
+    summaryLabel: { fontSize: fontSizes.base, color: themeColors.textSecondary },
+    summaryValue: { fontSize: fontSizes.base, color: themeColors.text, fontWeight: fontWeights.medium },
+    totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: themeSpacing.sm, borderTopWidth: 1, borderTopColor: themeColors.border, marginBottom: themeSpacing.lg },
+    totalLabel: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: themeColors.text },
+    totalValue: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: themeColors.primary },
+    checkoutButton: { backgroundColor: themeColors.primary, paddingVertical: themeSpacing.md, borderRadius: borderRadius.md, alignItems: 'center' },
+    checkoutButtonText: { color: themeColors.textInverse, fontSize: fontSizes.base, fontWeight: fontWeights.semibold },
+    placeholderImage: { justifyContent: 'center', alignItems: 'center' },
   });
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Shopping Cart"
-          showBack={true}
-        />
+        <Header title="Shopping Cart" showBack={true} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeColors.primary} />
         </View>
@@ -267,10 +189,7 @@ export default function CartScreen() {
   if (!cart || cart.items.length === 0) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Shopping Cart"
-          showBack={true}
-        />
+        <Header title="Shopping Cart" showBack={true} />
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
             <Ionicons name="cart-outline" size={64} color={themeColors.textSecondary} />
@@ -310,8 +229,8 @@ export default function CartScreen() {
         }
       />
 
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -325,79 +244,72 @@ export default function CartScreen() {
         {cart.items.map((item, index) => {
           const isPending = isOperationPending(item.productId._id);
           return (
-            <View key={`${item.productId._id}-${JSON.stringify(item.selectedVariant || {})}-${index}`} style={[styles.cartItem, isPending && { opacity: 0.7 }]}>
-              <View style={styles.itemHeader}>
-                <View style={styles.itemImageAndDetails}>
-                  {item.productId.images && item.productId.images.length > 0 ? (
-                    <Image
-                      source={{ uri: item.productId.images[0] }}
-                      style={styles.itemImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={[styles.itemImage, styles.placeholderImage]}>
-                      <Ionicons name="image-outline" size={32} color={themeColors.textSecondary} />
-                    </View>
-                  )}
-
-                  <View style={styles.itemDetails}>
-                    <Text style={styles.itemName} numberOfLines={2}>
-                      {item.productId.name}
-                    </Text>
-                    <Text style={styles.itemPrice}>
-                      {formatPrice(item.price)}
-                    </Text>
-                    {item.selectedVariant && (
-                      <Text style={styles.itemVariant}>
-                        {Object.entries(item.selectedVariant)
-                          .map(([key, value]) => `${key}: ${value}`)
-                          .join(', ')}
-                      </Text>
+            <SwipeableCartItem
+              key={`${item.productId._id}-${JSON.stringify(item.selectedVariant || {})}-${index}`}
+              onDelete={() => handleRemoveItem(item.productId._id, item.selectedVariant)}
+            >
+              <View style={[styles.cartItem, isPending && { opacity: 0.7 }]}>
+                <View style={styles.itemHeader}>
+                  <View style={styles.itemImageAndDetails}>
+                    {item.productId.images && item.productId.images.length > 0 ? (
+                      <Image source={{ uri: item.productId.images[0] }} style={styles.itemImage} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.itemImage, styles.placeholderImage]}>
+                        <Ionicons name="image-outline" size={32} color={themeColors.textSecondary} />
+                      </View>
                     )}
+                    <View style={styles.itemDetails}>
+                      <Text style={styles.itemName} numberOfLines={2}>{item.productId.name}</Text>
+                      <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
+                      {item.selectedVariant && (
+                        <Text style={styles.itemVariant}>
+                          {Object.entries(item.selectedVariant).map(([k, v]) => `${k}: ${v}`).join(', ')}
+                        </Text>
+                      )}
+                    </View>
                   </View>
+
+                  <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={() => handleRemoveItem(item.productId._id, item.selectedVariant)}
+                    disabled={isPending}
+                  >
+                    <Ionicons name="trash-outline" size={20} color={themeColors.error} />
+                  </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => handleRemoveItem(item.productId._id, item.selectedVariant)}
-                  disabled={isPending}
-                >
-                  <Ionicons name="trash-outline" size={20} color={themeColors.error} />
-                </TouchableOpacity>
-              </View>
+                <View style={styles.quantityContainer}>
+                  <QtyButton
+                    onPress={() => {
+                      if (item.quantity <= 1) handleRemoveItem(item.productId._id, item.selectedVariant);
+                      else handleQuantityChange(item.productId._id, item.quantity - 1, item.selectedVariant);
+                    }}
+                    disabled={isPending}
+                    style={styles.quantityButton}
+                  >
+                    <Ionicons
+                      name={item.quantity <= 1 ? 'trash-outline' : 'remove'}
+                      size={16}
+                      color={item.quantity <= 1 ? themeColors.error : themeColors.text}
+                    />
+                  </QtyButton>
 
-              <View style={styles.quantityContainer}>
-                <TouchableOpacity
-                  style={styles.quantityButton}
-                  onPress={() => {
-                    if (item.quantity <= 1) {
-                      handleRemoveItem(item.productId._id, item.selectedVariant);
-                    } else {
-                      handleQuantityChange(item.productId._id, item.quantity - 1, item.selectedVariant);
-                    }
-                  }}
-                  disabled={isPending}
-                >
-                  <Ionicons 
-                    name={item.quantity <= 1 ? "trash-outline" : "remove"} 
-                    size={16} 
-                    color={item.quantity <= 1 ? themeColors.error : themeColors.text} 
-                  />
-                </TouchableOpacity>
-                {isPending ? (
-                  <ActivityIndicator size="small" color={themeColors.primary} style={{ marginHorizontal: themeSpacing.sm }} />
-                ) : (
-                  <Text style={styles.quantityText}>{item.quantity}</Text>
-                )}
-                <TouchableOpacity
-                  style={styles.quantityButton}
-                  onPress={() => handleQuantityChange(item.productId._id, item.quantity + 1, item.selectedVariant)}
-                  disabled={isPending}
-                >
-                  <Ionicons name="add" size={16} color={themeColors.text} />
-                </TouchableOpacity>
+                  {isPending ? (
+                    <ActivityIndicator size="small" color={themeColors.primary} style={{ marginHorizontal: themeSpacing.sm }} />
+                  ) : (
+                    <Text style={styles.quantityText}>{item.quantity}</Text>
+                  )}
+
+                  <QtyButton
+                    onPress={() => handleQuantityChange(item.productId._id, item.quantity + 1, item.selectedVariant)}
+                    disabled={isPending}
+                    style={styles.quantityButton}
+                  >
+                    <Ionicons name="add" size={16} color={themeColors.text} />
+                  </QtyButton>
+                </View>
               </View>
-            </View>
+            </SwipeableCartItem>
           );
         })}
       </ScrollView>

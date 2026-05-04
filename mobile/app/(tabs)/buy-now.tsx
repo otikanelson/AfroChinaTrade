@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Dimensions, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Header } from '../../components/Header';
@@ -10,7 +10,6 @@ import { SearchBar } from '../../components/SearchBar';
 import { CameraSearchModal } from '../../components/CameraSearchModal';
 import { AdCarousel } from '../../components/AdCarousel';
 import { PromoTiles } from '../../components/PromoTiles';
-import { PullToRefresh } from '../../components/PullToRefresh';
 import { adService, Ad } from '../../services/AdService';
 import { collectionService } from '../../services/CollectionService';
 import { pageLayoutService, LayoutBlock } from '../../services/PageLayoutService';
@@ -48,6 +47,7 @@ export default function BuyNowTab() {
   });
   const [sectionsLoaded, setSectionsLoaded] = useState<Record<string, boolean>>({});
   const [layoutVersion, setLayoutVersion] = useState<string>('');
+  const [refreshing, setRefreshing] = useState(false);
   const sectionLoadTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
   // Use recommendations hook for personalized products
@@ -261,20 +261,25 @@ export default function BuyNowTab() {
   };
 
   const handleRefresh = useCallback(async () => {
-    // Clear timeouts and cache
-    Object.values(sectionLoadTimeouts.current).forEach(timeout => clearTimeout(timeout));
-    sectionLoadTimeouts.current = {};
-    
-    productCacheService.clear();
-    setSectionsLoaded({});
-    setLoadingStates({
-      featured: true,
-      trending: true,
-      seller_favorites: true,
-      discounted: true,
-      all: true
-    });
-    await loadAllSectionsOptimized();
+    setRefreshing(true);
+    try {
+      // Clear timeouts and cache
+      Object.values(sectionLoadTimeouts.current).forEach(timeout => clearTimeout(timeout));
+      sectionLoadTimeouts.current = {};
+      
+      productCacheService.clear();
+      setSectionsLoaded({});
+      setLoadingStates({
+        featured: true,
+        trending: true,
+        seller_favorites: true,
+        discounted: true,
+        all: true
+      });
+      await loadAllSectionsOptimized();
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
   const styles = StyleSheet.create({
@@ -388,21 +393,7 @@ export default function BuyNowTab() {
     bottomSpacing: {
       height: spacing.xl,
     },
-    endOfFeedFooter: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.xl,
-      gap: spacing.sm,
-    },
-    endOfFeedLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: colors.borderLight,
-    },
-    endOfFeedText: {
-      fontSize: fontSizes.xs,
-      color: colors.textLight,
-    },
+
     loadingMoreFooter: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -713,38 +704,33 @@ export default function BuyNowTab() {
         showCart={true}
         onCartPress={() => router.push('/cart')}
       />
-      <PullToRefresh
-        onRefresh={handleRefresh}
-        refreshThreshold={80}
-        autoRefreshInterval={30000}
-        enableAutoRefresh={true}
-      >
-        <FlatList
-          data={listData}
-          keyExtractor={(item, index) => {
-            if (item.type === 'section' || item.type === 'skeleton') return item.key;
-            if (item.type === 'collection') return `collection_${item.collectionId}`;
-            return `${item.type}_${index}`;
-          }}
-          renderItem={renderItem}
-          showsVerticalScrollIndicator={false}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            Object.values(loadingStates).some(Boolean) ? (
-              <View style={styles.loadingMoreFooter}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={styles.loadingMoreText}>Loading sections...</Text>
-              </View>
-            ) : (
-              <View style={styles.endOfFeedFooter}>
-                <View style={styles.endOfFeedLine} />
-                <Text style={styles.endOfFeedText}>You're all caught up!</Text>
-                <View style={styles.endOfFeedLine} />
-              </View>
-            )
+      <FlatList
+        data={listData}
+        keyExtractor={(item, index) => {
+          if (item.type === 'section' || item.type === 'skeleton') return item.key;
+          if (item.type === 'collection') return `collection_${item.collectionId}`;
+          return `${item.type}_${index}`;
+        }}
+        renderItem={renderItem}
+        showsVerticalScrollIndicator={false}
+        onEndReachedThreshold={0.5}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+        ListFooterComponent={
+          Object.values(loadingStates).some(Boolean) ? (
+            <View style={styles.loadingMoreFooter}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.loadingMoreText}>Loading sections...</Text>
+            </View>
+          ) : null
           }
         />
-      </PullToRefresh>
       <CameraSearchModal
         visible={showCameraModal}
         onClose={() => setShowCameraModal(false)}

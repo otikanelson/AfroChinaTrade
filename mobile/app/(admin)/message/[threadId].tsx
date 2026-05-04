@@ -165,6 +165,7 @@ export default function AdminMessageThreadScreen() {
     <KeyboardAvoidingView
       style={s.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 20}
     >
       <Header title={thread?.customerName || 'Customer'} showBack />
 
