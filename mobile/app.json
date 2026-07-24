@@ -2,20 +2,17 @@
   "expo": {
     "name": "AfroChinaTrade",
     "slug": "afrochinatradeapp",
-    "version": "2.0.1",
+    "version": "3.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/images/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#8f231d"
-    },
+    "scheme": "afrochinatrade",
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.afrochinatrade.mobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +22,8 @@
       "package": "com.afrochinatrade_mobile.act_mobile"
     },
     "web": {
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
       "expo-router",
@@ -42,11 +40,15 @@
         }
       ]
     ],
-    "runtimeVersion": "1.0.2",
+    "experiments": {
+      "typedRoutes": true
+    },
     "extra": {
-      "router": {},
+      "router": {
+        "origin": false
+      },
       "eas": {
-        "projectId": "168085f4-ee7d-4e1e-8ad9-2fbdfc95ced1"
+        "projectId": "d3348f31-c9c9-4c08-95b4-611ec7d6abf6"
       }
     }
   }
