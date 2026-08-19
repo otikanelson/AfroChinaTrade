@@ -39,6 +39,7 @@ export interface UpdateAddressData {
 
 export interface DeleteAccountData {
   password: string;
+  reason?: string;
 }
 
 class UserService {

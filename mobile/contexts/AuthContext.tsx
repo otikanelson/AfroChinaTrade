@@ -143,7 +143,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       // If it's an auth error, clear everything
-      if (error.code === 'NO_TOKEN' || error.status === 401) {
+      const errorStatus = error?.status || (error?.response ? error.response.status : null);
+      if (error?.code === 'NO_TOKEN' || errorStatus === 401) {
         await handleAuthError();
       }
     }
@@ -160,10 +161,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleUserStatusError = (error: any) => {
     if (error.code === 'ACCOUNT_SUSPENDED' || error.code === 'ACCOUNT_BLOCKED') {
-      const statusData = error.data;
+      const statusData = error.data || {};
+      const status = error.code === 'ACCOUNT_BLOCKED' ? 'blocked' : 'suspended';
+      
       setUserStatusModal({
         visible: true,
-        status: statusData.status,
+        status: status,
         reason: statusData.reason,
         suspensionDuration: statusData.suspensionDuration,
       });
@@ -172,10 +175,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false; // Not a status error
   };
 
-  const login = async (credentials: LoginCredentials, onSuccess?: () => void): Promise<AuthResponse> => {
+  const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
     try {
+      console.log('🔑 AuthContext.login called');
       setAuthError(null);
+      
       const authResponse = await authService.login(credentials);
+      
+      console.log('✅ AuthService.login returned successfully:', {
+        userId: authResponse.userId,
+        role: authResponse.role,
+      });
       
       const authUser: AuthUser = {
         id: authResponse.userId,
@@ -206,17 +216,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Load full profile in background
       setTimeout(() => loadCurrentUser(), 100);
       
-      // Call success callback if provided
-      if (onSuccess) {
-        setTimeout(onSuccess, 200);
-      }
-      
       return authResponse;
     } catch (error: any) {
+      console.error('❌ AuthContext.login error caught:', error);
+      console.log('🔍 Error details:', {
+        name: error?.name,
+        message: error?.message,
+        code: error?.code,
+        data: error?.data,
+        stack: error?.stack?.split('\n')[0], // First line of stack
+      });
+      
       const errorMessage = error.message || 'Login failed';
       
       // Check if it's a user status error first
       if (handleUserStatusError(error)) {
+        console.log('🚫 User status error detected, re-throwing');
         throw error; // Re-throw so caller knows about status issue
       }
       
@@ -412,14 +427,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={contextValue}>
       {children}
-      <UserStatusModal
+      {/* Temporarily disabled for video recording */}
+      {/* <UserStatusModal
         visible={userStatusModal.visible}
         status={userStatusModal.status}
         reason={userStatusModal.reason}
         suspensionDuration={userStatusModal.suspensionDuration}
         onClose={closeUserStatusModal}
         onAppealSubmitted={handleAppealSubmitted}
-      />
+      /> */}
     </AuthContext.Provider>
   );
 }

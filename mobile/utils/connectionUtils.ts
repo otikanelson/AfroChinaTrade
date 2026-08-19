@@ -45,15 +45,15 @@ const pingUrl = async (baseUrl: string, timeoutMs: number): Promise<number> => {
 
 /**
  * Resolves the best available API URL.
- * Tries the primary URL first; if it fails, falls back to FALLBACK_API_URL.
- * Returns the URL that succeeded, or the fallback URL if both fail.
+ * Since primary and fallback are typically the same (Vercel), this returns immediately.
  */
 export const resolveApiUrl = async (): Promise<{
   url: string;
   usedFallback: boolean;
 }> => {
   // If primary and fallback are the same (e.g. production build), skip the probe
-  if (API_BASE_URL === FALLBACK_API_URL) {
+  if (API_BASE_URL === FALLBACK_API_URL || !FALLBACK_API_URL) {
+    if (APP_CONFIG.debug) console.log('✅ Using API:', API_BASE_URL);
     return { url: API_BASE_URL, usedFallback: false };
   }
 
@@ -64,11 +64,23 @@ export const resolveApiUrl = async (): Promise<{
   } catch (error) {
     if (APP_CONFIG.debug)
       console.warn(
-        `⚠️ Primary API unreachable (${API_BASE_URL}). Switching to fallback: ${FALLBACK_API_URL}`
+        `⚠️ Primary API unreachable (${API_BASE_URL}). Trying fallback: ${FALLBACK_API_URL}`
       );
-    return { url: FALLBACK_API_URL, usedFallback: true };
+    
+    // Try fallback to see if it's available
+    try {
+      await pingUrl(FALLBACK_API_URL, CONNECTION_CONFIG.timeout);
+      if (APP_CONFIG.debug) console.log('✅ Fallback API reachable:', FALLBACK_API_URL);
+      return { url: FALLBACK_API_URL, usedFallback: true };
+    } catch (fallbackError) {
+      // Both failed, use primary (will fail gracefully in requests)
+      if (APP_CONFIG.debug)
+        console.warn('⚠️ Both APIs unreachable, using primary:', API_BASE_URL);
+      return { url: API_BASE_URL, usedFallback: false };
+    }
   }
 };
+
 
 /**
  * Test connection with retry logic.
@@ -82,7 +94,7 @@ export const testConnectionWithRetry = async (
   const timeout = timeoutMs || CONNECTION_CONFIG.timeout;
 
   const urls =
-    API_BASE_URL !== FALLBACK_API_URL
+    FALLBACK_API_URL && API_BASE_URL !== FALLBACK_API_URL
       ? [API_BASE_URL, FALLBACK_API_URL]
       : [API_BASE_URL];
 
@@ -103,7 +115,7 @@ export const testConnectionWithRetry = async (
           responseTime,
           url,
           isColdStart: responseTime > 5000,
-          usedFallback: url === FALLBACK_API_URL && url !== API_BASE_URL,
+          usedFallback: FALLBACK_API_URL ? url === FALLBACK_API_URL && url !== API_BASE_URL : false,
           environment: APP_CONFIG.environment,
         };
       } catch (err: any) {

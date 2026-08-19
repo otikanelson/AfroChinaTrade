@@ -80,7 +80,7 @@ export const APP_CONFIG = {
 // Connection timeouts based on environment
 export const CONNECTION_CONFIG = (() => {
   const configs = {
-    development: { timeout: 8000, retries: 2, retryDelay: 1000 },
+    development: { timeout: 3000, retries: 2, retryDelay: 500 }, // Reduced timeout for faster fallback
     production: { timeout: 20000, retries: 3, retryDelay: 2000 },
   };
   return configs[ENVIRONMENT as keyof typeof configs] || configs.production;

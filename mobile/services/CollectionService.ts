@@ -1,5 +1,4 @@
-import { API_BASE_URL } from '../constants/config';
-import { tokenManager } from './api/tokenManager';
+import apiClient from './api/apiClient';
 
 export interface CollectionFilter {
   type: 'category' | 'name_contains' | 'tag' | 'price_range' | 'rating_min' | 'discount_min' | 'supplier';
@@ -50,35 +49,22 @@ interface PaginatedResponse<T> {
 }
 
 class CollectionService {
-  private baseUrl = `${API_BASE_URL}/collections`;
-
   /**
    * Get all active collections
    */
   async getActiveCollections(): Promise<{ success: boolean; data?: Collection[]; error?: string }> {
     try {
-      const response = await fetch(this.baseUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await apiClient.get<{ collections: Collection[] }>('/collections');
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: ApiResponse<{ collections: Collection[] }> = await response.json();
-      
-      if (result.status === 'success') {
+      if (response.success && response.data) {
         return {
           success: true,
-          data: result.data.collections || []
+          data: response.data.collections || []
         };
       } else {
         return {
           success: false,
-          error: result.message || 'Failed to fetch collections'
+          error: response.error?.message || 'Failed to fetch collections'
         };
       }
     } catch (error) {
@@ -95,37 +81,17 @@ class CollectionService {
    */
   async getAllCollections(): Promise<{ success: boolean; data?: Collection[]; error?: string }> {
     try {
-      const token = await tokenManager.getAccessToken();
-      if (!token) {
-        return {
-          success: false,
-          error: 'Authentication required'
-        };
-      }
+      const response = await apiClient.get<{ collections: Collection[] }>('/collections/admin/all');
 
-      const response = await fetch(`${this.baseUrl}/admin/all`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: ApiResponse<{ collections: Collection[] }> = await response.json();
-      
-      if (result.status === 'success') {
+      if (response.success && response.data) {
         return {
           success: true,
-          data: result.data.collections || []
+          data: response.data.collections || []
         };
       } else {
         return {
           success: false,
-          error: result.message || 'Failed to fetch collections'
+          error: response.error?.message || 'Failed to fetch collections'
         };
       }
     } catch (error) {
@@ -146,30 +112,19 @@ class CollectionService {
     limit: number = 20
   ): Promise<{ success: boolean; data?: CollectionProduct; error?: string }> {
     try {
-      const url = `${this.baseUrl}/${collectionId}/products?page=${page}&limit=${limit}`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await apiClient.get<CollectionProduct>(
+        `/collections/${collectionId}/products?page=${page}&limit=${limit}`
+      );
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: PaginatedResponse<any> = await response.json();
-      
-      if (result.status === 'success' && result.data.collection) {
+      if (response.success && response.data) {
         return {
           success: true,
-          data: result.data.collection
+          data: response.data
         };
       } else {
         return {
           success: false,
-          error: result.message || 'Failed to fetch collection products'
+          error: response.error?.message || 'Failed to fetch collection products'
         };
       }
     } catch (error) {
@@ -191,43 +146,22 @@ class CollectionService {
     displayOrder?: number
   ): Promise<{ success: boolean; data?: Collection; error?: string }> {
     try {
-      const token = await tokenManager.getAccessToken();
-      if (!token) {
-        return {
-          success: false,
-          error: 'Authentication required'
-        };
-      }
-
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name,
-          description,
-          filters,
-          displayOrder
-        }),
+      const response = await apiClient.post<{ collection: Collection }>('/collections', {
+        name,
+        description,
+        filters,
+        displayOrder
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: ApiResponse<{ collection: Collection }> = await response.json();
-      
-      if (result.status === 'success') {
+      if (response.success && response.data) {
         return {
           success: true,
-          data: result.data.collection
+          data: response.data.collection
         };
       } else {
         return {
           success: false,
-          error: result.message || 'Failed to create collection'
+          error: response.error?.message || 'Failed to create collection'
         };
       }
     } catch (error) {
@@ -247,38 +181,20 @@ class CollectionService {
     updates: Partial<Collection>
   ): Promise<{ success: boolean; data?: Collection; error?: string }> {
     try {
-      const token = await tokenManager.getAccessToken();
-      if (!token) {
-        return {
-          success: false,
-          error: 'Authentication required'
-        };
-      }
+      const response = await apiClient.put<{ collection: Collection }>(
+        `/collections/${collectionId}`,
+        updates
+      );
 
-      const response = await fetch(`${this.baseUrl}/${collectionId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(updates),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: ApiResponse<{ collection: Collection }> = await response.json();
-      
-      if (result.status === 'success') {
+      if (response.success && response.data) {
         return {
           success: true,
-          data: result.data.collection
+          data: response.data.collection
         };
       } else {
         return {
           success: false,
-          error: result.message || 'Failed to update collection'
+          error: response.error?.message || 'Failed to update collection'
         };
       }
     } catch (error) {
@@ -295,33 +211,14 @@ class CollectionService {
    */
   async deleteCollection(collectionId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const token = await tokenManager.getAccessToken();
-      if (!token) {
-        return {
-          success: false,
-          error: 'Authentication required'
-        };
-      }
+      const response = await apiClient.delete(`/collections/${collectionId}`);
 
-      const response = await fetch(`${this.baseUrl}/${collectionId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: ApiResponse<{}> = await response.json();
-      
-      if (result.status === 'success') {
+      if (response.success) {
         return { success: true };
       } else {
         return {
           success: false,
-          error: result.message || 'Failed to delete collection'
+          error: response.error?.message || 'Failed to delete collection'
         };
       }
     } catch (error) {
@@ -338,38 +235,19 @@ class CollectionService {
    */
   async toggleCollectionStatus(collectionId: string): Promise<{ success: boolean; data?: Collection; error?: string }> {
     try {
-      const token = await tokenManager.getAccessToken();
-      if (!token) {
-        return {
-          success: false,
-          error: 'Authentication required'
-        };
-      }
+      const response = await apiClient.patch<{ collection: Collection }>(
+        `/collections/${collectionId}/status`
+      );
 
-      const response = await fetch(`${this.baseUrl}/${collectionId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const result: ApiResponse<{ collection: Collection }> = await response.json();
-      
-      if (result.status === 'success') {
+      if (response.success && response.data) {
         return {
           success: true,
-          data: result.data.collection
+          data: response.data.collection
         };
       } else {
         return {
           success: false,
-          error: result.message || 'Failed to toggle collection status'
+          error: response.error?.message || 'Failed to toggle collection status'
         };
       }
     } catch (error) {

@@ -187,10 +187,12 @@ const SidebarComponent: React.FC<SidebarProps> = ({ visible, onClose, isAdminPag
     safeArea: {
       flex: 1,
       backgroundColor: colors.background,
+      paddingTop: 0, // SafeAreaView handles this
     },
     header: {
       paddingHorizontal: 24,
-      paddingVertical: 15,
+      paddingTop: 20, // Add top padding for better spacing
+      paddingBottom: 15,
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
       backgroundColor: colors.surface,
@@ -405,7 +407,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({ visible, onClose, isAdminPag
 
         {/* Animated sidebar panel */}
         <Animated.View style={[styles.sidebar, { transform: [{ translateX }] }]}>
-          <SafeAreaView style={styles.safeArea}>
+          <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
               {/* Header */}
               <View style={styles.header}>
                 <View style={styles.headerTop}>

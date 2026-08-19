@@ -63,11 +63,17 @@ const ReviewSchema = new Schema<IReview>(
 // Compound index on productId and createdAt for product reviews
 ReviewSchema.index({ productId: 1, createdAt: -1 });
 
+// Compound index on productId, isFlagged, and createdAt for efficient product review queries
+ReviewSchema.index({ productId: 1, isFlagged: 1, createdAt: -1 });
+
 // Index on userId for user's reviews
 ReviewSchema.index({ userId: 1 });
 
 // Index on isFlagged for filtering flagged reviews
 ReviewSchema.index({ isFlagged: 1 });
+
+// Compound index for admin queries with sorting
+ReviewSchema.index({ isFlagged: 1, createdAt: -1 });
 
 // Create and export the Review model
 const Review = mongoose.model<IReview>('Review', ReviewSchema);

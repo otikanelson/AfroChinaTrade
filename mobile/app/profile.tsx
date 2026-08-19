@@ -228,6 +228,25 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
       fontFamily: fonts.medium,
       color: colors.warning,
     },
+    dangerZone: {
+      marginTop: spacing.lg,
+      marginBottom: spacing.base,
+    },
+    dangerZoneTitle: {
+      fontSize: fontSizes.base,
+      fontWeight: '600',
+      color: colors.error,
+      marginBottom: spacing.sm,
+    },
+    dangerButton: {
+      backgroundColor: colors.error + '10',
+      borderWidth: 1,
+      borderColor: colors.error + '30',
+      borderRadius: 12,
+    },
+    dangerButtonText: {
+      color: colors.error,
+    },
   });
 
   useEffect(() => {
@@ -524,6 +543,23 @@ export default function ProfileScreen({ isAdmin = false }: ProfileScreenProps) {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Danger Zone - Only for customers */}
+        {!isAdminUser && (
+          <View style={styles.formSection}>
+            <View style={styles.dangerZone}>
+              <Text style={styles.dangerZoneTitle}>Danger</Text>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.dangerButton]} 
+                onPress={() => router.push('/delete-account')}
+              >
+                <Ionicons name="trash-outline" size={20} color={colors.error} />
+                <Text style={[styles.actionButtonText, styles.dangerButtonText]}>Delete Account</Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.error} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Save Button */}
         <View style={styles.saveSection}>

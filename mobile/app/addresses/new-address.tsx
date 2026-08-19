@@ -336,12 +336,27 @@ export default function NewAddressScreen() {
   const getDeviceLocation = async () => {
     try {
       setGettingLocation(true);
-      setLocationStatus('Requesting location permission...');
+      setLocationStatus('Checking location permission...');
 
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      // First, check the current permission status
+      const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+      
+      let finalStatus = existingStatus;
+      
+      // If not granted, request permission
+      if (existingStatus !== 'granted') {
+        setLocationStatus('Requesting location permission...');
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        finalStatus = status;
+      }
 
-      if (status !== 'granted') {
+      if (finalStatus !== 'granted') {
         setLocationStatus('Location permission denied');
+        Alert.alert(
+          'Permission Required',
+          'Location permission is needed to capture GPS coordinates. Please enable location access in your device settings.',
+          [{ text: 'OK' }]
+        );
         setTimeout(() => setLocationStatus(''), 3000);
         setGettingLocation(false);
         return;
@@ -410,6 +425,11 @@ export default function NewAddressScreen() {
     } catch (error) {
       console.error('Error getting location:', error);
       setLocationStatus('Failed to get location. Please enter address manually.');
+      Alert.alert(
+        'Location Error',
+        'Unable to get your location. Please enter your address manually.',
+        [{ text: 'OK' }]
+      );
       setTimeout(() => setLocationStatus(''), 3000);
     } finally {
       setGettingLocation(false);

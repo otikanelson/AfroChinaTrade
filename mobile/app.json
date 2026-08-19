@@ -4,6 +4,15 @@
     "slug": "afrochinatradeapp",
     "version": "3.0.1",
     "orientation": "portrait",
+    "updates": {
+      "url": "https://u.expo.dev/d3348f31-c9c9-4c08-95b4-611ec7d6abf6",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "afrochinatrade",
@@ -12,7 +21,10 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.afrochinatrade.mobile"
+      "bundleIdentifier": "com.afrochinatrade.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {

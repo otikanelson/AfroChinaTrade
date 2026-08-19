@@ -206,6 +206,19 @@ ProductSchema.index({ isActive: 1, category: 1, createdAt: -1 });
 // Compound index for price range queries
 ProductSchema.index({ isActive: 1, price: 1 });
 
+// Additional indexes for collection queries performance
+// Compound index for rating-based collection queries
+ProductSchema.index({ isActive: 1, rating: -1 });
+
+// Compound index for discount-based collection queries  
+ProductSchema.index({ isActive: 1, discount: -1 });
+
+// Compound index for category + tags (common collection filter combination)
+ProductSchema.index({ isActive: 1, category: 1, tags: 1 });
+
+// Compound index for category + price range
+ProductSchema.index({ isActive: 1, category: 1, price: 1 });
+
 // Create and export the Product model
 const Product = mongoose.model<IProduct>('Product', ProductSchema);
 

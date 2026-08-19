@@ -14,7 +14,7 @@ export default function TestDiscountExpiryScreen() {
   const fetchProducts = async () => {
     try {
       // Fetch products with discounts from the API
-      const response = await fetch('http://192.168.100.14:3001/api/products?discount=true&limit=10');
+      const response = await fetch('http://172.20.10.2:3001/api/products?discount=true&limit=10');
       const data = await response.json();
       
       if (data.success) {

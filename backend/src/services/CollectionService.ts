@@ -77,17 +77,29 @@ export class CollectionService {
     try {
       const collections = await Collection.find({ isActive: true })
         .sort({ displayOrder: 1, createdAt: -1 })
-        .populate('createdBy', 'name email');
+        .populate('createdBy', 'name email')
+        .lean(); // Use lean() for better performance
 
-      // Get product counts for all collections in parallel
+      // Get product counts for all collections in parallel with timeout protection
       const collectionsWithCounts = await Promise.all(
         collections.map(async (collection) => {
-          const query = this.buildProductQuery(collection.filters);
-          const productCount = await Product.countDocuments(query);
-          return {
-            ...collection.toObject(),
-            productCount
-          };
+          try {
+            const query = this.buildProductQuery(collection.filters);
+            // Use estimatedDocumentCount for very large collections or add a timeout
+            const productCount = await Product.countDocuments(query)
+              .maxTimeMS(5000); // 5 second timeout per count query
+            return {
+              ...collection,
+              productCount
+            };
+          } catch (error) {
+            console.error(`Error counting products for collection ${collection.name}:`, error);
+            // Return collection without count on error
+            return {
+              ...collection,
+              productCount: 0
+            };
+          }
         })
       );
 
@@ -107,17 +119,29 @@ export class CollectionService {
     try {
       const collections = await Collection.find({})
         .sort({ displayOrder: 1, createdAt: -1 })
-        .populate('createdBy', 'name email');
+        .populate('createdBy', 'name email')
+        .lean(); // Use lean() for better performance
 
-      // Get product counts for all collections in parallel
+      // Get product counts for all collections in parallel with timeout protection
       const collectionsWithCounts = await Promise.all(
         collections.map(async (collection) => {
-          const query = this.buildProductQuery(collection.filters);
-          const productCount = await Product.countDocuments(query);
-          return {
-            ...collection.toObject(),
-            productCount
-          };
+          try {
+            const query = this.buildProductQuery(collection.filters);
+            // Add timeout to prevent hanging queries
+            const productCount = await Product.countDocuments(query)
+              .maxTimeMS(5000); // 5 second timeout per count query
+            return {
+              ...collection,
+              productCount
+            };
+          } catch (error) {
+            console.error(`Error counting products for collection ${collection.name}:`, error);
+            // Return collection without count on error
+            return {
+              ...collection,
+              productCount: 0
+            };
+          }
         })
       );
 
@@ -139,7 +163,7 @@ export class CollectionService {
     limit: number = 20
   ): Promise<CollectionResponse> {
     try {
-      const collection = await Collection.findById(collectionId);
+      const collection = await Collection.findById(collectionId).lean();
       if (!collection) {
         return {
           status: 'error',
@@ -156,8 +180,10 @@ export class CollectionService {
           .sort({ createdAt: -1, viewCount: -1 })
           .skip(skip)
           .limit(limit)
-          .populate('supplierId', 'name email verified rating location responseTime logo'),
-        Product.countDocuments(query)
+          .populate('supplierId', 'name email verified rating location responseTime logo')
+          .lean()
+          .maxTimeMS(10000), // 10 second timeout for product query
+        Product.countDocuments(query).maxTimeMS(5000) // 5 second timeout for count
       ]);
 
       const pagination = {
@@ -172,7 +198,7 @@ export class CollectionService {
       return {
         status: 'success',
         data: {
-          collection: { ...collection.toObject(), products, productCount: total } as any,
+          collection: { ...collection, products, productCount: total } as any,
           products,
           pagination
         }

@@ -106,6 +106,8 @@ export const Toast: React.FC<ToastProps> = ({
   ).current;
 
   useEffect(() => {
+    console.log('🍞 Toast: visibility changed:', visible, 'message:', message, 'type:', type);
+    
     if (visible) {
       // Reset swipe position when showing
       swipeAnim.setValue(0);

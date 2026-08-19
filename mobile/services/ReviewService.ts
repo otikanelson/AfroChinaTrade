@@ -36,10 +36,32 @@ export interface ReviewResponse {
 }
 
 class ReviewService {
+  private readonly REQUEST_TIMEOUT = 15000; // 15 seconds timeout
+
+  private async fetchWithTimeout(url: string, options: RequestInit = {}, timeout: number = this.REQUEST_TIMEOUT): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timeout - please try again');
+      }
+      throw error;
+    }
+  }
+
   private async makeRequest(endpoint: string, options: RequestInit = {}) {
     const token = await tokenManager.getAccessToken();
     
-    const response = await fetch(`${API_BASE_URL}/reviews${endpoint}`, {
+    const response = await this.fetchWithTimeout(`${API_BASE_URL}/reviews${endpoint}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',

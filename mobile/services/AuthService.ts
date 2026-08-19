@@ -20,9 +20,20 @@ class SimpleAuthService {
    * Login user
    */
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    console.log('🔐 AuthService.login called with email:', credentials.email);
+    
     const response = await apiClient.post<any>('/auth/login', credentials);
     
+    console.log('📥 Login response from apiClient:', {
+      success: response.success,
+      hasData: !!response.data,
+      hasError: !!response.error,
+      errorCode: response.error?.code,
+      errorMessage: response.error?.message,
+    });
+    
     if (!response.success || !response.data) {
+      console.log('❌ Login failed, throwing error:', response.error);
       throw new Error(response.error?.message || 'Login failed');
     }
 
@@ -32,6 +43,8 @@ class SimpleAuthService {
     
     // Save tokens
     await tokenManager.setTokens(token, refreshToken);
+    
+    console.log('✅ Login successful, returning auth response');
     
     return {
       userId: user._id || user.id || responseData.userId,

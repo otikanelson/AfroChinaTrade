@@ -40,6 +40,7 @@
         "buildType": "app-bundle"
       },
       "autoIncrement": true,
+      "channel": "production",
       "env": {
         "EAS_BUILD": "true",
         "EXPO_PUBLIC_ENV": "production",

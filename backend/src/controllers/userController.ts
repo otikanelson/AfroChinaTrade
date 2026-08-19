@@ -599,7 +599,7 @@ export const updateAddress = async (req: AuthRequest, res: Response) => {
 export const deleteAccount = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
-    const { password } = req.body;
+    const { password, reason } = req.body;
 
     if (!password) {
       return res.status(400).json({
@@ -639,10 +639,11 @@ export const deleteAccount = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Instead of deleting, we'll deactivate the account
+    // Instead of deleting, we'll deactivate the account with reason
+    const deletionReason = reason || 'Account deleted by user';
     await User.findByIdAndUpdate(userId, { 
       status: 'blocked',
-      suspensionReason: 'Account deleted by user'
+      suspensionReason: deletionReason
     });
 
     res.json({

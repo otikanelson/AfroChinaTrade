@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CustomModal } from '../ui/CustomModal';
 import { Button } from '../admin/Button';
 import { theme } from '../../theme';
-import { ticketService } from '../../services/TicketService';
+import ticketService from '../../services/TicketService';
 import { mobileToastManager } from '../../utils/toast';
 
 interface UserStatusModalProps {
