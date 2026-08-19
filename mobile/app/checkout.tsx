@@ -16,9 +16,10 @@ import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useRedirect } from '../contexts/RedirectContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../hooks/useToast';
+import { Toast } from '../components/ui/Toast';
 import { tokenManager } from '../services/api/tokenManager';
 import { API_BASE_URL } from '../constants/config';
-import { SuccessOverlay } from '../components/animations/SuccessOverlay';
 
 interface PaymentMethod {
   _id: string;
@@ -56,13 +57,13 @@ export default function CheckoutScreen() {
   const { isAuthenticated } = useAuth();
   const { setPendingRedirect } = useRedirect();
   const { colors, spacing, fontSizes, fontWeights, borderRadius } = useTheme();
+  const toast = useToast();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [addresses, setAddresses] = useState<DeliveryAddress[]>([]);
   const [selectedPayment, setSelectedPayment] = useState<string>('');
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     // Always load checkout data, but only fetch payment/address data if authenticated
@@ -173,7 +174,14 @@ export default function CheckoutScreen() {
       const data = await response.json();
       if (data.success) {
         await clearCart();
-        setShowSuccess(true);
+        
+        // Show success toast
+        toast.success('Order placed successfully!');
+        
+        // Navigate to orders page
+        setTimeout(() => {
+          router.replace('/my-orders');
+        }, 1500);
       } else {
         Alert.alert('Error', data.message || 'Failed to place order');
       }
@@ -415,14 +423,6 @@ export default function CheckoutScreen() {
 
   return (
     <View style={styles.container}>
-      <SuccessOverlay
-        visible={showSuccess}
-        title="Order Placed!"
-        message="Your order has been placed successfully. You will receive a confirmation shortly."
-        buttonText="View My Orders"
-        onPress={() => { setShowSuccess(false); router.replace('/my-orders'); }}
-        primaryColor={colors.primary}
-      />
       <Header
         title="Checkout"
         showBack={true}
@@ -451,14 +451,14 @@ export default function CheckoutScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Delivery Address</Text>
-              <TouchableOpacity onPress={() => router.push('/addresses')}>
+              <TouchableOpacity onPress={() => router.replace('/addresses')}>
                 <Text style={styles.manageLink}>Manage</Text>
               </TouchableOpacity>
             </View>
             {addresses.length === 0 ? (
               <TouchableOpacity
                 style={styles.addButton}
-                onPress={() => router.push('/addresses/new-address')}
+                onPress={() => router.replace('/addresses/new-address')}
               >
                 <Ionicons name="add" size={20} color={colors.primary} />
                 <Text style={styles.addButtonText}>Add Delivery Address</Text>
@@ -491,7 +491,7 @@ export default function CheckoutScreen() {
                 ))}
                 <TouchableOpacity
                   style={styles.addButton}
-                  onPress={() => router.push('/addresses/new-address')}
+                  onPress={() => router.replace('/addresses/new-address')}
                 >
                   <Ionicons name="add" size={20} color={colors.primary} />
                   <Text style={styles.addButtonText}>Add Another Address</Text>
@@ -506,14 +506,14 @@ export default function CheckoutScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Payment Method</Text>
-              <TouchableOpacity onPress={() => router.push('/payment-methods')}>
+              <TouchableOpacity onPress={() => router.replace('/payment-methods')}>
                 <Text style={styles.manageLink}>Manage</Text>
               </TouchableOpacity>
             </View>
             {paymentMethods.length === 0 ? (
               <TouchableOpacity
                 style={styles.addButton}
-                onPress={() => router.push('/payment-methods/new')}
+                onPress={() => router.replace('/payment-methods/new')}
               >
                 <Ionicons name="add" size={20} color={colors.primary} />
                 <Text style={styles.addButtonText}>Add Payment Method</Text>
@@ -584,6 +584,15 @@ export default function CheckoutScreen() {
         {/* Bottom Sections - Ads, Recommendations, Recently Viewed */}
         <BottomSections context="checkout" />
       </ScrollView>
+      
+      {/* Toast Component */}
+      <Toast
+        visible={toast.visible}
+        type={toast.type}
+        message={toast.message}
+        autoClose={toast.autoClose}
+        onClose={toast.hideToast}
+      />
     </View>
   );
 }

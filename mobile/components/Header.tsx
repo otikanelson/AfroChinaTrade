@@ -1,12 +1,11 @@
 import React, { useState, memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { Sidebar } from './Sidebar';
-import Constants from 'expo-constants';
 import { AnimatedCartBadge } from './animations/AnimatedCartBadge';
+import { useStatusBarPadding } from '../hooks/useStatusBarPadding';
 
 interface HeaderProps {
   title?: string;
@@ -50,35 +49,10 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 }) => {
   const router = useRouter();
   const segments = useSegments();
-  const isAdminPage = segments.some(s => s === '(admin)' || s === 'admin');
+  const isAdminPage = segments.some(s => String(s) === '(admin)' || String(s) === 'admin');
   const { colors, fontSizes, fontWeights } = useTheme();
   const [sidebarVisible, setSidebarVisible] = useState(false);
-  const insets = useSafeAreaInsets();
-
-  // Enhanced platform and environment detection
-  const isExpoGo = Constants.appOwnership === 'expo';
-  const isAndroid = Platform.OS === 'android';
-  const isIOS = Platform.OS === 'ios';
-  
-  // Determine the appropriate top padding
-  const getTopPadding = () => {
-    if (isIOS) {
-      // iOS always needs safe area padding
-      return insets.top;
-    } else if (isAndroid) {
-      // Android behavior depends on build type and SDK version
-      if (isExpoGo) {
-        // In Expo Go, Android usually doesn't need extra padding
-        return 0;
-      } else {
-        // In production builds, check if we have insets
-        return insets.top > 0 ? insets.top : 0;
-      }
-    }
-    return 0;
-  };
-
-  const topPadding = getTopPadding();
+  const { top: topPadding, insets } = useStatusBarPadding();
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -246,16 +220,13 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       {debugMode && (
         <View style={styles.debugInfo}>
           <Text style={styles.debugText}>
-            Platform: {Platform.OS} | Expo Go: {isExpoGo ? 'Yes' : 'No'}
+            Platform: {Platform.OS}
           </Text>
           <Text style={styles.debugText}>
             Safe Area Insets - Top: {insets.top}, Bottom: {insets.bottom}
           </Text>
           <Text style={styles.debugText}>
             Applied Padding: {topPadding}px
-          </Text>
-          <Text style={styles.debugText}>
-            App Ownership: {Constants.appOwnership}
           </Text>
         </View>
       )}

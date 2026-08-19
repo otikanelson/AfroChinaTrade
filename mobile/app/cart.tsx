@@ -129,7 +129,7 @@ export default function CartScreen() {
       toast.warning('Please add items to your cart before checkout');
       return;
     }
-    router.push('/checkout');
+    router.replace('/checkout');
   };
 
   const handleClearCart = async () => {

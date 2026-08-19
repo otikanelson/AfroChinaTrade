@@ -9,8 +9,9 @@ import {
   Dimensions,
   Image,
   Animated,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
@@ -73,6 +74,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({ visible, onClose, isAdminPag
   const { colors, fontSizes, fontWeights } = useTheme();
   const { isAuthenticated, isGuestMode, isAdmin, user, logout } = useAuth();
   const { safeSetTimeout } = useAsyncCleanup();
+  const insets = useSafeAreaInsets();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [modalMounted, setModalMounted] = useState(false);
 
@@ -111,7 +113,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({ visible, onClose, isAdminPag
     }
   }, [visible]);
 
-  const isInAdminView = isAdminPage ?? segments.some(s => s === '(admin)' || s === 'admin');
+  const isInAdminView = isAdminPage ?? segments.some(s => String(s) === '(admin)' || String(s) === 'admin');
 
   // Filter menu items based on user role
   const filteredMenuItems = menuItems.filter(item => {
@@ -187,11 +189,10 @@ const SidebarComponent: React.FC<SidebarProps> = ({ visible, onClose, isAdminPag
     safeArea: {
       flex: 1,
       backgroundColor: colors.background,
-      paddingTop: 0, // SafeAreaView handles this
     },
     header: {
+      paddingTop: insets.top + (Platform.OS === 'android' ? 40 : 10), // Platform-specific spacing
       paddingHorizontal: 24,
-      paddingTop: 20, // Add top padding for better spacing
       paddingBottom: 15,
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
@@ -407,7 +408,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({ visible, onClose, isAdminPag
 
         {/* Animated sidebar panel */}
         <Animated.View style={[styles.sidebar, { transform: [{ translateX }] }]}>
-          <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+          <View style={styles.safeArea}>
               {/* Header */}
               <View style={styles.header}>
                 <View style={styles.headerTop}>
@@ -550,9 +551,9 @@ const SidebarComponent: React.FC<SidebarProps> = ({ visible, onClose, isAdminPag
                 </View>
 
                 {/* Bottom spacing */}
-                <View style={{ height: 40 }} />
+                <View style={{ height: 40 + insets.bottom }} />
               </ScrollView>
-            </SafeAreaView>
+            </View>
             
             <ThemeModal
               visible={themeModalVisible}

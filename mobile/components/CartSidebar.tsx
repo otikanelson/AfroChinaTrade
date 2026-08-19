@@ -46,22 +46,18 @@ export const CartSidebar: React.FC = () => {
     previousCount.current = currentCount;
   }, [cart?.totalItems, scaleAnim]);
 
-  // Only show cart button on specific customer shopping pages
+  // Only show cart button on specific customer shopping pages (excluding checkout)
   const allowedPages = [
     '/(tabs)/home',
     '/(tabs)/buy-now', 
     '/product-detail',
     '/products',
-    '/checkout',
     '/wishlist',
     '/search'
   ];
   
   const shouldShowCart = allowedPages.some(page => pathname.startsWith(page)) || 
                         pathname.includes('/product-detail/');
-
-  // On checkout page, show back arrow instead of cart
-  const isCheckoutPage = pathname === '/checkout';
 
   const handleCartButtonPress = () => {
     router.push('/cart');
@@ -79,11 +75,11 @@ export const CartSidebar: React.FC = () => {
         onPress={handleCartButtonPress}
       >
         <Ionicons 
-          name={isCheckoutPage ? "arrow-back" : "cart"} 
+          name="cart" 
           size={24} 
           color="white" 
         />
-        {cart && cart.totalItems > 0 && !isCheckoutPage && (
+        {cart && cart.totalItems > 0 && (
           <View style={[styles.badge, { backgroundColor: colors.error }]}>
             <Text style={styles.badgeText}>{cart.totalItems}</Text>
           </View>
