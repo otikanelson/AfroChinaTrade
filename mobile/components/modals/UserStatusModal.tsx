@@ -13,6 +13,7 @@ import { Button } from '../admin/Button';
 import { theme } from '../../theme';
 import ticketService from '../../services/TicketService';
 import { mobileToastManager } from '../../utils/toast';
+import { tokenManager } from '../../services/api/tokenManager';
 
 interface UserStatusModalProps {
   visible: boolean;
@@ -43,7 +44,13 @@ export const UserStatusModal: React.FC<UserStatusModalProps> = ({
 
     setSubmitting(true);
     try {
-      await ticketService.createTicket({
+      const token = await tokenManager.getAccessToken();
+      if (!token) {
+        Alert.alert('Error', 'You must be logged in to submit an appeal.');
+        return;
+      }
+
+      await ticketService.createTicket(token, {
         subject: 'Account Suspension Appeal',
         category: 'suspension_appeal',
         description: `I am appealing my account suspension. Reason: ${appealReason.trim()}`,
