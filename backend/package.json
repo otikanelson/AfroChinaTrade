@@ -41,7 +41,10 @@
     "db:seed:realistic-collections": "ts-node src/scripts/seedRealisticCollections.ts",
     "db:cleanup:browsing-history": "ts-node src/scripts/cleanupBrowsingHistory.ts",
     "db:cleanup:blocked": "ts-node src/scripts/cleanupBlockedAccounts.ts",
-    "db:list:blocked": "ts-node src/scripts/listBlockedAccounts.ts"
+    "db:list:blocked": "ts-node src/scripts/listBlockedAccounts.ts",
+    "db:list:deleted": "ts-node src/scripts/listDeletedAccounts.ts",
+    "db:convert:blocked-to-deleted": "ts-node src/scripts/convertBlockedToDeleted.ts",
+    "db:rewipe:deleted": "ts-node src/scripts/rewipeDeletedAccounts.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
