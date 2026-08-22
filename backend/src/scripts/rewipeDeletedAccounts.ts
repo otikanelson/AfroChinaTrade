@@ -33,19 +33,22 @@ async function rewipeDeletedAccounts() {
       console.log(`  Current email: ${user.email}`);
       console.log(`  Phone: ${user.phone || 'already wiped'}`);
 
-      // Re-wipe all personal data
-      await User.findByIdAndUpdate(user._id, {
-        $unset: {
-          password: '',
-          phone: '',
-          avatar: '',
-        },
-        $set: {
-          addresses: [],
-          pushTokens: [],
-          supportTickets: [],
+      // Re-wipe all personal data using direct MongoDB operations
+      await User.collection.updateOne(
+        { _id: user._id },
+        {
+          $unset: {
+            password: '',
+            phone: '',
+            avatar: '',
+          },
+          $set: {
+            addresses: [],
+            pushTokens: [],
+            supportTickets: [],
+          }
         }
-      });
+      );
 
       console.log(`  ✅ Personal data re-wiped`);
     }

@@ -208,10 +208,15 @@ const UserSchema = new Schema<IUser>(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: function(this: any) {
+        // Password is not required for deleted accounts
+        return this.status !== 'deleted';
+      },
       minlength: [8, 'Password must be at least 8 characters'],
       validate: {
         validator: function(password: string) {
+          // Skip validation if no password (deleted account)
+          if (!password) return true;
           // Password must contain at least one uppercase, one lowercase, one number, and one special character
           return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/.test(password);
         },
