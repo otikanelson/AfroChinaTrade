@@ -121,7 +121,7 @@ export function DataList<T>({
     [itemHeight],
   );
 
-  const styles = StyleSheet.create({
+  const styles = React.useMemo(() => StyleSheet.create({
     list: {
       flex: 1,
     },
@@ -154,7 +154,7 @@ export function DataList<T>({
       textAlign: 'center',
       fontWeight: fontWeights.medium,
     },
-  });
+  }), [colors, spacing, borderRadius, fontSizes, fontWeights]);
 
   if (loading) {
     return (

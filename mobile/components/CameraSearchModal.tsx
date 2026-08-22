@@ -207,7 +207,7 @@ export const CameraSearchModal: React.FC<CameraSearchModalProps> = ({ visible, o
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} presentationStyle="overFullScreen">
       {!selectedImage && !searchResults && !isSearching ? (
         renderContent()
       ) : (

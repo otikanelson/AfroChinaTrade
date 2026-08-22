@@ -32,6 +32,14 @@ class TagService {
       });
 
       if (!response.ok) {
+        // Return empty array instead of failing for 404
+        if (response.status === 404) {
+          console.warn('Tags endpoint not found (404) - returning empty array');
+          return {
+            success: true,
+            data: []
+          };
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -50,9 +58,10 @@ class TagService {
       }
     } catch (error) {
       console.error('Error fetching tags:', error);
+      // Return empty array on error to prevent breaking the UI
       return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+        success: true,
+        data: []
       };
     }
   }

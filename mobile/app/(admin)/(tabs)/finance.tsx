@@ -478,7 +478,7 @@ export default function FinanceScreen() {
     };
 
     return (
-      <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} presentationStyle="overFullScreen">
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <Text style={styles.modalTitle}>Process Refund</Text>
@@ -783,7 +783,7 @@ export default function FinanceScreen() {
       />
 
       {/* Period menu */}
-      <Modal visible={periodMenuVisible} transparent animationType="fade" onRequestClose={() => setPeriodMenuVisible(false)}>
+      <Modal visible={periodMenuVisible} transparent animationType="fade" onRequestClose={() => setPeriodMenuVisible(false)} presentationStyle="overFullScreen">
         <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setPeriodMenuVisible(false)}>
           <View style={styles.periodMenu}>
             {PERIODS.map((p) => (

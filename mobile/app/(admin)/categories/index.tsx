@@ -164,7 +164,7 @@ const CategoryFormModal: React.FC<FormModalProps> = ({ visible, category, onClos
   });
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} presentationStyle="overFullScreen">
       <View style={s.overlay}>
         <ScrollView style={s.sheet} keyboardShouldPersistTaps="handled">
           <Text style={s.title}>{category ? 'Edit Category' : 'New Category'}</Text>

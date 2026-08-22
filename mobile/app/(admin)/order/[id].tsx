@@ -105,7 +105,7 @@ const ShippingModal: React.FC<ShippingModalProps> = ({ visible, onClose, onConfi
   });
   
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} presentationStyle="overFullScreen">
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
           <Text style={styles.modalTitle}>Enter Tracking Number</Text>

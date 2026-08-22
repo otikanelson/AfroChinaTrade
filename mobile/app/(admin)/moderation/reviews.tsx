@@ -36,7 +36,7 @@ const RespondModal: React.FC<RespondModalProps> = ({ review, onClose, onSubmit }
   const [text, setText] = useState('');
 
   return (
-    <Modal visible={!!review} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={!!review} transparent animationType="slide" onRequestClose={onClose} presentationStyle="overFullScreen">
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
         <View style={{
           backgroundColor: colors.background,

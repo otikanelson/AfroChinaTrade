@@ -51,7 +51,7 @@ export default function UserListScreen() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<StatusFilter>('all');
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.surface },
     filterRow: { flexDirection: 'row', paddingHorizontal: spacing.base, paddingVertical: spacing.sm, gap: spacing.sm },
     chip: {
@@ -76,7 +76,7 @@ export default function UserListScreen() {
     email: { fontSize: fontSizes.sm, color: colors.textSecondary },
     meta: { fontSize: fontSizes.xs, color: colors.textLight },
     cardRight: { alignItems: 'flex-end', gap: spacing.xs },
-  });
+  }), [colors, spacing, borderRadius, fontSizes, fontWeights]);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!isMounted()) return;
@@ -125,6 +125,25 @@ export default function UserListScreen() {
     return result;
   }, [users, filter, search]);
 
+  const renderUserItem = useCallback(({ item }: { item: UserProfile }) => (
+    <Card onPress={() => NavigationUtils.safeNavigate(`/(admin)/users/${item._id}`)} style={styles.card}>
+      <View style={styles.cardRow}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
+        </View>
+        <View style={styles.cardInfo}>
+          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.email}>{item.email}</Text>
+          <Text style={styles.meta}>Joined {new Date(item.createdAt).toLocaleDateString()}</Text>
+        </View>
+        <View style={styles.cardRight}>
+          <StatusBadge status={userStatusToBadge(item.status)} size="sm" />
+          <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
+        </View>
+      </View>
+    </Card>
+  ), [styles, colors]);
+
   return (
     <View style={styles.screen}>
       <Header 
@@ -155,24 +174,7 @@ export default function UserListScreen() {
 
       <DataList<UserProfile>
         data={filtered}
-        renderItem={({ item }) => (
-          <Card onPress={() => NavigationUtils.safeNavigate(`/(admin)/users/${item._id}`)} style={styles.card}>
-            <View style={styles.cardRow}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
-              </View>
-              <View style={styles.cardInfo}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.email}>{item.email}</Text>
-                <Text style={styles.meta}>Joined {new Date(item.createdAt).toLocaleDateString()}</Text>
-              </View>
-              <View style={styles.cardRight}>
-                <StatusBadge status={userStatusToBadge(item.status)} size="sm" />
-                <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
-              </View>
-            </View>
-          </Card>
-        )}
+        renderItem={renderUserItem}
         keyExtractor={(item) => item._id}
         loading={loading}
         refreshing={refreshing}

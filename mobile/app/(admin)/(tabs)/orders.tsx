@@ -108,7 +108,7 @@ const CompactOrderItem: React.FC<CompactOrderItemProps> = ({ order, refund, onPr
           }}>
             #{order.orderId.slice(-8).toUpperCase()}
           </Text>
-          {typeof order.userId === 'object' && order.userId.name && (
+          {typeof order.userId === 'object' && order.userId !== null && order.userId.name && (
             <Text style={{
               fontSize: fontSizes.xs,
               color: colors.text,
@@ -195,7 +195,7 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ visible, selected, onSe
   const { colors, spacing, fontSizes, fontWeights, borderRadius, shadows } = useTheme();
   
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen">
       <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 120, paddingRight: spacing.base }} activeOpacity={1} onPress={onClose}>
         <View style={{ backgroundColor: colors.background, borderRadius: borderRadius.lg, ...shadows.lg, minWidth: 180, overflow: 'hidden', elevation: 8 }}>
           {PERIODS.map((p) => (

@@ -24,7 +24,7 @@ interface CardProps {
   testID?: string;
 }
 
-export const Card: React.FC<CardProps> = ({
+export const Card: React.FC<CardProps> = React.memo(({
   children,
   onPress,
   elevation = 'base',
@@ -36,7 +36,7 @@ export const Card: React.FC<CardProps> = ({
   const { colors, borderRadius, spacing, shadows } = useTheme();
   const shadowStyle = shadows[elevation];
 
-  const styles = StyleSheet.create({
+  const styles = React.useMemo(() => StyleSheet.create({
     card: {
       backgroundColor: colors.background,
       borderRadius: borderRadius.lg,
@@ -54,7 +54,7 @@ export const Card: React.FC<CardProps> = ({
     disabled: {
       opacity: 0.5,
     },
-  });
+  }), [colors, borderRadius, spacing]);
 
   if (onPress) {
     return (
@@ -83,6 +83,6 @@ export const Card: React.FC<CardProps> = ({
       <View style={[styles.content, contentStyle]}>{children}</View>
     </View>
   );
-};
+});
 
 

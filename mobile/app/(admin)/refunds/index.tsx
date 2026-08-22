@@ -380,7 +380,7 @@ export default function RefundsManagementScreen() {
       )}
 
       {/* Status Update Modal */}
-      <Modal visible={statusModalVisible} transparent animationType="fade" onRequestClose={() => setStatusModalVisible(false)}>
+      <Modal visible={statusModalVisible} transparent animationType="fade" onRequestClose={() => setStatusModalVisible(false)} presentationStyle="overFullScreen">
         <View style={s.overlay}>
           <View style={s.modalBox}>
             <Text style={s.modalTitle}>Update Refund Status</Text>
@@ -413,7 +413,7 @@ export default function RefundsManagementScreen() {
       </Modal>
 
       {/* Details Modal — bottom sheet */}
-      <Modal visible={detailsModalVisible} transparent animationType="none" onRequestClose={closeDetailsSheet}>
+      <Modal visible={detailsModalVisible} transparent animationType="none" onRequestClose={closeDetailsSheet} presentationStyle="overFullScreen">
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
           {/* Backdrop — tap to close */}
           <TouchableOpacity

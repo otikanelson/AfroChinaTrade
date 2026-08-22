@@ -258,7 +258,7 @@ export const ImagePickerField: React.FC<ImagePickerFieldProps> = ({
         <Text style={styles.helperText}>{helperText}</Text>
       ) : null}
 
-      <Modal visible={showSourceSheet} transparent animationType="slide" onRequestClose={() => setShowSourceSheet(false)}>
+      <Modal visible={showSourceSheet} transparent animationType="slide" onRequestClose={() => setShowSourceSheet(false)} presentationStyle="overFullScreen">
         <Pressable style={styles.sheetBackdrop} onPress={() => setShowSourceSheet(false)}>
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>Choose a source</Text>

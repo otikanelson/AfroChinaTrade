@@ -36,7 +36,7 @@ export const SuccessOverlay: React.FC<SuccessOverlayProps> = ({
   }, [visible]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent presentationStyle="overFullScreen">
       <View style={styles.backdrop}>
         <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ scale: cardScale }] }]}>
           <SuccessCheckmark visible={visible} size={90} color={primaryColor} />
