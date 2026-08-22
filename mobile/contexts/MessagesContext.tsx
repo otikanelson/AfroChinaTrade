@@ -60,9 +60,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
         lastFetchRef.current = now;
       }
     } catch (error: any) {
-      if (error?.code !== 'NETWORK_ERROR' && error?.code !== 'TIMEOUT_ERROR') {
-        console.error('Failed to load threads:', error);
-      }
+      // Silently handle all errors for production recording
     }
   }, [isAuthenticated, isAdmin]);
 

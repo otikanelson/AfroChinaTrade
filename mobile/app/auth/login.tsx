@@ -18,6 +18,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useRedirect } from '../../contexts/RedirectContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ShakeField } from '../../components/animations/ShakeField';
+import { DeletedAccountModal } from '../../components/modals/DeletedAccountModal';
 
 export default function LoginScreen() {
   const { colors, fonts, fontSizes, spacing, borderRadius } = useTheme();
@@ -201,6 +202,8 @@ export default function LoginScreen() {
     password?: string;
     general?: string;
   }>({});
+  const [showDeletedModal, setShowDeletedModal] = useState(false);
+  const [deletedAccountData, setDeletedAccountData] = useState<{ deletedAt: string; daysRemaining: number } | null>(null);
   const { login } = useAuth();
   const { handlePendingRedirect } = useRedirect();
   const router = useRouter();
@@ -243,8 +246,19 @@ export default function LoginScreen() {
       if (error?.code === 'NETWORK_ERROR') {
         setErrors({ general: 'Unable to connect to server. Please check your internet connection.' });
       } else if (error?.code === 'ACCOUNT_DELETED') {
-        const deletedMessage = error?.message || 'Your account has been deleted';
-        setErrors({ general: deletedMessage });
+        // Calculate days remaining and show deleted account modal
+        const deletedAt = error?.data?.deletedAt;
+        let daysRemaining = 30; // default
+        
+        if (deletedAt) {
+          const deletionDate = new Date(deletedAt);
+          const now = new Date();
+          const daysSinceDeletion = Math.floor((now.getTime() - deletionDate.getTime()) / (1000 * 60 * 60 * 24));
+          daysRemaining = Math.max(0, 30 - daysSinceDeletion);
+        }
+        
+        setDeletedAccountData({ deletedAt: deletedAt || new Date().toISOString(), daysRemaining });
+        setShowDeletedModal(true);
       } else if (error?.code === 'ACCOUNT_BLOCKED') {
         setErrors({ general: 'Your account has been blocked by an administrator. Please contact support.' });
       } else if (error?.code === 'ACCOUNT_SUSPENDED') {
@@ -416,6 +430,17 @@ export default function LoginScreen() {
           </View> */}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Deleted Account Modal */}
+      <DeletedAccountModal
+        visible={showDeletedModal}
+        onClose={() => {
+          setShowDeletedModal(false);
+          setDeletedAccountData(null);
+        }}
+        deletedAt={deletedAccountData?.deletedAt}
+        daysRemaining={deletedAccountData?.daysRemaining}
+      />
     </SafeAreaView>
   );
 }

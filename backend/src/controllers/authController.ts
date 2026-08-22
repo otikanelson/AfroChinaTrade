@@ -51,21 +51,35 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     if (existingUser) {
       // Check if it's a deleted account
       if (existingUser.status === 'deleted') {
+        const deletedAt = existingUser.deletedAt ? new Date(existingUser.deletedAt) : new Date();
+        const daysSinceDeletion = Math.floor((Date.now() - deletedAt.getTime()) / (1000 * 60 * 60 * 24));
+        const daysRemaining = Math.max(0, 30 - daysSinceDeletion);
+        
+        if (daysRemaining > 0) {
+          res.status(400).json({
+            status: 'error',
+            message: `This email was used for a deleted account. Please wait ${daysRemaining} days before reusing it, or use a different email.`,
+            errorCode: 'EMAIL_DELETED',
+            data: {
+              deletedAt: deletedAt.toISOString(),
+              daysRemaining: daysRemaining,
+            }
+          });
+          return;
+        }
+        
+        // More than 30 days - allow reuse by hard deleting old record
+        await User.findByIdAndDelete(existingUser._id);
+        // Continue with registration below
+      } else {
+        // Active/suspended/blocked account
         res.status(400).json({
           status: 'error',
-          message: 'This email was used for a deleted account and cannot be reused',
-          errorCode: 'EMAIL_DELETED',
+          message: 'Email already registered',
+          errorCode: 'EMAIL_EXISTS',
         });
         return;
       }
-      
-      // Active/suspended/blocked account
-      res.status(400).json({
-        status: 'error',
-        message: 'Email already registered',
-        errorCode: 'EMAIL_EXISTS',
-      });
-      return;
     }
 
     // Create new user

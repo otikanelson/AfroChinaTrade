@@ -641,22 +641,29 @@ export const deleteAccount = async (req: AuthRequest, res: Response) => {
 
     // Soft delete: Wipe personal data but keep email and minimal info
     const deletedAt = new Date();
-    await User.findByIdAndUpdate(userId, {
-      status: 'deleted',
-      deletionReason: reason || 'Account deleted by user',
-      deletedAt: deletedAt,
-      // Wipe all personal data but KEEP email
-      // email stays the same for login detection
-      password: undefined, // Remove password
-      phone: undefined,
-      addresses: [],
-      avatar: undefined,
-      pushTokens: [],
-      supportTickets: [],
-      suspensionReason: undefined,
-      suspensionDuration: undefined,
-      blockReason: undefined,
-    });
+    
+    // Use direct MongoDB update to properly wipe fields
+    await User.collection.updateOne(
+      { _id: new mongoose.Types.ObjectId(userId) },
+      {
+        $set: {
+          status: 'deleted',
+          deletionReason: reason || 'Account deleted by user',
+          deletedAt: deletedAt,
+          addresses: [],
+          pushTokens: [],
+          supportTickets: [],
+        },
+        $unset: {
+          password: '',
+          phone: '',
+          avatar: '',
+          suspensionReason: '',
+          suspensionDuration: '',
+          blockReason: '',
+        }
+      }
+    );
 
     res.json({
       status: 'success',
