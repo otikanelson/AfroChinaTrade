@@ -187,6 +187,31 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Check if account was deleted
+    if (user.status === 'deleted') {
+      console.log(`[${new Date().toISOString()}] Authentication failed - Account deleted - Email: ${email}, IP: ${clientIP}`);
+      const deletedAtTime = user.deletedAt ? new Date(user.deletedAt).toLocaleString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }) : 'an unknown time';
+      
+      res.status(403).json({
+        status: 'error',
+        message: `Your account was deleted by you at ${deletedAtTime}`,
+        errorCode: 'ACCOUNT_DELETED',
+        data: {
+          status: 'deleted',
+          deletedAt: user.deletedAt,
+          reason: user.deletionReason
+        }
+      });
+      return;
+    }
+
     // Check if user is blocked
     if (user.status === 'blocked') {
       console.log(`[${new Date().toISOString()}] Authentication failed - Account blocked - Email: ${email}, IP: ${clientIP}`);

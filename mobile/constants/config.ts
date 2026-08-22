@@ -73,8 +73,7 @@ export const APP_CONFIG = {
   environment: ENVIRONMENT,
   isProduction: ENVIRONMENT === 'production',
   isDevelopment: ENVIRONMENT === 'development',
-  debug:
-    process.env.EXPO_PUBLIC_DEBUG === 'true' || ENVIRONMENT === 'development',
+  debug: false, // Disabled for production recording
 } as const;
 
 // Connection timeouts based on environment

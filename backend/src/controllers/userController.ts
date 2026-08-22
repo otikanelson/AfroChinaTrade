@@ -639,16 +639,31 @@ export const deleteAccount = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Instead of deleting, we'll deactivate the account with reason
-    const deletionReason = reason || 'Account deleted by user';
-    await User.findByIdAndUpdate(userId, { 
-      status: 'blocked',
-      suspensionReason: deletionReason
+    // Soft delete: Wipe personal data but keep record with minimal info
+    const deletedAt = new Date();
+    await User.findByIdAndUpdate(userId, {
+      status: 'deleted',
+      deletionReason: reason || 'Account deleted by user',
+      deletedAt: deletedAt,
+      // Wipe all personal data
+      email: `deleted_${userId}@deleted.local`, // Anonymize email
+      password: undefined, // Remove password
+      phone: undefined,
+      addresses: [],
+      avatar: undefined,
+      pushTokens: [],
+      supportTickets: [],
+      suspensionReason: undefined,
+      suspensionDuration: undefined,
+      blockReason: undefined,
     });
 
     res.json({
       status: 'success',
-      message: 'Account has been deactivated successfully'
+      message: 'Account has been permanently deleted',
+      data: {
+        deletedAt: deletedAt.toISOString()
+      }
     });
   } catch (error: any) {
     res.status(500).json({

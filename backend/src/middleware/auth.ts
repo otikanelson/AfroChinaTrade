@@ -70,6 +70,30 @@ export const verifyToken = async (req: Request, res: Response, next: NextFunctio
       return;
     }
 
+    // For deleted users, deny all access
+    if (user.status === 'deleted') {
+      const deletedAtTime = user.deletedAt ? new Date(user.deletedAt).toLocaleString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }) : 'an unknown time';
+      
+      res.status(403).json({
+        status: 'error',
+        message: `Your account was deleted by you at ${deletedAtTime}`,
+        errorCode: 'ACCOUNT_DELETED',
+        data: {
+          status: 'deleted',
+          deletedAt: user.deletedAt,
+          reason: user.deletionReason
+        }
+      });
+      return;
+    }
+
     // For blocked users, deny all access
     if (user.status === 'blocked') {
       res.status(403).json({

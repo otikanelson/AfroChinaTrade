@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -224,24 +224,13 @@ export default function LoginScreen() {
       return;
     }
 
-    console.log('🚀 Login screen: Starting login process');
     setIsLoading(true);
     
     try {
-      console.log('📞 Login screen: Calling login with credentials');
-      
       const authResponse = await login({ email: email.trim(), password });
-      
-      console.log('✅ Login screen: Login completed successfully, authResponse:', {
-        userId: authResponse?.userId,
-        role: authResponse?.role,
-      });
       
       // Handle post-login redirect
       const redirectPath = await handlePendingRedirect();
-      
-      console.log('🔀 Login screen: Redirect path:', redirectPath);
-      console.log('👤 Login screen: Auth response role:', authResponse?.role);
       
       if (redirectPath) {
         router.replace(redirectPath as any);
@@ -250,30 +239,15 @@ export default function LoginScreen() {
       } else {
         router.replace('/(tabs)/home');
       }
-      
-      console.log('✅ Login screen: Navigation completed');
     } catch (error: any) {
-      console.error('❌ Login screen: Error caught:', error);
-      console.error('❌ Login screen: Error type:', typeof error);
-      console.error('❌ Login screen: Error constructor:', error?.constructor?.name);
-      
-      // Log the error structure for debugging
-      console.log('🔍 Login screen: Error structure:', {
-        code: error?.code,
-        message: error?.message,
-        data: error?.data,
-        name: error?.name,
-        hasOwnProperty_code: error?.hasOwnProperty('code'),
-        hasOwnProperty_data: error?.hasOwnProperty('data'),
-      });
-      
       if (error?.code === 'NETWORK_ERROR') {
         setErrors({ general: 'Unable to connect to server. Please check your internet connection.' });
+      } else if (error?.code === 'ACCOUNT_DELETED') {
+        const deletedMessage = error?.message || 'Your account has been deleted';
+        setErrors({ general: deletedMessage });
       } else if (error?.code === 'ACCOUNT_BLOCKED') {
-        console.log('🚫 Login screen: ACCOUNT_BLOCKED detected');
-        setErrors({ general: 'Your account has been blocked. Please contact support for assistance.' });
+        setErrors({ general: 'Your account has been blocked by an administrator. Please contact support.' });
       } else if (error?.code === 'ACCOUNT_SUSPENDED') {
-        console.log('🚫 Login screen: ACCOUNT_SUSPENDED detected');
         // Get suspension details if available
         const reason = error?.data?.reason || 'Terms of service violation';
         const duration = error?.data?.suspensionDuration || 'indefinitely';
@@ -289,12 +263,10 @@ export default function LoginScreen() {
         });
         setErrors(fieldErrors);
       } else {
-        console.log('⚠️ Login screen: Using generic error message');
         setErrors({ general: error?.message || 'An error occurred during login. Please try again.' });
       }
     } finally {
       setIsLoading(false);
-      console.log('🏁 Login screen: Login process finished');
     }
   };
 

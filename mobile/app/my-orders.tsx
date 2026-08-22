@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { tokenManager } from '../services/api/tokenManager';
@@ -17,6 +16,7 @@ import { API_BASE_URL } from '../constants/config';
 import { useTheme } from '../contexts/ThemeContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { DateDivider, createListWithDateDividers } from '../components/DateDivider';
+import { Header } from '../components/Header';
 
 interface OrderItem {
   productId: string;
@@ -55,29 +55,6 @@ export default function OrdersScreen() {
     container: {
       flex: 1,
       backgroundColor: colors.surface,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.md,
-      backgroundColor: colors.background,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    backButton: {
-      padding: spacing.xs,
-    },
-    headerTitle: {
-      fontSize: fontSizes.xl,
-      fontWeight: fontWeights.bold,
-      color: colors.text,
-      flex: 1,
-      textAlign: 'center',
-    },
-    placeholder: {
-      width: 40,
     },
     loadingContainer: {
       flex: 1,
@@ -460,15 +437,8 @@ export default function OrdersScreen() {
   const keyExtractor = React.useCallback((item: Order) => item._id, []);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Orders</Text>
-        <View style={styles.placeholder} />
-      </View>
+    <View style={styles.container}>
+      <Header title="My Orders" showBack={true} />
 
       {/* Content */}
       {loading ? (
@@ -510,6 +480,6 @@ export default function OrdersScreen() {
           windowSize={10}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }

@@ -140,7 +140,8 @@ class AdService {
    */
   async markSplashAdSeen(adId: string): Promise<void> {
     try {
-      await apiClient.post(`/ads/${adId}/view`);
+      // Pass an empty object to ensure Content-Type header is set correctly
+      await apiClient.post(`/ads/${adId}/view`, {});
     } catch (error) {
       console.error('Error marking splash ad as seen:', error);
     }

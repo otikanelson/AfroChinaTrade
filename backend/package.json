@@ -39,7 +39,9 @@
     "db:seed:tags": "ts-node src/scripts/seedProductTags.ts",
     "db:seed:tags-from-products": "ts-node src/scripts/seedTagsFromProducts.ts",
     "db:seed:realistic-collections": "ts-node src/scripts/seedRealisticCollections.ts",
-    "db:cleanup:browsing-history": "ts-node src/scripts/cleanupBrowsingHistory.ts"
+    "db:cleanup:browsing-history": "ts-node src/scripts/cleanupBrowsingHistory.ts",
+    "db:cleanup:blocked": "ts-node src/scripts/cleanupBlockedAccounts.ts",
+    "db:list:blocked": "ts-node src/scripts/listBlockedAccounts.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

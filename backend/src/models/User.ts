@@ -53,10 +53,12 @@ export interface IUser extends Document {
   password: string;
   phone?: string;
   role: 'customer' | 'admin' | 'super_admin';
-  status: 'active' | 'suspended' | 'blocked';
+  status: 'active' | 'suspended' | 'blocked' | 'deleted';
   suspensionReason?: string;
   suspensionDuration?: Date;
   blockReason?: string;
+  deletionReason?: string;
+  deletedAt?: Date;
   supportTickets?: mongoose.Types.ObjectId[];
   addresses: IAddress[];
   avatar?: string;
@@ -232,7 +234,7 @@ const UserSchema = new Schema<IUser>(
     status: {
       type: String,
       enum: {
-        values: ['active', 'suspended', 'blocked'],
+        values: ['active', 'suspended', 'blocked', 'deleted'],
         message: '{VALUE} is not a valid status',
       },
       default: 'active',
@@ -247,6 +249,13 @@ const UserSchema = new Schema<IUser>(
     blockReason: {
       type: String,
       trim: true,
+    },
+    deletionReason: {
+      type: String,
+      trim: true,
+    },
+    deletedAt: {
+      type: Date,
     },
     supportTickets: [{
       type: Schema.Types.ObjectId,

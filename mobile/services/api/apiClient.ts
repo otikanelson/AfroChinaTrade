@@ -166,10 +166,6 @@ class SimpleApiClient {
           delete config.headers.Authorization;
         }
 
-        if (__DEV__) {
-          console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
-        }
-
         return config;
       },
       (error) => Promise.reject(error)
@@ -178,9 +174,6 @@ class SimpleApiClient {
     // Response interceptor — handle responses and errors
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
-        if (__DEV__) {
-          console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`);
-        }
         return response;
       },
       async (error: AxiosError) => {
@@ -205,13 +198,6 @@ class SimpleApiClient {
           return this.client(originalRequest);
         }
         // ─────────────────────────────────────────────────────────────────────
-
-        if (__DEV__) {
-          console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
-            status: error.response?.status,
-            data: error.response?.data,
-          });
-        }
 
         // If 401 error and not already retried, attempt token refresh
         if (error.response?.status === 401 && !originalRequest._retry) {
@@ -337,34 +323,21 @@ class SimpleApiClient {
 
   private async makeRequest<T>(requestFn: () => Promise<AxiosResponse<T>>): Promise<ApiResponse<T>> {
     try {
-      console.log('🌐 apiClient.makeRequest: Starting request');
-      
       // Wait for API client to be ready (URL resolution)
       await this.readyPromise;
       
       const response = await requestFn();
       const backendResponse = response.data as any;
       
-      console.log('📥 apiClient.makeRequest: Got response:', {
-        hasData: !!backendResponse,
-        status: backendResponse?.status,
-        errorCode: backendResponse?.errorCode,
-      });
-      
       // Handle backend response format
       if (backendResponse && typeof backendResponse === 'object') {
         if (backendResponse.status === 'success' || backendResponse.success === true) {
-          console.log('✅ apiClient.makeRequest: Success response');
           return {
             success: true,
             data: this.transformData(backendResponse.data),
             pagination: backendResponse.pagination
           };
         } else if (backendResponse.status === 'error') {
-          console.log('❌ apiClient.makeRequest: Error response:', {
-            errorCode: backendResponse.errorCode,
-            message: backendResponse.message,
-          });
           return {
             success: false,
             error: {
@@ -376,43 +349,22 @@ class SimpleApiClient {
       }
       
       // Direct data response
-      console.log('✅ apiClient.makeRequest: Direct data response');
       return {
         success: true,
         data: this.transformData(response.data)
       };
       
     } catch (error) {
-      console.error('❌ apiClient.makeRequest: Caught error');
-      console.error('❌ apiClient.makeRequest: Error type:', typeof error);
-      console.error('❌ apiClient.makeRequest: Error:', error);
-      
       const apiError = error as ApiError;
       
-      console.log('🔍 apiClient.makeRequest: ApiError structure:', {
-        code: apiError.code,
-        message: apiError.message,
-        details: apiError.details,
-        status: apiError.status,
-      });
-      
       // For user status errors, throw them so they can be handled by the auth context
-      if (apiError.code === 'ACCOUNT_SUSPENDED' || apiError.code === 'ACCOUNT_BLOCKED') {
-        console.log('🚫 apiClient.makeRequest: User status error detected, throwing');
+      if (apiError.code === 'ACCOUNT_SUSPENDED' || apiError.code === 'ACCOUNT_BLOCKED' || apiError.code === 'ACCOUNT_DELETED') {
         const statusError = new Error(apiError.message);
         (statusError as any).code = apiError.code;
         (statusError as any).data = apiError.details;
-        
-        console.log('🚫 apiClient.makeRequest: Created status error:', {
-          message: statusError.message,
-          code: (statusError as any).code,
-          data: (statusError as any).data,
-        });
-        
         throw statusError;
       }
       
-      console.log('📦 apiClient.makeRequest: Returning error response');
       return {
         success: false,
         error: {

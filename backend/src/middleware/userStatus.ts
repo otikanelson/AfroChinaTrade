@@ -22,6 +22,30 @@ export const checkUserStatus = async (req: Request, res: Response, next: NextFun
       return;
     }
 
+    // Check if user is deleted - blocks all actions
+    if (user.status === 'deleted') {
+      const deletedAtTime = user.deletedAt ? new Date(user.deletedAt).toLocaleString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }) : 'an unknown time';
+      
+      res.status(403).json({
+        status: 'error',
+        message: `Your account was deleted by you at ${deletedAtTime}`,
+        errorCode: 'ACCOUNT_DELETED',
+        data: {
+          status: 'deleted',
+          deletedAt: user.deletedAt,
+          reason: user.deletionReason
+        }
+      });
+      return;
+    }
+
     // Check if user is blocked - blocks all actions
     if (user.status === 'blocked') {
       res.status(403).json({
@@ -78,6 +102,30 @@ export const allowSuspendedUsers = async (req: Request, res: Response, next: Nex
         status: 'error',
         message: 'User not found',
         errorCode: 'USER_NOT_FOUND',
+      });
+      return;
+    }
+
+    // Block deleted users
+    if (user.status === 'deleted') {
+      const deletedAtTime = user.deletedAt ? new Date(user.deletedAt).toLocaleString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }) : 'an unknown time';
+      
+      res.status(403).json({
+        status: 'error',
+        message: `Your account was deleted by you at ${deletedAtTime}`,
+        errorCode: 'ACCOUNT_DELETED',
+        data: {
+          status: 'deleted',
+          deletedAt: user.deletedAt,
+          reason: user.deletionReason
+        }
       });
       return;
     }

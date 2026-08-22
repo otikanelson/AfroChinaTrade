@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 
@@ -16,6 +15,7 @@ import { FormField } from '../components/admin/forms/FormField';
 import { Button } from '../components/admin/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { Header } from '../components/Header';
 
 interface ChangePasswordScreenProps {
   isAdmin?: boolean;
@@ -38,22 +38,6 @@ export default function ChangePasswordScreen({ isAdmin = false }: ChangePassword
     container: {
       flex: 1,
       backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.base,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-    },
-    backButton: {
-      marginRight: spacing.md,
-    },
-    headerTitle: {
-      fontSize: fontSizes.xl,
-      fontWeight: fontWeights.bold,
-      color: colors.text,
     },
     content: {
       flex: 1,
@@ -218,16 +202,11 @@ export default function ChangePasswordScreen({ isAdmin = false }: ChangePassword
   const passwordStrength = getPasswordStrength(newPassword);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isAdminUser ? 'Change Admin Password' : 'Change Password'}
-        </Text>
-      </View>
+    <View style={styles.container}>
+      <Header 
+        title={isAdminUser ? 'Change Admin Password' : 'Change Password'} 
+        showBack={true} 
+      />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.formSection}>
@@ -349,6 +328,6 @@ export default function ChangePasswordScreen({ isAdmin = false }: ChangePassword
           />
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
