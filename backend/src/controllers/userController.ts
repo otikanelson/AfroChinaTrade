@@ -639,14 +639,14 @@ export const deleteAccount = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Soft delete: Wipe personal data but keep record with minimal info
+    // Soft delete: Wipe personal data but keep email and minimal info
     const deletedAt = new Date();
     await User.findByIdAndUpdate(userId, {
       status: 'deleted',
       deletionReason: reason || 'Account deleted by user',
       deletedAt: deletedAt,
-      // Wipe all personal data
-      email: `deleted_${userId}@deleted.local`, // Anonymize email
+      // Wipe all personal data but KEEP email
+      // email stays the same for login detection
       password: undefined, // Remove password
       phone: undefined,
       addresses: [],

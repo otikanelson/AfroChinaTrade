@@ -44,7 +44,9 @@
     "db:list:blocked": "ts-node src/scripts/listBlockedAccounts.ts",
     "db:list:deleted": "ts-node src/scripts/listDeletedAccounts.ts",
     "db:convert:blocked-to-deleted": "ts-node src/scripts/convertBlockedToDeleted.ts",
-    "db:rewipe:deleted": "ts-node src/scripts/rewipeDeletedAccounts.ts"
+    "db:rewipe:deleted": "ts-node src/scripts/rewipeDeletedAccounts.ts",
+    "db:restore:deleted-emails": "ts-node src/scripts/restoreDeletedEmails.ts",
+    "db:fix:customer-email": "ts-node src/scripts/fixCustomerEmail.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

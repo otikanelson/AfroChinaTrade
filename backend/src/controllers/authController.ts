@@ -49,6 +49,17 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      // Check if it's a deleted account
+      if (existingUser.status === 'deleted') {
+        res.status(400).json({
+          status: 'error',
+          message: 'This email was used for a deleted account and cannot be reused',
+          errorCode: 'EMAIL_DELETED',
+        });
+        return;
+      }
+      
+      // Active/suspended/blocked account
       res.status(400).json({
         status: 'error',
         message: 'Email already registered',
