@@ -23,7 +23,12 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.afrochinatrade.mobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "AfroChinaTrade needs access to your camera to allow you to take photos of products you want to sell. For example, when creating a product listing, you can capture images of your items directly from the camera to showcase them to potential buyers.",
+        "NSPhotoLibraryUsageDescription": "AfroChinaTrade needs access to your photo library to allow you to select and upload product images when creating or editing your listings. For example, you can choose existing photos of items you want to sell and add them to your product listings to attract buyers.",
+        "NSLocationWhenInUseUsageDescription": "AfroChinaTrade needs access to your location to show you nearby products and sellers in your area. For example, when browsing the marketplace, you'll see items available near you and can filter products by distance to find local deals and reduce shipping costs.",
+        "NSLocationAlwaysUsageDescription": "AfroChinaTrade needs access to your location to provide you with personalized product recommendations and notify you about nearby deals even when the app is in the background. For example, you'll receive alerts when sellers near you post new items that match your interests.",
+        "NSUserNotificationsUsageDescription": "AfroChinaTrade needs permission to send you notifications so you can stay informed about your orders, messages from buyers and sellers, and important updates. For example, you'll receive alerts when someone messages you about a product, when your order status changes, or when a buyer purchases one of your items."
       }
     },
     "android": {

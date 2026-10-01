@@ -15,14 +15,14 @@ export default function AboutApp() {
 
   const legalLinks = [
     {
-      title: 'Terms of Service',
-      icon: 'document-text-outline',
-      action: () => Linking.openURL('https://example.com/terms'),
+      title: 'Contact',
+      icon: 'phone-portrait-outline',
+      action: () => Linking.openURL('https://afrochinatrade.com/contact/'),
     },
     {
       title: 'Privacy Policy',
       icon: 'shield-outline',
-      action: () => Linking.openURL('https://example.com/privacy'),
+      action: () => Linking.openURL('https://afrochinatrade.com/privacy-policy-2/'),
     },
     {
       title: 'Licenses',

@@ -1,5 +1,5 @@
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { TourGuideProvider } from '../../contexts/TourGuideContext';
@@ -17,6 +17,20 @@ export default function AdminLayout() {
 
   console.log('🔧 AdminLayout - isAuthenticated:', isAuthenticated, 'isAdmin:', isAdmin, 'segments:', segments);
 
+  const styles = React.useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+    },
+    text: {
+      marginTop: spacing.md,
+      fontSize: fontSizes.base,
+      color: colors.textSecondary,
+    },
+  }), [colors, spacing, fontSizes]);
+
   useEffect(() => {
     // Wait until the root navigator is fully mounted before redirecting
     if (!navState?.key) return;
@@ -30,21 +44,7 @@ export default function AdminLayout() {
       }, 50);
       return () => clearTimeout(t);
     }
-  }, [isAuthenticated, isAdmin, navState?.key]);
-
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.background,
-    },
-    text: {
-      marginTop: spacing.md,
-      fontSize: fontSizes.base,
-      color: colors.textSecondary,
-    },
-  });
+  }, [isAuthenticated, isAdmin, navState?.key, router]);
 
   // Show loading while checking authentication
   if (!isAuthenticated || !isAdmin) {

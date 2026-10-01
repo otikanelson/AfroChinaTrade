@@ -4,7 +4,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-
 import { UserProfile } from '../../../services/UserService';
 import { userService } from '../../../services/UserService';
 import { Card } from '../../../components/admin/Card';
@@ -18,7 +17,6 @@ import { useBackHandler } from '../../../hooks/useBackHandler';
 import { NavigationUtils } from '../../../utils/navigationUtils';
 
 type StatusFilter = 'all' | 'active' | 'suspended' | 'blocked';
-
 
 
 function userStatusToBadge(status: UserProfile['status']): StatusType {
@@ -50,6 +48,9 @@ export default function UserListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<StatusFilter>('all');
+  
+  // Track if initial load has been triggered
+  const hasLoadedRef = React.useRef(false);
 
   const styles = useMemo(() => StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.surface },
@@ -110,9 +111,15 @@ export default function UserListScreen() {
         setRefreshing(false); 
       }
     }
-  }, [isMounted, createAbortController]);
+  }, []); // Empty deps - load function is stable
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { 
+    // Only load once on mount
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      load(); 
+    }
+  }, [load]);
 
   const filtered = useMemo(() => {
     const usersArray = Array.isArray(users) ? users : [];
