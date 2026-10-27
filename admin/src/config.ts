@@ -10,14 +10,17 @@
 export const VERCEL_API_URL = 'https://afro-china-trade.vercel.app/api'
 
 /**
- * Admin panel uses production API to access the same database as mobile app
+ * Admin panel uses LOCAL backend (which connects to production MongoDB)
+ * This avoids CORS issues
  */
 export const ENVIRONMENT: 'development' | 'production' = import.meta.env.PROD
   ? 'production'
   : 'development'
 
-// Always use production API URL
-export const API_BASE_URL: string = VERCEL_API_URL
+// Use local backend API (which has production MongoDB connection)
+export const API_BASE_URL: string = import.meta.env.PROD
+  ? VERCEL_API_URL
+  : 'http://localhost:3001/api'
 
 export const FALLBACK_API_URL: string = VERCEL_API_URL
 
