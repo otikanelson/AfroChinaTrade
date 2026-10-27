@@ -178,10 +178,8 @@ export default function CheckoutScreen() {
         // Show success toast
         toast.success('Order placed successfully!');
         
-        // Navigate to orders page
-        setTimeout(() => {
-          router.replace('/my-orders');
-        }, 1500);
+        // Navigate to orders page immediately
+        router.replace('/my-orders');
       } else {
         Alert.alert('Error', data.message || 'Failed to place order');
       }

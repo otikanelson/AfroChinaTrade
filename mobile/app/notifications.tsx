@@ -18,6 +18,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { Header } from '../components/Header';
 import { DateDivider, createListWithDateDividers } from '../components/DateDivider';
 import { spacing } from '../theme/spacing';
+import { NavigationUtils } from '../utils/navigationUtils';
 import { Notification } from '../services/NotificationService';
 
 // Check if running in Expo Go
@@ -341,7 +342,7 @@ export default function NotificationsScreen() {
           </Text>
           <TouchableOpacity
             style={styles.signInButton}
-            onPress={() => router.push('/auth/login')}
+            onPress={() => NavigationUtils.safeNavigate('/auth/login')}
           >
             <Text style={styles.signInButtonText}>Sign In</Text>
           </TouchableOpacity>
@@ -483,6 +484,11 @@ export default function NotificationsScreen() {
         data={listItems}
         renderItem={renderNotification}
         keyExtractor={(item: any) => item.key}
+        windowSize={5}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews={true}
+        initialNumToRender={10}
+        updateCellsBatchingPeriod={50}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

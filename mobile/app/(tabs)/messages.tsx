@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Header } from '../../components/Header';
+import { NavigationUtils } from '../../utils/navigationUtils';
 import { DateDivider, createListWithDateDividers } from '../../components/DateDivider';
 import { DeleteConfirmationModal } from '../../components/ui/DeleteConfirmationModal';
 import { messageService } from '../../services/MessageService';
@@ -419,7 +420,10 @@ export default function MessagesTab() {
           </Text>
           <TouchableOpacity 
             style={styles.signInButton}
-            onPress={() => router.push('/auth/login')}
+            onPress={() => {
+              // Use NavigationUtils to prevent duplicate navigation
+              NavigationUtils.safeNavigate('/auth/login');
+            }}
           >
             <Text style={styles.signInButtonText}>Sign In</Text>
           </TouchableOpacity>
@@ -481,6 +485,11 @@ export default function MessagesTab() {
           data={listItems}
           renderItem={renderThreadItem}
           keyExtractor={(item: any) => item.key}
+          windowSize={5}
+          maxToRenderPerBatch={10}
+          removeClippedSubviews={true}
+          initialNumToRender={10}
+          updateCellsBatchingPeriod={50}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

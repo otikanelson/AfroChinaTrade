@@ -185,21 +185,16 @@ class TokenManager {
       }
     }, 30000); // Check every 30 seconds
 
-    // Also do an immediate check
-    const immediateRemaining = this.getTimeUntilExpiry();
-    if (immediateRemaining !== null && immediateRemaining <= 600 && !this.warningShown) {
-      console.warn(`⏰ Token expiring in ${immediateRemaining} seconds (immediate check)`);
-      this.warningShown = true;
-      if (this.expiryWarningCallback) {
-        this.expiryWarningCallback(immediateRemaining);
-      }
-    }
+    // REMOVED: Immediate check that was causing premature warnings on app startup
+    // The interval will handle warnings after the first 30 seconds
+    // This prevents showing "session expiring soon" immediately when opening the app
   }
 
   private stopExpiryMonitoring(): void {
     if (this.monitoringInterval) {
       clearInterval(this.monitoringInterval);
       this.monitoringInterval = null;
+      console.log('⏹️ Token expiry monitoring stopped');
     }
   }
 }

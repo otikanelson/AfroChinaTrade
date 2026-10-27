@@ -13,6 +13,7 @@ import { spacing } from '../../theme/spacing';
 import { getDisplayPhone } from '../../utils/phoneUtils';
 import { fontWeights } from '../../theme';
 import { adService, Ad } from '../../services/AdService';
+import { NavigationUtils } from '../../utils/navigationUtils';
 
 interface MenuItemProps {
   icon: string;
@@ -305,7 +306,8 @@ export default function AccountTab() {
   });
 
   const handleSignIn = () => {
-    router.push('/auth/login');
+    // Use NavigationUtils to prevent duplicate navigation
+    NavigationUtils.safeNavigate('/auth/login');
   };
 
   const handleLogout = async () => {

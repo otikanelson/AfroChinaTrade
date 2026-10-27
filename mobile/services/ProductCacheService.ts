@@ -162,6 +162,33 @@ class ProductCacheService {
 export const productCacheService = new ProductCacheService();
 
 // Clean up expired entries every 10 minutes
-setInterval(() => {
-  productCacheService.clearExpired();
-}, 10 * 60 * 1000);
+let cleanupInterval: NodeJS.Timeout | null = null;
+
+export const startProductCacheCleanup = () => {
+  if (cleanupInterval) {
+    console.warn('Product cache cleanup already running');
+    return;
+  }
+  
+  cleanupInterval = setInterval(() => {
+    try {
+      productCacheService.clearExpired();
+      console.log('🧹 Product cache cleanup completed');
+    } catch (error) {
+      console.error('Product cache cleanup error:', error);
+    }
+  }, 10 * 60 * 1000);
+  
+  console.log('✅ Product cache cleanup started (10 min intervals)');
+};
+
+export const stopProductCacheCleanup = () => {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+    console.log('🛑 Product cache cleanup stopped');
+  }
+};
+
+// Auto-start cleanup (but now can be stopped for testing/cleanup)
+startProductCacheCleanup();

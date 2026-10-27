@@ -12,6 +12,7 @@ interface CacheItem {
 export class CacheService {
   private memoryCache: Map<string, CacheItem> = new Map();
   private defaultTTL = 3600; // 1 hour in seconds
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     // Start cleanup timer for memory cache
@@ -129,7 +130,12 @@ export class CacheService {
    * Start cleanup timer for expired items
    */
   private startCleanupTimer(): void {
-    setInterval(() => {
+    // Prevent multiple intervals
+    if (this.cleanupInterval) {
+      return;
+    }
+
+    this.cleanupInterval = setInterval(() => {
       const now = Date.now();
       const keysToDelete: string[] = [];
 
@@ -145,6 +151,17 @@ export class CacheService {
         console.log(`Cache cleanup: removed ${keysToDelete.length} expired items`);
       }
     }, 60000); // Clean every minute
+  }
+
+  /**
+   * Stop cleanup timer (for graceful shutdown)
+   */
+  public stopCleanupTimer(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+      console.log('🛑 Cache cleanup timer stopped');
+    }
   }
 
   // Cache keys for different data types

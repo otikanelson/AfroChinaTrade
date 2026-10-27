@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -101,12 +101,24 @@ export const ImagePickerModal: React.FC<ImagePickerModalProps> = ({
 
   const handleCamera = () => {
     onClose();
-    setTimeout(() => onCamera(), 100);
+    timerRef.current = setTimeout(() => {
+      try {
+        onCamera();
+      } catch (error) {
+        console.error('Error opening camera:', error);
+      }
+    }, 100);
   };
 
   const handleGallery = () => {
     onClose();
-    setTimeout(() => onGallery(), 100);
+    timerRef.current = setTimeout(() => {
+      try {
+        onGallery();
+      } catch (error) {
+        console.error('Error opening gallery:', error);
+      }
+    }, 100);
   };
 
   const handleRemove = () => {

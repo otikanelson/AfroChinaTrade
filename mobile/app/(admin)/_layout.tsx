@@ -44,7 +44,7 @@ export default function AdminLayout() {
       }, 50);
       return () => clearTimeout(t);
     }
-  }, [isAuthenticated, isAdmin, navState?.key, router]);
+  }, [isAuthenticated, isAdmin, navState?.key]);
 
   // Show loading while checking authentication
   if (!isAuthenticated || !isAdmin) {

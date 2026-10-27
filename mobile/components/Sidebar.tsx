@@ -344,7 +344,10 @@ const SidebarComponent: React.FC<SidebarProps> = ({ visible, onClose, isAdminPag
           style={[styles.menuItem, styles.signInItem]}
           onPress={() => {
             onClose();
-            router.push('/auth/login');
+            // Use safe navigation with delay to prevent duplicate navigation
+            safeSetTimeout(() => {
+              NavigationUtils.safeNavigate('/auth/login');
+            }, 100);
           }}
         >
           <Ionicons 
@@ -476,11 +479,14 @@ const SidebarComponent: React.FC<SidebarProps> = ({ visible, onClose, isAdminPag
                         style={[styles.menuItem, styles.quickSwitchItem]}
                         onPress={() => {
                           onClose();
-                          if (isInAdminView) {
-                            router.push('/(tabs)/home');
-                          } else {
-                            router.push('/(admin)/(tabs)/products');
-                          }
+                          // Use safe navigation to prevent state corruption
+                          safeSetTimeout(() => {
+                            if (isInAdminView) {
+                              NavigationUtils.safeNavigate('/(tabs)/home');
+                            } else {
+                              NavigationUtils.safeNavigate('/(admin)/(tabs)/products');
+                            }
+                          }, 100);
                         }}
                         activeOpacity={0.7}
                       >

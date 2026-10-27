@@ -226,18 +226,17 @@ export default function NewMessageScreen() {
       if (response.success) {
         toast.success('Message sent successfully!');
         
-        // Navigate to the chat conversation instead of messages list
-        setTimeout(() => {
-          router.replace({
-            pathname: `/message-thread/${threadId}`,
-            params: {
-              productImage: productImage || '',
-              productName: productName || '',
-              productId: productId || '',
-              threadType: messageType === 'inquiry' ? 'product_inquiry' : 'quote_request',
-            }
-          });
-        }, 800);
+        // Navigate to the chat conversation
+        // Removed arbitrary 800ms delay - navigate immediately after toast
+        router.replace({
+          pathname: `/message-thread/${threadId}`,
+          params: {
+            productImage: productImage || '',
+            productName: productName || '',
+            productId: productId || '',
+            threadType: messageType === 'inquiry' ? 'product_inquiry' : 'quote_request',
+          }
+        });
       } else {
         console.error('Failed to send message:', response.error);
         toast.error(response.error?.message || 'Failed to send message. Please try again.');

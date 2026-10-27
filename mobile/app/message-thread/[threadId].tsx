@@ -222,6 +222,10 @@ export default function MessageThreadScreen() {
             data={messages}
             keyExtractor={m => m._id}
             renderItem={renderMessage}
+            windowSize={7}
+            maxToRenderPerBatch={15}
+            removeClippedSubviews={true}
+            initialNumToRender={15}
             contentContainerStyle={{ paddingVertical: spacing.sm }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"

@@ -257,8 +257,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
       await AsyncStorage.removeItem(GUEST_MODE_KEY);
       
-      // Load full profile in background
-      setTimeout(() => loadCurrentUser(), 100);
+      // Load full profile in background with cleanup
+      const profileTimer = setTimeout(() => loadCurrentUser(), 100);
       
       return authResponse;
     } catch (error: any) {

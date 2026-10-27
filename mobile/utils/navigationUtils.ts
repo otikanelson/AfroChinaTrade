@@ -7,22 +7,38 @@ import React from 'react';
 export class NavigationUtils {
   private static isNavigating = false;
   private static navigationTimeout: NodeJS.Timeout | null = null;
+  private static lastNavigationPath: string | null = null;
+  private static lastNavigationTime: number = 0;
 
   /**
    * Safe navigation with debouncing to prevent rapid navigation calls
+   * @param path - The path to navigate to
+   * @param options - Navigation options (replace, delay)
    */
   static safeNavigate(path: string, options?: { replace?: boolean; delay?: number }) {
-    // Prevent rapid navigation calls
-    if (this.isNavigating) {
-      console.warn('Navigation already in progress, ignoring duplicate call');
+    const now = Date.now();
+    const timeSinceLastNav = now - this.lastNavigationTime;
+    
+    // Prevent duplicate navigation to the same path within 1 second
+    if (this.lastNavigationPath === path && timeSinceLastNav < 1000) {
+      console.warn(`Prevented duplicate navigation to ${path} (${timeSinceLastNav}ms since last)`);
+      return;
+    }
+
+    // Prevent rapid navigation calls to different paths
+    if (this.isNavigating && timeSinceLastNav < 300) {
+      console.warn(`Navigation already in progress to ${this.lastNavigationPath}, ignoring ${path}`);
       return;
     }
 
     this.isNavigating = true;
+    this.lastNavigationPath = path;
+    this.lastNavigationTime = now;
 
     // Clear any existing timeout
     if (this.navigationTimeout) {
       clearTimeout(this.navigationTimeout);
+      this.navigationTimeout = null;
     }
 
     const navigate = () => {

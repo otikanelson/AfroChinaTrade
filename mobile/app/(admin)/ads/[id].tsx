@@ -209,8 +209,8 @@ export default function AdFormScreen() {
           message: `Ad ${isEditing ? 'updated' : 'created'} successfully`,
           type: 'success'
         });
-        // Navigate back after a short delay
-        setTimeout(() => router.back(), 1500);
+        // Navigate back immediately
+        router.back();
       } else {
         setInfoModal({
           visible: true,

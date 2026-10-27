@@ -348,9 +348,8 @@ export default function NewPaymentMethodScreen() {
       
       if (data.success) {
         toast.success('Payment method added successfully');
-        setTimeout(() => {
-          router.back();
-        }, 1500);
+        // Navigate back immediately
+        router.back();
       } else {
         toast.error(data.message || 'Failed to add payment method');
       }

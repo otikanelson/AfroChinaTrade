@@ -527,7 +527,11 @@ export default function RefundsManagementScreen() {
                   {(selectedRefund.status === 'pending' || selectedRefund.status === 'approved') && (
                     <Button
                       label="Update Status"
-                      onPress={() => { closeDetailsSheet(); setTimeout(() => handleStatusUpdate(selectedRefund!), 250); }}
+                      onPress={() => { 
+                        closeDetailsSheet(); 
+                        // Call handler immediately - sheet animation provides feedback
+                        handleStatusUpdate(selectedRefund!);
+                      }}
                       style={{ flex: 1 }}
                     />
                   )}

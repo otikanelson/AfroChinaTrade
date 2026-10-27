@@ -264,7 +264,8 @@ export default function EditPaymentMethodScreen() {
       
       if (data.success) {
         alert.showSuccess('Success', 'Payment method updated successfully', 2000);
-        setTimeout(() => router.back(), 2000);
+        // Navigate back immediately - user already sees success message
+        router.back();
       } else {
         Alert.alert('Error', data.message || 'Failed to update payment method');
       }

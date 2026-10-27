@@ -613,6 +613,10 @@ export default function BuyNowTab() {
             horizontal
             showsHorizontalScrollIndicator={false}
             keyExtractor={p => (p as any)._id || p.id}
+            windowSize={3}
+            maxToRenderPerBatch={5}
+            removeClippedSubviews={true}
+            initialNumToRender={3}
             contentContainerStyle={styles.horizontalList}
             renderItem={({ item: p }) => (
               <View style={styles.productCardWrapper}>
@@ -633,6 +637,10 @@ export default function BuyNowTab() {
             horizontal
             showsHorizontalScrollIndicator={false}
             keyExtractor={p => (p as any)._id || p.id}
+            windowSize={3}
+            maxToRenderPerBatch={5}
+            removeClippedSubviews={true}
+            initialNumToRender={3}
             contentContainerStyle={styles.horizontalList}
             renderItem={({ item: p }) => (
               <View style={styles.productCardWrapper}>
@@ -660,6 +668,10 @@ export default function BuyNowTab() {
             horizontal
             showsHorizontalScrollIndicator={false}
             keyExtractor={p => (p as any)._id || p.id}
+            windowSize={3}
+            maxToRenderPerBatch={5}
+            removeClippedSubviews={true}
+            initialNumToRender={3}
             contentContainerStyle={styles.horizontalList}
             renderItem={({ item: p }) => (
               <View style={styles.productCardWrapper}>
@@ -712,6 +724,11 @@ export default function BuyNowTab() {
           return `${item.type}_${index}`;
         }}
         renderItem={renderItem}
+        windowSize={5}
+        maxToRenderPerBatch={3}
+        removeClippedSubviews={true}
+        initialNumToRender={3}
+        updateCellsBatchingPeriod={100}
         showsVerticalScrollIndicator={false}
         onEndReachedThreshold={0.5}
         refreshControl={
