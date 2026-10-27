@@ -4,7 +4,7 @@ import axios, {
   AxiosResponse,
   AxiosError,
 } from 'axios'
-import { API_BASE_URL, FALLBACK_API_URL, APP_CONFIG, CONNECTION_CONFIG } from '@/config'
+import { API_BASE_URL, FALLBACK_API_URL, APP_CONFIG, CONNECTION_CONFIG, ENVIRONMENT } from '@/config'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -25,17 +25,17 @@ class AdminApiClient {
     this.client = axios.create({
       baseURL: API_BASE_URL,
       timeout: CONNECTION_CONFIG.timeout,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+      },
+      withCredentials: false, // Don't send cookies for CORS
     })
 
     this.setupInterceptors()
-    // readyPromise resolves immediately — no probe needed.
-    // Dev: Vite proxy forwards /api → localhost:3001 (same origin, no CORS).
-    // Prod: API_BASE_URL is the full Vercel URL.
     this.readyPromise = Promise.resolve()
 
     if (APP_CONFIG.debug) {
-      console.log(`✅ Admin API ready: ${APP_CONFIG.isProduction ? API_BASE_URL : '/api (Vite proxy → localhost:3001)'}`)
+      console.log(`✅ Admin API ready:`, API_BASE_URL)
     }
   }
 
@@ -50,12 +50,13 @@ class AdminApiClient {
         } else {
           delete config.headers.Authorization
         }
-        if (APP_CONFIG.debug) {
-          console.log(`🚀 Admin API: ${config.method?.toUpperCase()} ${config.url}`)
-        }
+        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`)
         return config
       },
-      (error) => Promise.reject(error)
+      (error) => {
+        console.error('❌ Request interceptor error:', error)
+        return Promise.reject(error)
+      }
     )
 
     // Handle responses and errors

@@ -3,31 +3,21 @@
  * ENVIRONMENT-BASED API CONFIGURATION
  * ============================================
  *
- * .env (gitignored, never committed):
- *   VITE_API_URL=http://localhost:3001/api          ← local backend
- *   VITE_FALLBACK_API_URL=https://afro-china-trade.vercel.app/api
- *
- * In production builds (import.meta.env.PROD = true) there is no local
- * server, so we always use the Vercel backend directly.
+ * ADMIN PANEL NOW USES PRODUCTION API DIRECTLY
+ * This ensures we see real users and data from the mobile app
  */
 
 export const VERCEL_API_URL = 'https://afro-china-trade.vercel.app/api'
 
 /**
- * import.meta.env.PROD is injected by Vite at build time:
- *   - `vite dev`   → false  (development)
- *   - `vite build` → true   (production)
- *
- * In dev:  use VITE_API_URL (local backend), fall back to Vercel if unreachable.
- * In prod: always use Vercel directly — no proxy, no local server.
+ * Admin panel uses production API to access the same database as mobile app
  */
 export const ENVIRONMENT: 'development' | 'production' = import.meta.env.PROD
   ? 'production'
   : 'development'
 
-export const API_BASE_URL: string = import.meta.env.PROD
-  ? VERCEL_API_URL
-  : '/api'   // In dev, use Vite proxy — avoids CORS entirely
+// Always use production API URL
+export const API_BASE_URL: string = VERCEL_API_URL
 
 export const FALLBACK_API_URL: string = VERCEL_API_URL
 
@@ -37,7 +27,7 @@ export const APP_CONFIG = {
   environment: ENVIRONMENT,
   isProduction: ENVIRONMENT === 'production',
   isDevelopment: ENVIRONMENT === 'development',
-  debug: !import.meta.env.PROD,
+  debug: true, // Always enable debug for now
 } as const
 
 export const CONNECTION_CONFIG = import.meta.env.PROD
